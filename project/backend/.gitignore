@@ -1,0 +1,12 @@
+.env
+.env.py
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+debug-*.log
+.cursor/
+# Feltöltött média (képek, hang) — ne kerüljön verziókezelésbe
+media/uploads/*
+!media/uploads/.gitkeep

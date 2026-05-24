@@ -1,0 +1,17 @@
+# Teszt / tooling cache (ne kerüljön deploy artifactként a repo-ba)
+.pytest_cache/
+**/.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Log / temp
+*.log
+debug-*.log
+.cursor/
+.cache/

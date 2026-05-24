@@ -1,0 +1,39 @@
+﻿# Cursor: ne indexelje / ne figyelje ezeket — gyorsabb keresés, kevesebb zaj.
+# A forráskódot (pl. *.html, *.js, *.css) nem rejti el.
+
+# --- NPM / bundler cache (ha később lesz toolchain) ---
+node_modules/
+.npm/
+.pnp/
+.pnp.js
+.yarn/cache/
+.next/
+out/
+.nuxt/
+.vite/
+dist/
+build/
+.cache/
+.parcel-cache/
+coverage/
+
+# Naplók / ideiglenes
+*.log
+
+# OS / IDE zaj
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# --- Szomszédos backend mappa (workspace = frontend esetén) ---
+../backend/.venv/
+../backend/venv/
+../backend/**/__pycache__/
+../backend/.pytest_cache/
+../backend/.mypy_cache/
+../backend/.ruff_cache/
+../backend/.tox/
+../backend/htmlcov/
+../backend/*.log
+../backend/debug-*.log

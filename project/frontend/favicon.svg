@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mesencsi">
+  <title>Mesencsi</title>
+  <!-- Warm tale palette; simple shapes, readable at 16px -->
+  <rect width="64" height="64" rx="14" fill="#5c422f"/>
+  <rect x="4" y="4" width="56" height="56" rx="11" fill="#7a5a40"/>
+  <!-- Open book -->
+  <path d="M32 46V22" stroke="#4a301f" stroke-width="2" stroke-linecap="round"/>
+  <path d="M32 22 17 26v18l15 6V22Z" fill="#f0e0cc" stroke="#6b4420" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M32 22 47 26v18l-15 6V22Z" fill="#fff8ee" stroke="#6b4420" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Page hint lines -->
+  <path d="M22 32h8M22 37h6M42 32h-8M42 37h-6" stroke="#c4a574" stroke-width="1" stroke-linecap="round" opacity="0.65"/>
+  <!-- Crescent moon -->
+  <circle cx="48" cy="17" r="9" fill="#f4d78c"/>
+  <circle cx="44" cy="15" r="7.2" fill="#7a5a40"/>
+  <!-- Little star + spark -->
+  <path d="M19 15 20.2 18l3.1.5-2.3 2.4.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.4 3.1-.5Z" fill="#fff2c2" stroke="#c9a227" stroke-width="0.4" stroke-linejoin="round"/>
+  <circle cx="26" cy="19" r="1.2" fill="#fff8dc" opacity="0.9"/>
+  <circle cx="14" cy="24" r="0.9" fill="#fff8dc" opacity="0.75"/>
+</svg>

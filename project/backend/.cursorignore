@@ -1,0 +1,104 @@
+# Cursor: ne indexelje / ne figyelje ezeket — gyorsabb keresés, kevesebb zaj.
+# Forráskód (*.py, stb.) maradjon látható; ide generált / ideiglenes / build dolgok kerülnek.
+# Új tool / framework esetén: ellenőrizd, milyen mappákat / fájlokat hoz létre, és vedd fel ide.
+
+# --- Python / venv ---
+.venv/
+venv/
+**/__pycache__/
+**/*.py[cod]
+**/$py.class
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheels/
+
+# --- Python cache / typecheck / lint / format ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.hypothesis/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+.benchmarks/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.cache/
+**/.cache/
+
+# --- Build / csomagolás ---
+dist/
+build/
+*.spec
+
+# --- Naplók ---
+*.log
+*.log.*
+logs/
+**/logs/
+debug-*.log
+
+# --- Reportok (coverage, E2E, statikus analízis, stb.) ---
+**/reports/
+report/
+allure-results/
+allure-report/
+playwright-report/
+.coverage_html/
+coverage/
+.nyc_output/
+junit.xml
+**/junit-*.xml
+nosetests.xml
+*.lcov
+
+# --- Screenshotok (általában generált teszt / hiba kép) ---
+**/screenshots/
+**/e2e-screenshots/
+**/test-screenshots/
+**/error-screenshots/
+
+# --- Ideiglenes / export / letöltött artifact ---
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+exports/
+export/
+downloads/
+*.download
+
+# --- Teszt artifactok ---
+test-results/
+playwright/.cache/
+
+# --- Titkok / helyi környezet (.env.example maradhat) ---
+.env
+.env.local
+.env.*.local
+
+# --- OS / IDE zaj ---
+.DS_Store
+Thumbs.db
+
+# --- Szomszédos frontend (workspace = backend esetén) ---
+../frontend/node_modules/
+../frontend/.npm/
+../frontend/.vite/
+../frontend/dist/
+../frontend/build/
+../frontend/.cache/
+../frontend/.parcel-cache/
+../frontend/coverage/

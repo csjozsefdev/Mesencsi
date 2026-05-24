@@ -1,0 +1,6 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  // Windows: ha true, a terminál megnyitásakor fut az Activate.ps1 — gyakran elhasal (ExecutionPolicy).
+  // false: nincs auto-aktiválás; szerver: .\run.bat vagy .\.venv\Scripts\python.exe -m uvicorn ...
+  "python.terminal.activateEnvironment": false
+}
