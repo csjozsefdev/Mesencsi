@@ -81,3 +81,15 @@ def test_app_lifespan_fails_in_production_with_bad_config(monkeypatch: pytest.Mo
     with pytest.raises(StartupConfigError):
         with TestClient(app):
             pass
+
+
+def test_render_hosted_missing_smtp_raises_without_production_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MESENCSI_PRODUCTION", raising=False)
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("USER_JWT_SECRET", "u" * 40)
+    monkeypatch.setenv("ADMIN_JWT_SECRET", "a" * 40)
+    monkeypatch.setenv("MESENCSI_TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("SMTP" in i for i in exc.value.issues)

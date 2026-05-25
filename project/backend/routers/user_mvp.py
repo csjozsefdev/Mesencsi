@@ -15,6 +15,8 @@ from auth_limits import limiter
 from database import get_db
 from db_models import AppUser, Coupon
 from dependencies import get_current_app_user, require_email_verified_shop_user
+from email_config import smtp_required_for_outbound
+from email_errors import EmailNotConfiguredError, EmailSendError
 from email_outbound import send_email_verification
 from image_upload import delete_uploaded_file_by_url, save_uploaded_image
 from login_throttle import assert_login_allowed, clear_login_throttle, record_login_failure
@@ -112,8 +114,33 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
     verification_sent = False
     try:
         verification_sent = send_email_verification(row.email, token)
+    except (EmailNotConfiguredError, EmailSendError) as e:
+        _log.error(
+            "Verification email failed after register — user id=%s email=%s error_type=%s error=%s",
+            row.id,
+            row.email,
+            type(e).__name__,
+            e,
+        )
+        if smtp_required_for_outbound():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="A regisztráció mentve, de a megerősítő e-mail küldése sikertelen. Próbáld újra később (bejelentkezés után új levél), vagy jelezd az ügyfélszolgálatnak.",
+            ) from e
     except Exception as e:
-        _log.exception("Verification email failed after register — user id=%s: %s", row.id, e)
+        _log.error(
+            "Verification email unexpected failure after register — user id=%s email=%s error_type=%s error=%s",
+            row.id,
+            row.email,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+        if smtp_required_for_outbound():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="A regisztráció mentve, de a megerősítő e-mail küldése sikertelen. Próbáld újra később.",
+            ) from e
 
     msg = None if verification_sent else _REGISTER_EMAIL_FAIL_MSG
     if not verification_sent:
@@ -125,6 +152,11 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
             user_id=row.id,
             email=row.email,
         )
+        if smtp_required_for_outbound():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="A regisztráció mentve, de a megerősítő e-mail nem küldhető (SMTP). Próbáld újra később.",
+            )
 
     return UserRegisterResponse(
         user=UserRead.model_validate(row),
@@ -170,8 +202,25 @@ def resend_verification_email(request: Request, user: AppUser = Depends(get_curr
     db.refresh(user)
     try:
         ok = send_email_verification(user.email, token)
+    except (EmailNotConfiguredError, EmailSendError) as e:
+        _log.error(
+            "Verification email failed (resend) — user id=%s error_type=%s error=%s",
+            user.id,
+            type(e).__name__,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Nem sikerült elküldeni az e-mailt. Próbáld újra később vagy ellenőrizd az SMTP beállításokat.",
+        ) from e
     except Exception as e:
-        _log.exception("Verification email failed (resend): %s", e)
+        _log.error(
+            "Verification email unexpected failure (resend) — user id=%s error_type=%s error=%s",
+            user.id,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nem sikerült elküldeni az e-mailt. Próbáld újra később vagy ellenőrizd az SMTP beállításokat.",

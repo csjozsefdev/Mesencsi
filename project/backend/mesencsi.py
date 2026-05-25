@@ -100,6 +100,9 @@ async def lifespan(app: FastAPI):
     log_admin_auth_startup()
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
+    from shop_qa_bootstrap import ensure_qa_shop_user
+
+    ensure_qa_shop_user()
     yield
 
 

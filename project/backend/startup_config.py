@@ -7,6 +7,7 @@ import os
 from urllib.parse import urlparse
 
 from cors_config import cors_origins_raw_env, parse_cors_origins_list, validate_production_cors_origins
+from email_config import hosted_deployment, is_smtp_configured
 from runtime_flags import mesencsi_production
 
 _log = logging.getLogger("mesencsi.startup_config")
@@ -153,11 +154,17 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
         if mesencsi_production() is False and _env("BARION_ENV").lower() in ("", "sandbox", "test"):
             pass
 
-    if production:
-        for key in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"):
-            add(bool(_env(key)), f"{key} is not set", prod_fatal=True)
+    if hosted_deployment():
+        if not is_smtp_configured():
+            fatal.append(
+                "SMTP is not fully configured — set SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM "
+                "(required on Render / staging / production / MESENCSI_PRODUCTION)"
+            )
+        smtp_port = _env("SMTP_PORT") or "587"
+        if smtp_port and not smtp_port.isdigit():
+            fatal.append("SMTP_PORT must be a numeric port (e.g. 587 or 465)")
     elif not _env("SMTP_HOST"):
-        warn.append("SMTP_HOST not set — emails log-only in dev")
+        warn.append("SMTP_HOST not set — verification emails log-only in local dev")
 
     return fatal, warn
 
@@ -175,7 +182,8 @@ def _safe_summary(*, production: bool, fatal: list[str], warn: list[str]) -> dic
         "barion_pos_key_set": bool(_env("BARION_POS_KEY")),
         "barion_env": _env("BARION_ENV") or None,
         "barion_ipn_secret_set": bool(_env("BARION_IPN_SECRET")),
-        "smtp_host_set": bool(_env("SMTP_HOST")),
+        "smtp_configured": is_smtp_configured(),
+        "hosted_deployment": hosted_deployment(),
         "config_errors": len(fatal),
         "config_warnings": len(warn),
     }
@@ -207,5 +215,6 @@ def run_startup_config_validation() -> None:
     if fatal:
         for issue in fatal:
             _log.error("startup_config_error %s", issue)
-        if production:
+        # Block startup on production or any hosted deploy (Render/staging) with fatal config.
+        if production or hosted_deployment():
             raise StartupConfigError(fatal)

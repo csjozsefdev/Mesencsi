@@ -59,14 +59,18 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 
 ## 3. E-mail (SMTP)
 
+**Render / staging:** kötelező env és hibakezelés — [render_smtp.md](./render_smtp.md).
+
 | Flow | Mikor | SMTP nélkül |
 |------|--------|-------------|
-| Regisztráció verify | `POST /auth/register` | Link a logban (dev) |
+| Regisztráció verify | `POST /auth/register` | **Hosted:** startup blocker vagy **503**; **dev:** link a logban |
 | **Fizetés visszaigazolás** | Barion verify → `paid` (IPN/return), **nem** a frontend redirect önmagában | Nincs levél, rendelés `paid` marad |
 
 Sikeres fizetés után: `payment_confirmation_email_sent` log. Duplikált IPN nem küld dupla levelet. SMTP hiba **nem** állítja vissza a fizetést.
 
 Helyi teszt: `docker compose up -d` → Mailpit (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_USE_TLS=0`), UI: `http://127.0.0.1:8025`.
+
+Opcionális staging QA bolt user: `QA_SHOP_EMAIL` + `QA_SHOP_PASSWORD` (email verified induláskor).
 
 ---
 
