@@ -123,6 +123,34 @@ class ShopOrder(Base):
     )
 
 
+class PaymentAttempt(Base):
+    """Barion payment session history per checkout group (supports retry and orphan PaymentId sync)."""
+
+    __tablename__ = "payment_attempts"
+    __table_args__ = (
+        UniqueConstraint("barion_payment_id", name="uq_payment_attempts_barion_payment_id"),
+        UniqueConstraint("payment_request_id", name="uq_payment_attempts_payment_request_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    checkout_group_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    barion_payment_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    payment_request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), server_default="pending", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean(), server_default="true", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class Coupon(Base):
     """Kedvezménykupon: opcionálisan egy adott vásárlóhoz kötve (user_id)."""
 

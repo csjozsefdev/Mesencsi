@@ -4028,7 +4028,7 @@
                 <div class="dash-stat-sub">Aktív katalógus tételek</div>
               </div>`;
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\" style=\"text-align:left;margin:0\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\" style=\"text-align:left;margin:0\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4128,7 +4128,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4214,7 +4214,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4353,7 +4353,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4492,7 +4492,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4537,7 +4537,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4612,7 +4612,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -4760,7 +4760,7 @@
               });
             });
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 
@@ -5634,7 +5634,7 @@
               ${logsTable}
             </div>`;
           } catch (e) {
-            mount.innerHTML = "<p class=\"empty-state\">" + humanError(e) + "</p>";
+            mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
 

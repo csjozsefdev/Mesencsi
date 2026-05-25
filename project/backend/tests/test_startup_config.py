@@ -45,6 +45,20 @@ def test_production_valid_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     run_startup_config_validation()
 
 
+def test_production_with_test_database_url_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    monkeypatch.setenv("MESENCSI_TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("MESENCSI_TEST_DATABASE_URL" in i for i in exc.value.issues)
+
+
+def test_dev_with_test_database_url_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MESENCSI_PRODUCTION", raising=False)
+    monkeypatch.setenv("MESENCSI_TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    run_startup_config_validation()
+
+
 def test_dev_missing_secrets_only_warns(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     monkeypatch.delenv("MESENCSI_PRODUCTION", raising=False)
     monkeypatch.delenv("ADMIN_JWT_SECRET", raising=False)

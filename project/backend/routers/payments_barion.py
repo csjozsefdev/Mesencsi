@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app_logging import get_request_id, log_event
@@ -33,13 +34,18 @@ from barion_api import (
     use_barion_rest_api,
 )
 from database import get_db
-from db_models import AppUser, ShopOrder
+from db_models import AppUser, PaymentAttempt, ShopOrder
 from dependencies import get_current_app_user
 from payment_confirmation_email import schedule_payment_confirmation_after_paid_sync
 from runtime_flags import internal_barion_debug_authorized, mesencsi_production
 
 router = APIRouter(prefix="/payments/barion", tags=["payments-barion"])
 _log = logging.getLogger("mesencsi.payments")
+
+# Client-safe messages — never attach raw exception text to HTTP responses.
+_BARION_STATE_CLIENT_MSG = "A fizetés állapota jelenleg nem ellenőrizhető. Próbáld újra később."
+_BARION_START_CLIENT_MSG = "A fizetés indítása sikertelen. Próbáld újra később."
+_BARION_UNAVAILABLE_CLIENT_MSG = "A fizetési szolgáltatás átmenetileg nem érhető el. Próbáld újra később."
 
 # Webshop `orders.payment_status` — csak backend Barion verify (GetPaymentState) után paid/failed/cancelled.
 SHOP_PAYMENT_STATUSES: tuple[str, ...] = ("pending", "paid", "failed", "cancelled")
@@ -113,6 +119,141 @@ def _map_callback_status(raw: str) -> str:
     if s in ("canceled", "cancelled", "cancel"):
         return "cancelled"
     return "pending"
+
+
+def _checkout_group_key(rows: list[ShopOrder]) -> str:
+    """Stable checkout group id for payment attempts (orders always have checkout_group_id in production)."""
+    gid = (rows[0].checkout_group_id or "").strip()
+    if gid:
+        return gid
+    ids = sorted(int(r.id) for r in rows)
+    return "orders-" + "-".join(str(i) for i in ids)
+
+
+def _get_active_pending_attempt(
+    db: Session, checkout_group_id: str, *, for_update: bool = False
+) -> PaymentAttempt | None:
+    q = select(PaymentAttempt).where(
+        PaymentAttempt.checkout_group_id == checkout_group_id,
+        PaymentAttempt.is_active.is_(True),
+        PaymentAttempt.status == "pending",
+    )
+    if for_update:
+        q = q.with_for_update()
+    return db.scalar(q)
+
+
+def _deactivate_attempts_for_group(
+    db: Session, checkout_group_id: str, *, except_attempt_id: int | None = None
+) -> None:
+    for att in db.scalars(
+        select(PaymentAttempt).where(
+            PaymentAttempt.checkout_group_id == checkout_group_id,
+            PaymentAttempt.is_active.is_(True),
+        )
+    ):
+        if except_attempt_id is not None and att.id == except_attempt_id:
+            continue
+        att.is_active = False
+
+
+def _payment_attempt_for_barion_id(db: Session, payment_id: str) -> PaymentAttempt | None:
+    pid = payment_id.strip()
+    if not pid:
+        return None
+    return db.scalar(select(PaymentAttempt).where(PaymentAttempt.barion_payment_id == pid))
+
+
+def _resolve_orders_for_barion_payment_id(db: Session, payment_id: str) -> list[ShopOrder]:
+    """Orders by current barion_payment_id, or via PaymentAttempt history (orphan PaymentId after retry)."""
+    pid = payment_id.strip()
+    if not pid:
+        return []
+    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.barion_payment_id == pid)).all())
+    if rows:
+        return rows
+    attempt = _payment_attempt_for_barion_id(db, pid)
+    if attempt is None:
+        return []
+    cg = (attempt.checkout_group_id or "").strip()
+    if not cg:
+        return []
+    return list(db.scalars(select(ShopOrder).where(ShopOrder.checkout_group_id == cg)).all())
+
+
+def _raise_if_unresolved_paid_barion_payment(
+    *,
+    payment_id: str,
+    shop_status: str,
+    barion_status: str | None,
+    attempt: PaymentAttempt | None,
+) -> None:
+    """
+    Barion GetPaymentState says paid but no local orders could be linked.
+
+    IPN/return must not treat this as a successful sync (non-2xx). Unknown PaymentIds never update orders.
+    """
+    if shop_status != "paid":
+        return
+    pid_prefix = payment_id.strip()[:16]
+    checkout_group_id = (attempt.checkout_group_id or "")[:64] if attempt else None
+    base = {
+        "request_id": get_request_id(),
+        "payment_id": pid_prefix,
+        "barion_status": barion_status,
+        "shop_status": shop_status,
+        "payment_attempt_found": attempt is not None,
+        "checkout_group_id": checkout_group_id,
+    }
+    if attempt is not None:
+        log_event(
+            _log,
+            logging.CRITICAL,
+            "barion_payment_attempt_without_orders",
+            **base,
+        )
+        log_event(
+            _log,
+            logging.CRITICAL,
+            "barion_paid_payment_unresolved",
+            **base,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Paid Barion payment could not be linked to orders (payment attempt without orders).",
+        )
+    log_event(
+        _log,
+        logging.ERROR,
+        "barion_unknown_payment_id",
+        **base,
+    )
+    log_event(
+        _log,
+        logging.ERROR,
+        "barion_paid_payment_unresolved",
+        **base,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Paid Barion payment is not registered for this shop.",
+    )
+
+
+def _sync_payment_attempt_status(db: Session, payment_id: str, shop_status: str) -> None:
+    attempt = db.scalar(select(PaymentAttempt).where(PaymentAttempt.barion_payment_id == payment_id))
+    if attempt is None:
+        return
+    attempt.status = _normalize_shop_payment_status(shop_status)
+    if attempt.status in _TERMINAL_PAYMENT_STATUSES:
+        attempt.is_active = False
+
+
+def _align_orders_to_payment_id(rows: list[ShopOrder], payment_id: str) -> None:
+    for r in rows:
+        r.barion_payment_id = payment_id
+        if _normalize_shop_payment_status(r.payment_status) != "paid":
+            r.payment_status = "pending"
 
 
 def _barion_return_url() -> str:
@@ -189,15 +330,23 @@ def sync_orders_payment_status_from_barion(db: Session, payment_id: str) -> tupl
         _log.exception("barion_get_payment_state_failed payment_id=%s", payment_id[:16])
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Barion GetPaymentState hiba: {e!s}",
+            detail=_BARION_STATE_CLIENT_MSG,
         ) from e
     bstatus = data.get("Status")
     bstatus_str = str(bstatus) if bstatus is not None else None
     shop = map_barion_status_to_payment_status(bstatus_str)
-    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.barion_payment_id == payment_id)).all())
+    attempt = _payment_attempt_for_barion_id(db, payment_id)
+    rows = _resolve_orders_for_barion_payment_id(db, payment_id)
     if not rows:
+        _raise_if_unresolved_paid_barion_payment(
+            payment_id=payment_id,
+            shop_status=shop,
+            barion_status=bstatus_str,
+            attempt=attempt,
+        )
         return shop, bstatus_str
     rows_updated = _apply_verified_payment_status_to_orders(rows, shop)
+    _sync_payment_attempt_status(db, payment_id, shop)
     if rows_updated > 0:
         db.commit()
         log_event(
@@ -220,6 +369,7 @@ def sync_orders_payment_status_from_barion(db: Session, payment_id: str) -> tupl
                     payment_id[:16],
                 )
     else:
+        db.commit()
         log_event(
             _log,
             logging.INFO,
@@ -410,7 +560,26 @@ def barion_start_payment(
     2b) **Stub** (nincs POSKey): lokális ``preview-…`` id + visszairányítás a főoldal query stringgel (fejlesztői).
     """
     rows = _load_orders_for_start(db, user, payload.order_ids)
+    checkout_gid = _checkout_group_key(rows)
     start_action, existing_pid = _classify_barion_start(rows, user_id=user.id)
+
+    # Retry after failed/cancelled: retire active attempts before resume/idempotency checks.
+    if start_action == "retry":
+        _deactivate_attempts_for_group(db, checkout_gid)
+        db.commit()
+
+    active_attempt = _get_active_pending_attempt(db, checkout_gid)
+    if active_attempt and (active_attempt.barion_payment_id or "").strip():
+        pid = active_attempt.barion_payment_id.strip()
+        _align_orders_to_payment_id(rows, pid)
+        db.commit()
+        return _barion_start_response_resumed(
+            payment_id=pid,
+            rows=rows,
+            user=user,
+            payload=payload,
+        )
+
     if start_action == "resume" and existing_pid:
         return _barion_start_response_resumed(
             payment_id=existing_pid,
@@ -421,17 +590,59 @@ def barion_start_payment(
 
     ids = [r.id for r in rows]
     total_huf = sum(int(r.total_price) for r in rows)
-    checkout_gid = rows[0].checkout_group_id or ""
 
     if use_barion_rest_api():
-        payment_request_id = str(uuid.uuid4())
+        locked = _get_active_pending_attempt(db, checkout_gid, for_update=True)
+        if locked and (locked.barion_payment_id or "").strip():
+            pid = locked.barion_payment_id.strip()
+            _align_orders_to_payment_id(rows, pid)
+            db.commit()
+            return _barion_start_response_resumed(
+                payment_id=pid,
+                rows=rows,
+                user=user,
+                payload=payload,
+            )
+
+        if locked and (locked.payment_request_id or "").strip():
+            payment_request_id = locked.payment_request_id.strip()
+            attempt = locked
+        else:
+            payment_request_id = str(uuid.uuid4())
+            attempt = PaymentAttempt(
+                checkout_group_id=checkout_gid,
+                payment_request_id=payment_request_id,
+                status="pending",
+                is_active=True,
+            )
+            db.add(attempt)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                raced = _get_active_pending_attempt(db, checkout_gid)
+                if raced and (raced.barion_payment_id or "").strip():
+                    pid = raced.barion_payment_id.strip()
+                    _align_orders_to_payment_id(rows, pid)
+                    db.commit()
+                    return _barion_start_response_resumed(
+                        payment_id=pid,
+                        rows=rows,
+                        user=user,
+                        payload=payload,
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A fizetés már indítás alatt áll — próbáld újra pár másodperc múlva.",
+                ) from None
+
         redirect_url = _barion_return_url()
         cb = _callback_url_if_configured()
         payer = (rows[0].customer_email or "").strip() or None
         try:
             body = build_start_payment_body(
                 payment_request_id=payment_request_id,
-                order_checkout_label=checkout_gid or f"orders-{','.join(str(i) for i in ids)}",
+                order_checkout_label=checkout_gid,
                 total_huf=total_huf,
                 redirect_url=redirect_url,
                 callback_url=cb,
@@ -439,12 +650,16 @@ def barion_start_payment(
             )
             data = start_payment_request(body)
         except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+            _log.error("barion_start_config_error user_id=%s err=%s", user.id, e)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=_BARION_UNAVAILABLE_CLIENT_MSG,
+            ) from e
         except Exception as e:
             _log.exception("barion_start_failed user_id=%s", user.id)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Barion Payment/Start sikertelen: {e!s}",
+                detail=_BARION_START_CLIENT_MSG,
             ) from e
 
         errs = _barion_errors(data)
@@ -457,10 +672,47 @@ def barion_start_payment(
                 detail="Barion elutasította a fizetés indítást (nézd a szerver naplót).",
             )
 
-        for r in rows:
-            r.payment_status = "pending"
-            r.barion_payment_id = payment_id
-        db.commit()
+        attempt = db.scalar(
+            select(PaymentAttempt).where(PaymentAttempt.payment_request_id == payment_request_id)
+        )
+        if attempt is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Belső hiba: a fizetési kísérlet nem található.",
+            )
+        attempt.barion_payment_id = payment_id
+        _deactivate_attempts_for_group(db, checkout_gid, except_attempt_id=attempt.id)
+        attempt.is_active = True
+        _align_orders_to_payment_id(rows, payment_id)
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            try:
+                rec = db.scalar(
+                    select(PaymentAttempt).where(PaymentAttempt.payment_request_id == payment_request_id)
+                )
+                if rec is not None:
+                    rec.barion_payment_id = payment_id
+                    rec.is_active = True
+                    db.commit()
+            except Exception:
+                db.rollback()
+            log_event(
+                _log,
+                logging.CRITICAL,
+                "barion_start_commit_failed",
+                request_id=get_request_id(),
+                checkout_group_id=checkout_gid[:32],
+                payment_request_id=payment_request_id[:36],
+                barion_payment_id_prefix=payment_id[:16],
+                user_id=user.id,
+            )
+            _log.exception("barion_start_orders_commit_failed user_id=%s", user.id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="A fizetés a Barionnál elindult, de a rendelés mentése nem sikerült — próbáld újra ugyanazt a fizetést.",
+            ) from e
         for r in rows:
             db.refresh(r)
 
@@ -502,9 +754,37 @@ def barion_start_payment(
         )
 
     pid = "preview-" + uuid.uuid4().hex[:12]
-    for r in rows:
-        r.payment_status = "pending"
-        r.barion_payment_id = pid
+    stub_attempt = PaymentAttempt(
+        checkout_group_id=checkout_gid,
+        barion_payment_id=pid,
+        payment_request_id=str(uuid.uuid4()),
+        status="pending",
+        is_active=True,
+    )
+    db.add(stub_attempt)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = _get_active_pending_attempt(db, checkout_gid)
+        if existing and (existing.barion_payment_id or "").strip():
+            pid = existing.barion_payment_id.strip()
+            _align_orders_to_payment_id(rows, pid)
+            db.commit()
+            return _barion_start_response_resumed(
+                payment_id=pid,
+                rows=rows,
+                user=user,
+                payload=payload,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A fizetés már indítás alatt áll — próbáld újra pár másodperc múlva.",
+        ) from None
+
+    _deactivate_attempts_for_group(db, checkout_gid, except_attempt_id=stub_attempt.id)
+    stub_attempt.is_active = True
+    _align_orders_to_payment_id(rows, pid)
     db.commit()
     log_event(
         _log,
@@ -552,7 +832,14 @@ def barion_return_redirect(
         try:
             shop_status, _b = sync_orders_payment_status_from_barion(db, pid)
         except HTTPException:
-            raise
+            log_event(
+                _log,
+                logging.WARNING,
+                "barion_return_sync_http_error",
+                request_id=get_request_id(),
+                payment_id=pid[:16],
+            )
+            return RedirectResponse(f"{front}/?payment=error", status_code=302)
         except Exception:
             _log.exception("barion_return_sync_failed")
             return RedirectResponse(f"{front}/?payment=error", status_code=302)
@@ -578,7 +865,14 @@ def barion_cancel_redirect(
         try:
             shop_status, _b = sync_orders_payment_status_from_barion(db, pid)
         except HTTPException:
-            raise
+            log_event(
+                _log,
+                logging.WARNING,
+                "barion_cancel_sync_http_error",
+                request_id=get_request_id(),
+                payment_id=pid[:16],
+            )
+            return RedirectResponse(f"{front}/?payment=error", status_code=302)
         except Exception:
             _log.exception("barion_cancel_sync_failed")
             return RedirectResponse(f"{front}/?payment=error", status_code=302)
@@ -619,6 +913,8 @@ async def barion_ipn(request: Request, db: Session = Depends(get_db)):
         return {"ok": True, "sync": "skipped"}
     try:
         sync_orders_payment_status_from_barion(db, pid)
+    except HTTPException:
+        raise
     except Exception:
         _log.exception("barion_ipn_sync_failed payment_id=%s", pid[:16])
         log_event(
@@ -629,7 +925,10 @@ async def barion_ipn(request: Request, db: Session = Depends(get_db)):
             payment_id=pid[:16],
             sync_failed=True,
         )
-        return {"ok": True, "sync": "failed", "sync_failed": True}
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment sync failed",
+        ) from None
     return {"ok": True, "sync": "ok"}
 
 
@@ -642,13 +941,18 @@ def barion_get_state_for_logged_in_user(
     """
     Bejelentkezett vásárló: lekéri a Barion aktuális státuszát, **szinkronizálja** a saját rendelési sorait, és visszaadja az összefoglalót.
     """
-    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.barion_payment_id == payment_id)).all())
-    if not rows:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nincs ilyen fizetés a rendelések között.")
-    if any(r.user_id != user.id for r in rows):
+    attempt = _payment_attempt_for_barion_id(db, payment_id)
+    rows = _resolve_orders_for_barion_payment_id(db, payment_id)
+    if not rows and attempt is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This payment is not registered for this shop.",
+        )
+    if rows and any(r.user_id != user.id for r in rows):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a fizetés nem a te fiókodhoz tartozik.")
     if not use_barion_rest_api():
-        return BarionPaymentStateResponse(payment_id=payment_id, payment_status=rows[0].payment_status, barion_status=None)
+        ps = rows[0].payment_status if rows else (attempt.status if attempt else "pending")
+        return BarionPaymentStateResponse(payment_id=payment_id, payment_status=ps, barion_status=None)
     shop, bst = sync_orders_payment_status_from_barion(db, payment_id)
     return BarionPaymentStateResponse(payment_id=payment_id, payment_status=shop, barion_status=bst)
 
@@ -665,7 +969,7 @@ def barion_callback_stub(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Ebben a környezetben ez a végpont nem használható.",
         )
-    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.barion_payment_id == payload.payment_id)).all())
+    rows = _resolve_orders_for_barion_payment_id(db, payload.payment_id)
     if not rows:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ismeretlen payment_id.")
     if use_barion_rest_api():

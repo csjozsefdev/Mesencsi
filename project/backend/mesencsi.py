@@ -16,6 +16,7 @@ from auth_limits import limiter
 from database import engine, get_db
 from db_models import AppUser, Product as ProductRow, ShopOrder, Story as StoryRow
 from incident_support import register_incident_support
+from security_headers import register_security_headers
 from admin_routes import router as admin_router
 from bundle_discount_service import compute_checkout_pricing
 from models import (
@@ -46,6 +47,7 @@ from shipping_address import ShippingAddressValidationError, parse_and_validate_
 from auth import log_admin_auth_startup
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
+from openapi_docs import fastapi_openapi_kwargs
 from startup_config import run_startup_config_validation
 from user_tokens import log_user_jwt_startup
 
@@ -101,7 +103,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+# Production (MESENCSI_PRODUCTION): no public /docs, /redoc, or /openapi.json.
+app = FastAPI(lifespan=lifespan, **fastapi_openapi_kwargs())
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 register_incident_support(app)
@@ -125,6 +128,8 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+# Outermost on the response path so headers apply after CORS and request-id middleware.
+register_security_headers(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "frontend"))
@@ -323,11 +328,12 @@ def delete_order(
     return None
 
 
-# B1: feltöltött média (galéria, hírek, mesekönyv, avatárok) — előbb regisztráljuk, mint a frontend catch-all.
+# Route registration order (do not reorder without updating tests/test_route_registration.py):
+# 1) include_router(*) and @app routes above — API, admin HTML, storefront shell paths
+# 2) /media StaticFiles — uploaded assets
+# 3) / frontend StaticFiles — catch-all for css/js/images (html=False; no SPA fallback for unknown paths)
 _MEDIA_DIR = os.path.join(BASE_DIR, "media")
 os.makedirs(os.path.join(_MEDIA_DIR, "uploads"), exist_ok=True)
 app.mount("/media", StaticFiles(directory=_MEDIA_DIR, html=False), name="media")
 
-# B2: statikus assetek (auth.js, style.css, images/*, stb.) — egy helyen, StaticFiles.
-# A fenti explicit route-ok (/, /admin, API, favicon) előbb regisztrálódnak, ezért elsőbbséget kapnak.
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=False), name="frontend")

@@ -31,13 +31,45 @@ def test_gallery_pagination(client: TestClient) -> None:
     d1 = p1.json()
     assert d1["total"] == 3
     assert len(d1["items"]) == 2
+    assert d1["page"] == 1
+    assert d1["page_size"] == 2
     assert d1["pages"] == 2
 
     p2 = client.get("/gallery?page=2&page_size=2")
     assert p2.status_code == 200, p2.text
     d2 = p2.json()
+    assert d2["total"] == 3
     assert len(d2["items"]) == 1
+    assert d2["page"] == 2
+    assert d2["pages"] == 2
     assert d1["items"][0]["id"] != d2["items"][0]["id"]
+
+
+def test_gallery_page1_page2_no_duplicate_ids(client: TestClient) -> None:
+    seed_gallery_items(5)
+    p1 = client.get("/gallery?page=1&page_size=2")
+    p2 = client.get("/gallery?page=2&page_size=2")
+    assert p1.status_code == 200, p2.status_code == 200
+    ids1 = {it["id"] for it in p1.json()["items"]}
+    ids2 = {it["id"] for it in p2.json()["items"]}
+    assert len(ids1) == 2
+    assert len(ids2) == 2
+    assert ids1.isdisjoint(ids2)
+
+
+def test_gallery_empty_gallery_page_one_ok(client: TestClient) -> None:
+    r = client.get("/gallery?page=1&page_size=12")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+    assert data["pages"] == 0
+    assert data["page"] == 1
+
+
+def test_gallery_empty_gallery_page_two_rejected(client: TestClient) -> None:
+    r = client.get("/gallery?page=2&page_size=12")
+    assert r.status_code == 422, r.text
 
 
 def test_gallery_page_two_invalid_when_only_one_page(client: TestClient) -> None:

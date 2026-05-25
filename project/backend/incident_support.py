@@ -19,6 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app_logging import request_id_cv
 from database import SessionLocal
 from db_models import Incident as IncidentRow
+from security_headers import apply_security_headers
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -80,11 +81,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     if rid := getattr(request.state, "request_id", None):
         headers["X-Request-ID"] = rid
 
-    return JSONResponse(
+    response = JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
         headers=headers,
     )
+    apply_security_headers(response)
+    return response
 
 
 def register_incident_support(app: FastAPI) -> None:

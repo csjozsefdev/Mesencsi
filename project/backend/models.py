@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 
+from image_upload import validate_profile_image_url
 from shipping_address import (
     ShippingAddressValidationError,
     contains_unsafe_markup,
@@ -969,6 +970,11 @@ class UserUpdate(BaseModel):
     short_bio: str | None = Field(None, max_length=4000)
     family_note: str | None = Field(None, max_length=4000)
     profile_image_url: str | None = Field(None, max_length=4000)
+
+    @field_validator("profile_image_url")
+    @classmethod
+    def profile_image_local_path(cls, v: str | None) -> str | None:
+        return validate_profile_image_url(v)
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> UserUpdate:

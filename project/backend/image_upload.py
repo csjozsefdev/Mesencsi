@@ -12,6 +12,13 @@ _BACKEND_DIR = Path(__file__).resolve().parent
 UPLOADS_ROOT = (_BACKEND_DIR / "media" / "uploads").resolve()
 FRONTEND_ROOT = (_BACKEND_DIR.parent / "frontend").resolve()
 PUBLIC_UPLOAD_PREFIX = "/media/uploads"
+AVATAR_UPLOAD_PREFIX = f"{PUBLIC_UPLOAD_PREFIX}/avatars/"
+
+# Dangerous URL schemes / protocol-relative paths (profile + other managed media URLs).
+_UNSAFE_URL_SCHEME_RE = re.compile(
+    r"^\s*//|^\s*javascript\s*:|^\s*data\s*:|^\s*vbscript\s*:|^\s*file\s*:",
+    re.IGNORECASE,
+)
 
 _MAX_IMAGE_BYTES = 8 * 1024 * 1024
 _ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -158,6 +165,40 @@ async def save_uploaded_image(
 def is_managed_image_url(url: str | None) -> bool:
     s = (url or "").strip()
     return bool(s.startswith(PUBLIC_UPLOAD_PREFIX + "/"))
+
+
+def _reject_unsafe_media_url(s: str) -> None:
+    """Block script/data URLs, protocol-relative paths, traversal, and backslashes."""
+    if _UNSAFE_URL_SCHEME_RE.search(s):
+        raise ValueError("A kép URL nem tartalmazhat veszélyes protokollt vagy relatív hivatkozást.")
+    if ".." in s or "\\" in s:
+        raise ValueError("A kép URL érvénytelen vagy tiltott útvonalat tartalmaz.")
+    low = s.lower()
+    if low.startswith("http://") or low.startswith("https://"):
+        raise ValueError("Külső kép URL nem engedélyezett.")
+
+
+def validate_profile_image_url(url: str | None) -> str | None:
+    """
+    Profile avatars must point at server uploads under ``/media/uploads/avatars/…``.
+    Rejects javascript:/data:/external http(s)/,// and path traversal.
+    """
+    if url is None:
+        return None
+    s = (url or "").strip()
+    if not s:
+        return None
+    _reject_unsafe_media_url(s)
+    if not s.startswith(AVATAR_UPLOAD_PREFIX):
+        raise ValueError(
+            "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
+        )
+    rel = s[len(AVATAR_UPLOAD_PREFIX) :]
+    if not rel or "/" in rel:
+        raise ValueError(
+            "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
+        )
+    return s
 
 
 def _safe_file_under(root: Path, rel: str) -> bool:

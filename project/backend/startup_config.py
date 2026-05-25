@@ -113,8 +113,11 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
     elif not cors_raw:
         warn.append("CORS_ALLOWED_ORIGINS not set — using dev default CORS list")
 
-    if _env("MESENCSI_TEST_DATABASE_URL"):
-        add(True, "", prod_fatal=False)
+    if production and _env("MESENCSI_TEST_DATABASE_URL"):
+        fatal.append("MESENCSI_TEST_DATABASE_URL must not be set in production mode")
+    elif _env("MESENCSI_TEST_DATABASE_URL"):
+        # Dev/pytest: alternate DB URL (e.g. SQLite in-memory) — Postgres env vars not required.
+        pass
     else:
         for key in ("POSTGRES_USER", "POSTGRES_HOST", "POSTGRES_DB"):
             add(bool(_env(key)), f"{key} is not set", prod_fatal=True)

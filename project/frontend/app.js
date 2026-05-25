@@ -682,7 +682,10 @@
 
     function isProfileImageUrlOk(u) {
       const s = u != null ? String(u).trim() : "";
-      return !!(s && (/^https?:\/\//i.test(s) || (s.startsWith("/") && !s.startsWith("//"))));
+      if (!s || s.indexOf("..") >= 0) return false;
+      if (/^\s*javascript\s*:/i.test(s) || /^\s*data\s*:/i.test(s) || /^\s*\/\//.test(s)) return false;
+      if (/^https?:\/\//i.test(s)) return false;
+      return s.startsWith("/media/uploads/avatars/");
     }
 
     function resolveAvatarDisplayContext(meOrName, profileImageUrl) {
@@ -1869,6 +1872,10 @@
             : "";
       const detailIsList = Array.isArray(data && data.detail);
 
+      if (status >= 500) {
+        return "A bolt éppen nem tud válaszolni. Próbáld újra néhány perc múlva.";
+      }
+
       if (detailStr && detailStr.length > 0 && detailStr.length < 400 && !detailIsList) {
         return detailStr;
       }
@@ -1917,7 +1924,6 @@
         if (detailStr && detailStr.length < 400) return detailStr;
         return "Ez most nem végezhető el — valami ütközik (pl. már van rá hivatkozás).";
       }
-      if (status >= 500) return "A bolt éppen nem tud válaszolni. Próbáld újra néhány perc múlva.";
       if (status === 400) return "A kérés nem sikerült. Frissítsd az oldalt, és próbáld újra.";
       if (detailStr && detailStr.length < 220) return detailStr;
       return friendlyBackendError();
@@ -2671,7 +2677,7 @@
       } catch (e) {
         const msg = e && e.message ? String(e.message) : friendlyBackendError();
         const el = $("productsOut");
-        if (el) el.innerHTML = '<p class="empty" role="alert">' + msg + "</p>";
+        if (el) el.innerHTML = '<p class="empty" role="alert">' + escapeHtml(msg) + "</p>";
       }
     }
 
@@ -2700,7 +2706,7 @@
       } catch (e) {
         const msg = e && e.message ? String(e.message) : friendlyBackendError();
         const el = $("productsCatalogOut");
-        if (el) el.innerHTML = '<p class="empty" role="alert">' + msg + "</p>";
+        if (el) el.innerHTML = '<p class="empty" role="alert">' + escapeHtml(msg) + "</p>";
       }
     }
 

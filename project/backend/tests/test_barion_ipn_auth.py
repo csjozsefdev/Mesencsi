@@ -75,11 +75,7 @@ def test_barion_ipn_reports_sync_failed_on_sync_error(client: TestClient, monkey
         "/payments/barion/ipn?barion_ipn=ipn-shared-secret-20",
         json={"PaymentId": "pay-sync-fail-01"},
     )
-    assert r.status_code == 200
-    data = r.json()
-    assert data.get("ok") is True
-    assert data.get("sync") == "failed"
-    assert data.get("sync_failed") is True
+    assert r.status_code == 503
 
 
 def test_attach_barion_ipn_query_appends_secret(monkeypatch: pytest.MonkeyPatch) -> None:
