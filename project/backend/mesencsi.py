@@ -48,6 +48,8 @@ from auth import log_admin_auth_startup
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
+from email_config import log_smtp_config_at_startup
+from routers.dev_diagnostics import router as dev_diagnostics_router
 from startup_config import run_startup_config_validation
 from user_tokens import log_user_jwt_startup
 
@@ -95,6 +97,7 @@ def _configure_logging() -> None:
 async def lifespan(app: FastAPI):
     _configure_logging()
     run_startup_config_validation()
+    log_smtp_config_at_startup()
     ensure_page_background_at_startup()
     log_user_jwt_startup()
     log_admin_auth_startup()
@@ -112,6 +115,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 register_incident_support(app)
 app.include_router(health_router)
+app.include_router(dev_diagnostics_router)
 app.include_router(incidents_router)
 app.include_router(gallery_router)
 app.include_router(user_auth_router)

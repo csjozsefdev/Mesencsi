@@ -6,16 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from dotenv import load_dotenv
 from fastapi import HTTPException, status
 
+from env_loader import BACKEND_DIR as _BACKEND_DIR
 from password_utils import verify_password
-
-_BACKEND_DIR = Path(__file__).resolve().parent
-load_dotenv(_BACKEND_DIR / ".env")
-_env_py = _BACKEND_DIR / ".env.py"
-if _env_py.is_file():
-    load_dotenv(_env_py, override=True)
 
 _log = logging.getLogger("mesencsi.admin_auth")
 

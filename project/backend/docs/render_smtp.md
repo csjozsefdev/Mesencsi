@@ -1,67 +1,71 @@
-# Render deployment — SMTP for confirmation emails
+# SMTP — Gmail locally, same variables on Render
 
-Registration and resend-verification require outbound SMTP on any **hosted** deploy (Render, staging, or `MESENCSI_PRODUCTION=true`). Without these variables the app **fails startup** or returns **503** when sending mail — confirmation is not silently skipped.
+Registration and order emails use **`send_plain_email`** in `email_outbound.py`. Configuration is read from environment variables (loaded from `backend/.env` locally).
 
-## Required environment variables (Render dashboard)
+## Modes
 
-Set these on the **Web Service → Environment** tab (use your provider’s SMTP credentials, e.g. SendGrid, Mailgun, Brevo, or your host’s relay):
+| Mode | When | `smtp_fully_configured` | Docker |
+|------|------|---------------------------|--------|
+| **relay** | `SMTP_HOST` + `SMTP_USER` + `SMTP_PASSWORD` + `SMTP_FROM` | `true` | Not required |
+| **mailpit** | Local only: `127.0.0.1:1025`, `SMTP_USE_TLS=0` | `false` | Optional (`docker compose up -d mailpit`) |
+| **none** | No `SMTP_HOST` | `false` | — |
 
-| Variable | Example | Notes |
-|----------|---------|--------|
-| `SMTP_HOST` | `smtp.sendgrid.net` | Relay hostname |
-| `SMTP_PORT` | `587` | Usually `587` (STARTTLS) or `465` (SSL) |
-| `SMTP_USE_TLS` | `1` | Set `0` only for plain SMTP (e.g. local Mailpit) |
-| `SMTP_USER` | `apikey` | SMTP login user |
-| `SMTP_PASSWORD` | *(secret)* | SMTP password — never log or commit |
-| `SMTP_FROM` | `noreply@your-domain.hu` | From address (must be allowed by your provider) |
+Hosted (Render / staging / `MESENCSI_PRODUCTION`) **requires relay mode** — startup fails if not fully configured.
 
-Also set public URLs used in email links:
+## Gmail (local + Render)
 
-| Variable | Example |
-|----------|---------|
-| `FRONTEND_BASE_URL` | `https://your-shop.onrender.com` |
-| `PUBLIC_SITE_URL` | Same as storefront origin if single host |
-| `BACKEND_PUBLIC_URL` | `https://your-api.onrender.com` if API is on a separate host |
+Use a [Google App Password](https://support.google.com/accounts/answer/185833) (2-Step Verification required). Put values in **`backend/.env`** locally; copy the **same keys** to Render → Environment.
 
-## Hosted detection (no extra flag required on Render)
-
-The server treats the deploy as **hosted** when any of these is true:
-
-- `RENDER=true` (set automatically on Render.com)
-- `ENVIRONMENT=staging` | `production` | `prod` | `live`
-- `MESENCSI_PRODUCTION=true`
-
-Hosted startup requires `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`.
-
-## Local development
-
-- Copy `.env.example` → `.env` (`.env` is gitignored).
-- Leave `SMTP_HOST` empty: verification **links are logged** instead of emailed.
-- Optional Mailpit: `docker compose up -d`, then `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_USE_TLS=0`, UI at `http://127.0.0.1:8025`.
-
-## Staging QA shop user (optional)
-
-To avoid manual email verification during checkout/Barion QA on staging:
-
-```
-QA_SHOP_EMAIL=qa-shop@your-staging-domain.hu
-QA_SHOP_PASSWORD=<plain or bcrypt hash>
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USE_TLS=1
+SMTP_USER=your.address@gmail.com
+SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+SMTP_FROM=your.address@gmail.com
 ```
 
-On startup the app ensures this `AppUser` exists with `email_verified_at` set and `is_active=true`.
+After editing `.env`, **restart uvicorn** (env is loaded at process start).
 
-**Admin panel** logins (`OWNER_*` / `MAINTENANCE_*`) are separate env-based accounts and do not require shop email verification.
+Check locally (no secrets in response):
 
-Manual verify for an existing shop user (any environment with DB access):
-
-```bash
-python scripts/dev_manual_verify_shop_user.py "user@example.com"
+```http
+GET http://127.0.0.1:8000/dev/smtp-config
 ```
+
+Expect: `"smtp_fully_configured": true`, `"smtp_mode": "relay"`, `"smtp_transport_mode": "starttls"`.
+
+## Optional Mailpit (local only)
+
+```env
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+SMTP_USE_TLS=0
+SMTP_FROM=noreply@localhost
+```
+
+UI: `http://127.0.0.1:8025`. Do not use Mailpit on Render — use relay SMTP instead.
+
+## Render dashboard
+
+| Variable | Gmail example |
+|----------|----------------|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USE_TLS` | `1` |
+| `SMTP_USER` | your Gmail address |
+| `SMTP_PASSWORD` | App Password (secret) |
+| `SMTP_FROM` | same as `SMTP_USER` |
+
+Also set `FRONTEND_BASE_URL` / `PUBLIC_SITE_URL` / `BACKEND_PUBLIC_URL` to your public HTTPS URLs.
+
+`RENDER=true` is set automatically on Render.com and enforces full SMTP at startup.
 
 ## Troubleshooting
 
-1. Check Render logs for `startup_config_error` — missing SMTP prevents boot on hosted.
-2. After register, look for `Verification email sent successfully` or `SMTP send failed` with `error_type=` (passwords are never logged).
-3. `POST /auth/resend-verification` returns **503** if SMTP is missing or send fails (same policy as register on hosted).
+1. **Partial config** (`smtp_mode: partial`) — Gmail needs all four fields; Mailpit needs host + port 1025 + `SMTP_USE_TLS=0` + `SMTP_FROM`.
+2. **Restart** the server after changing `.env`.
+3. Logs show `error_type=` on failure; passwords are never logged.
+4. Gmail blocks: use App Password, not your normal account password.
 
-See also: [deploy_readiness.md](./deploy_readiness.md) (full production checklist).
+See also: [deploy_readiness.md](./deploy_readiness.md).

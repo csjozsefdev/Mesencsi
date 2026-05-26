@@ -61,6 +61,8 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 
 **Render / staging:** kötelező env és hibakezelés — [render_smtp.md](./render_smtp.md).
 
+**Password reset:** `POST /auth/forgot-password`, `POST /auth/reset-password` — same SMTP vars as registration; reset links use `FRONTEND_BASE_URL/reset-password.html?token=…` (60 min, single-use, token stored hashed).
+
 | Flow | Mikor | SMTP nélkül |
 |------|--------|-------------|
 | Regisztráció verify | `POST /auth/register` | **Hosted:** startup blocker vagy **503**; **dev:** link a logban |

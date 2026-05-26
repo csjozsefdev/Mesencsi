@@ -7,7 +7,7 @@ import os
 from urllib.parse import urlparse
 
 from cors_config import cors_origins_raw_env, parse_cors_origins_list, validate_production_cors_origins
-from email_config import hosted_deployment, is_smtp_configured
+from email_config import hosted_deployment, is_mailpit_style_local, is_smtp_configured, smtp_mode
 from runtime_flags import mesencsi_production
 
 _log = logging.getLogger("mesencsi.startup_config")
@@ -165,6 +165,15 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
             fatal.append("SMTP_PORT must be a numeric port (e.g. 587 or 465)")
     elif not _env("SMTP_HOST"):
         warn.append("SMTP_HOST not set — verification emails log-only in local dev")
+    elif smtp_mode() == "partial":
+        warn.append(
+            "SMTP partial config — use full relay (SMTP_USER + SMTP_PASSWORD App Password + SMTP_FROM) "
+            "e.g. Gmail smtp.gmail.com:587, or optional Mailpit on 127.0.0.1:1025 with SMTP_USE_TLS=0"
+        )
+    elif is_mailpit_style_local():
+        warn.append("SMTP Mailpit mode (127.0.0.1:1025) — ensure Mailpit is running or switch to relay SMTP")
+    elif is_smtp_configured():
+        pass  # relay OK for local
 
     return fatal, warn
 

@@ -3,17 +3,13 @@ from collections.abc import Generator
 from pathlib import Path
 from urllib.parse import quote
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-_BACKEND_DIR = Path(__file__).resolve().parent
-load_dotenv(_BACKEND_DIR / ".env")
-# Opcionális második fájl (pl. ha a JWT ide került): ugyanaz a KEY=value szintaxis, mint .env-ben — nem Python modul.
-_env_py = _BACKEND_DIR / ".env.py"
-if _env_py.is_file():
-    load_dotenv(_env_py, override=True)
+from env_loader import BACKEND_DIR as _BACKEND_DIR, load_backend_env
+
+load_backend_env()
 
 
 def _require_env(name: str) -> str:

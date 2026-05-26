@@ -915,6 +915,34 @@ class UserCreate(BaseModel):
         return self
 
 
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    token: str = Field(..., min_length=16, max_length=256)
+    password: str = Field(..., min_length=8, max_length=128)
+    password_confirm: str = Field(..., min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> ResetPasswordRequest:
+        if self.password != self.password_confirm:
+            raise ValueError("A jelszó és a megerősítés nem egyezik.")
+        return self
+
+
+class ResetPasswordResponse(BaseModel):
+    message: str
+
+
 class UserLogin(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 

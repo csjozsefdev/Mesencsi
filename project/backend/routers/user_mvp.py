@@ -15,13 +15,17 @@ from auth_limits import limiter
 from database import get_db
 from db_models import AppUser, Coupon
 from dependencies import get_current_app_user, require_email_verified_shop_user
-from email_config import smtp_required_for_outbound
+from email_config import is_smtp_configured, smtp_required_for_outbound
 from email_errors import EmailNotConfiguredError, EmailSendError
-from email_outbound import send_email_verification
+from email_outbound import send_email_verification, send_password_reset_email
 from image_upload import delete_uploaded_file_by_url, save_uploaded_image
 from login_throttle import assert_login_allowed, clear_login_throttle, record_login_failure
 from models import (
     CouponPublicRead,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     UserAuthResponse,
     UserCreate,
     UserDeleteResponse,
@@ -32,6 +36,13 @@ from models import (
 )
 from password_utils import hash_password, verify_password
 from user_email_verify import assign_verification_to_user, can_resend_verification, issue_verification_token, verify_user_by_token
+from user_password_reset import (
+    assign_reset_to_user,
+    find_active_shop_user_by_email,
+    find_user_for_reset_token,
+    issue_reset_token,
+    reset_token_invalid_reason,
+)
 from app_logging import get_request_id, log_event
 from user_tokens import issue_user_access_token
 from shipping_address import (
@@ -68,10 +79,43 @@ def _allocate_username(db: Session, email: str) -> str:
     return cand
 
 
+FORGOT_PASSWORD_GENERIC_MSG = (
+    "Ha létezik ehhez az e-mail címhez fiók, néhány percen belül kapsz egy üzenetet a jelszó visszaállításához."
+)
+
+RESET_PASSWORD_INVALID_MSG = "Érvénytelen vagy lejárt jelszó-visszaállító link. Kérj új linket az „Elfelejtett jelszó” menüben."
+
+RESET_PASSWORD_SUCCESS_MSG = "A jelszavad frissítve. Most már beléphetsz az új jelszóval."
+
 _REGISTER_EMAIL_FAIL_MSG = (
     "A regisztráció sikeres, de a visszaigazoló email küldése sikertelen. "
     "Ellenőrizd a szerver SMTP beállításait, vagy kérj új megerősítő levelet bejelentkezés után."
 )
+
+_REGISTER_EMAIL_DEV_NO_SMTP_MSG = (
+    "A regisztráció sikeres. A backend/.env-ben nincs SMTP_HOST — a megerősítő link a szerver "
+    "naplójában van (DEV). Állítsd be a Mailpit vagy szolgáltató SMTP változókat, majd indítsd újra az uvicorn-t."
+)
+
+_REGISTER_EMAIL_DEV_SMTP_UNREACHABLE_MSG = (
+    "A regisztráció sikeres, de az SMTP szerver nem elérhető (pl. Mailpit nincs elindítva: "
+    "docker compose up -d mailpit). Ellenőrizd a backend/.env SMTP_* értékeket és indítsd újra az uvicorn-t."
+)
+
+
+def _register_email_fail_message(*, verification_sent: bool, smtp_error: str | None = None) -> str | None:
+    if verification_sent:
+        return None
+    if smtp_required_for_outbound():
+        return _REGISTER_EMAIL_FAIL_MSG
+    import os
+
+    host = (os.environ.get("SMTP_HOST") or "").strip()
+    if not host:
+        return _REGISTER_EMAIL_DEV_NO_SMTP_MSG
+    if smtp_error:
+        return _REGISTER_EMAIL_DEV_SMTP_UNREACHABLE_MSG
+    return _REGISTER_EMAIL_FAIL_MSG
 
 
 @router_auth.post("/register", response_model=UserRegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -112,9 +156,11 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
     _log.info("Register successful — user id=%s email=%s", row.id, row.email)
 
     verification_sent = False
+    smtp_error_type: str | None = None
     try:
         verification_sent = send_email_verification(row.email, token)
     except (EmailNotConfiguredError, EmailSendError) as e:
+        smtp_error_type = type(e).__name__
         _log.error(
             "Verification email failed after register — user id=%s email=%s error_type=%s error=%s",
             row.id,
@@ -142,7 +188,10 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
                 detail="A regisztráció mentve, de a megerősítő e-mail küldése sikertelen. Próbáld újra később.",
             ) from e
 
-    msg = None if verification_sent else _REGISTER_EMAIL_FAIL_MSG
+    msg = _register_email_fail_message(
+        verification_sent=verification_sent,
+        smtp_error=smtp_error_type,
+    )
     if not verification_sent:
         log_event(
             _log,
@@ -163,6 +212,83 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
         verification_email_sent=verification_sent,
         message=msg,
     )
+
+
+@router_auth.post("/forgot-password", response_model=ForgotPasswordResponse)
+@limiter.limit("5/minute")
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Request password reset — always returns the same message (no email enumeration)."""
+    email = str(payload.email).strip().lower()
+    user = find_active_shop_user_by_email(db, email)
+    if user is not None:
+        plain_token = issue_reset_token()
+        assign_reset_to_user(db, user, plain_token)
+        db.commit()
+        try:
+            send_password_reset_email(user.email, plain_token)
+            log_event(
+                _log,
+                logging.INFO,
+                "password_reset_email_sent",
+                request_id=get_request_id(),
+                user_id=user.id,
+            )
+        except Exception as e:
+            _log.error(
+                "password_reset_email_failed — user id=%s error_type=%s",
+                user.id,
+                type(e).__name__,
+            )
+    else:
+        log_event(
+            _log,
+            logging.INFO,
+            "password_reset_requested_unknown_email",
+            request_id=get_request_id(),
+        )
+    return ForgotPasswordResponse(message=FORGOT_PASSWORD_GENERIC_MSG)
+
+
+@router_auth.post("/reset-password", response_model=ResetPasswordResponse)
+@limiter.limit("10/minute")
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Set a new password using a one-time reset token from email."""
+    user = find_user_for_reset_token(db, payload.token)
+    if user is None:
+        log_event(
+            _log,
+            logging.INFO,
+            "password_reset_failed",
+            request_id=get_request_id(),
+            reason="unknown_token",
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_PASSWORD_INVALID_MSG)
+    invalid = reset_token_invalid_reason(user)
+    if invalid:
+        log_event(
+            _log,
+            logging.INFO,
+            "password_reset_failed",
+            request_id=get_request_id(),
+            user_id=user.id,
+            reason=invalid,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=RESET_PASSWORD_INVALID_MSG)
+
+    user.password_hash = hash_password(payload.password)
+    user.password_reset_used_at = datetime.now(UTC)
+    user.password_reset_token_hash = None
+    user.password_reset_sent_at = None
+    db.commit()
+    clear_login_throttle(db, user.email)
+    log_event(
+        _log,
+        logging.INFO,
+        "password_reset_success",
+        request_id=get_request_id(),
+        user_id=user.id,
+    )
+    return ResetPasswordResponse(message=RESET_PASSWORD_SUCCESS_MSG)
 
 
 @router_auth.get("/verify-email")
