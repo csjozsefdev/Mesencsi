@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { openProductsBrowse } from "../helpers/navigation";
 import { sel } from "../helpers/selectors";
 
 test.describe("Public content smoke", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("featured news area loads on homepage", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(sel.heroGlass)).toBeVisible();
@@ -21,6 +24,17 @@ test.describe("Public content smoke", () => {
 });
 
 test.describe("Authenticated content", () => {
+  test("webshop product listing loads for logged-in user", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator(sel.authLoggedIn)).toBeVisible();
+    await openProductsBrowse(page);
+    await expect(page.locator(sel.viewWebshop)).toBeVisible();
+    await expect(page.locator(sel.productsOut)).toBeVisible();
+    await expect(page.locator(sel.productsOut)).not.toContainText("Betöltés…", {
+      timeout: 15_000,
+    });
+  });
+
   test("gallery view loads items grid", async ({ page }) => {
     await page.goto("/");
     await page.locator(sel.navGallery).click();

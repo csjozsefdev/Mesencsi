@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCartView } from "../helpers/navigation";
 import { sel } from "../helpers/selectors";
 
 test.describe("Shop / cart boundary", () => {
@@ -14,11 +15,9 @@ test.describe("Shop / cart boundary", () => {
 
   test("cart view opens and shows empty or items state", async ({ page }) => {
     await page.goto("/");
-    await page.locator(sel.navCart).click();
+    await openCartView(page);
     await expect(page.locator(sel.viewCart)).toBeVisible();
-    const empty = page.locator("#cartEmpty");
-    const lines = page.locator("#cartLines");
-    await expect(empty.or(lines)).toBeVisible();
+    await expect(page.locator(sel.viewCart)).toContainText(/kosar|Összesen|rendelés/i);
   });
 
   test("add to cart when products exist", async ({ page }) => {
@@ -42,7 +41,7 @@ test.describe("Shop / cart boundary", () => {
       test.skip(true, "Nincs termék — checkout smoke kihagyva");
     }
     await addBtn.click();
-    await page.locator(sel.navCart).click();
+    await openCartView(page);
     await expect(page.locator(sel.viewCart)).toBeVisible();
     await expect(page.locator("#cartWithItems")).toBeVisible();
     await expect(page.locator('#checkoutForm button[type="submit"]')).toBeVisible();

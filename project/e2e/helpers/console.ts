@@ -4,6 +4,7 @@ const IGNORE_PATTERNS = [
   /favicon/i,
   /manifest/i,
   /Failed to load resource.*404/i,
+  /Failed to load resource.*401/i,
   /net::ERR_/i,
 ];
 

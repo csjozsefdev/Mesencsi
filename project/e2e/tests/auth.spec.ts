@@ -35,4 +35,11 @@ test.describe("Shop session (storageState)", () => {
     await expect(page.locator(sel.authLoggedIn)).toBeVisible();
     await expect(page.locator(sel.navWebshop)).toBeVisible();
   });
+
+  test("shop user session cannot open admin dashboard", async ({ page }) => {
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/login/, { timeout: 15_000 });
+    await expect(page.locator(sel.adminLoginForm)).toBeVisible();
+    await expect(page.locator(sel.adminDashboard)).toBeHidden();
+  });
 });

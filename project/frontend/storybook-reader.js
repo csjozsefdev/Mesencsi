@@ -18,30 +18,6 @@
     "magic_frame",
   ]);
 
-  const MAGIC_MS = 420;
-
-  const RM_CLASSES = [
-    "sb-read-panel--enter-next",
-    "sb-read-panel--enter-prev",
-    "sb-read-panel--exit-next",
-    "sb-read-panel--exit-prev",
-    "page-exit",
-    "page-exit--next",
-    "page-exit--prev",
-    "page-enter-prep",
-    "page-enter-prep--next",
-    "page-enter-prep--prev",
-    "page-enter",
-    "sb-page-rm-fade-out",
-    "sb-page-rm-fade-in-prep",
-    "sb-page-rm-fade-in",
-    "page-transition-out",
-    "page-transition-out--next",
-    "page-transition-out--prev",
-    "page-transition-in-prep",
-    "page-transition-in",
-  ];
-
   function defaultEscape(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -128,15 +104,17 @@
     if (custom) {
       const xp = parsePercent(page.text_x_percent);
       const yp = parsePercent(page.text_y_percent);
+      const posStyle =
+        Number.isFinite(xp) && Number.isFinite(yp)
+          ? "left:" + xp + "%;top:" + yp + "%;transform:translate(-50%, -50%)"
+          : "";
       textBlock =
         '<div class="sb-read-text-host">' +
         '<div class="sb-read-text-stage sb-text-stage--overlay">' +
         '<div class="sb-read-text-overlay">' +
-        '<div class="sb-read-text-wrap" style="left:' +
-        xp +
-        "%;top:" +
-        yp +
-        '%;transform:translate(-50%,-50%)">' +
+        '<div class="sb-read-text-wrap"' +
+        (posStyle ? ' style="' + posStyle + '"' : "") +
+        ">" +
         '<div class="' +
         boxClass +
         '"><div class="sb-canvas-text">' +
@@ -162,111 +140,254 @@
     return titleHtml + '<div class="sb-read-canvas-stack">' + imageHtml + textBlock + audioHtml + "</div>";
   }
 
-  function buildPublicReaderShellHtml() {
+  function panelOptsHelpers(opts) {
+    opts = opts || {};
+    return {
+      esc: typeof opts.escapeHtml === "function" ? opts.escapeHtml : defaultEscape,
+      assetUrl:
+        typeof opts.assetUrl === "function"
+          ? opts.assetUrl
+          : function (u) {
+              return u;
+            },
+    };
+  }
+
+  function buildFlowTextHtml(page, opts) {
+    const h = panelOptsHelpers(opts);
+    const n = normPageLayout(page);
+    const bodyRaw = String((page && page.body_text) || "");
+    const body = bodyRaw.trim() ? h.esc(bodyRaw) : "";
+    if (!body) return "";
+    const boxClass = "sb-text-box " + boxStyleClass(n.style);
     return (
-      '<div class="sb-public-reader-inner">' +
-      '<div class="sb-read-dynamic-header"></div>' +
-      '<p class="sb-public-read-pageind" aria-live="polite"></p>' +
-      '<div class="sb-read-page-stage">' +
-      '<div class="sb-read-page-panel storybook-page"></div>' +
-      "</div>" +
-      '<div class="sb-read-nav" style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;margin:1rem 0 0">' +
-      '<button type="button" class="btn-outline-ghost" data-sb-nav="prev" aria-label="Előző oldal">← Előző oldal</button>' +
-      '<button type="button" class="btn-outline-ghost" data-sb-nav="next" aria-label="Következő oldal">Következő oldal →</button>' +
-      "</div></div>"
+      '<div class="sb-read-text-host">' +
+      '<div class="sb-read-text-stage sb-pos-v-top sb-pos-h-left">' +
+      '<div class="sb-read-text-overlay">' +
+      '<div class="sb-read-text-wrap">' +
+      '<div class="' +
+      boxClass +
+      '"><div class="sb-canvas-text">' +
+      body +
+      "</div></div></div></div></div></div>"
     );
   }
 
-  function preloadAdjacentImages(pages, idx, assetUrl) {
-    if (!Array.isArray(pages) || typeof assetUrl !== "function") return;
-    const i = Number(idx);
-    if (!Number.isFinite(i)) return;
-    [i - 1, i + 1].forEach(function (j) {
-      const p = pages[j];
-      if (!p || !p.image_url) return;
-      const u = assetUrl(String(p.image_url).trim());
-      if (!u) return;
+  function buildPageImageHtml(page, opts, role) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    if (!page.image_url) return "";
+    const u = h.assetUrl(String(page.image_url).trim());
+    if (!u) return "";
+    const wrapClass =
+      "sb-read-image-wrap" + (role === "hero" ? " sbv2-hero-image" : " sbv2-vignette-image");
+    return (
+      '<div class="' +
+      wrapClass +
+      '"><img src="' +
+      h.esc(u) +
+      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>'
+    );
+  }
+
+  function buildPageAudioHtml(page, opts) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    if (!page.audio_url) return "";
+    const au = h.assetUrl(String(page.audio_url).trim());
+    if (!au) return "";
+    return (
+      '<div class="sbv2-zone sbv2-zone--audio sb-read-audio-wrap">' +
+      '<audio controls preload="metadata" src="' +
+      h.esc(au) +
+      '"></audio></div>'
+    );
+  }
+
+  function buildFolioHtml(pageNumber) {
+    const n = Math.floor(Number(pageNumber));
+    if (!Number.isFinite(n) || n < 1) return "";
+    return (
+      '<footer class="sbv2-zone sbv2-zone--folio" aria-label="Oldalszám">' +
+      "<span>" +
+      n +
+      "</span></footer>"
+    );
+  }
+
+  function resolveV2PageArgs(page, optsOrContext, context) {
+    let opts;
+    let ctx;
+    if (arguments.length === 2) {
+      ctx = optsOrContext || {};
+      opts = ctx.opts || {};
+    } else {
+      opts = optsOrContext || {};
+      ctx = context || {};
+    }
+    return { page: page || {}, opts: opts, context: ctx };
+  }
+
+  /**
+   * V2 spread — left (TEXT_FORWARD): running title, vignette, story, audio, folio.
+   * @param {object} page
+   * @param {object} [opts]
+   * @param {{ pageNumber?: number, opts?: object }} [context]
+   */
+  function buildV2LeftPageHtml(page, optsOrContext, context) {
+    const r = resolveV2PageArgs.apply(null, arguments);
+    const h = panelOptsHelpers(r.opts);
+    page = r.page;
+    context = r.context;
+    const opts = r.opts;
+    let headerHtml = "";
+    if (page.title) {
+      headerHtml =
+        '<header class="sbv2-zone sbv2-zone--header">' +
+        '<p class="sbv2-running-title">' +
+        h.esc(String(page.title)) +
+        "</p></header>";
+    }
+    const vignetteHtml = buildPageImageHtml(page, opts, "vignette");
+    const vignetteZone = vignetteHtml
+      ? '<figure class="sbv2-zone sbv2-zone--vignette">' + vignetteHtml + "</figure>"
+      : "";
+    const storyHtml = buildFlowTextHtml(page, opts);
+    const storyZone = storyHtml
+      ? '<div class="sbv2-zone sbv2-zone--story">' + storyHtml + "</div>"
+      : '<div class="sbv2-zone sbv2-zone--story"><p class="empty"> </p></div>';
+    return (
+      '<div class="sbv2-spread-layout sbv2-spread-layout--left">' +
+      headerHtml +
+      vignetteZone +
+      storyZone +
+      buildPageAudioHtml(page, opts) +
+      buildFolioHtml(context.pageNumber) +
+      "</div>"
+    );
+  }
+
+  /**
+   * V2 spread — right (VISUAL_FORWARD): title, hero image, supporting text, audio, folio.
+   * @param {object} page
+   * @param {object} [opts]
+   * @param {{ pageNumber?: number, opts?: object }} [context]
+   */
+  function buildV2RightPageHtml(page, optsOrContext, context) {
+    const r = resolveV2PageArgs.apply(null, arguments);
+    const h = panelOptsHelpers(r.opts);
+    page = r.page;
+    context = r.context;
+    const opts = r.opts;
+    let titleHtml = "";
+    if (page.title) {
+      titleHtml =
+        '<header class="sbv2-zone sbv2-zone--title">' +
+        '<h2 class="sbv2-page-title">' +
+        h.esc(String(page.title)) +
+        "</h2></header>";
+    }
+    const heroInner = buildPageImageHtml(page, opts, "hero");
+    const heroZone = heroInner
+      ? '<figure class="sbv2-zone sbv2-zone--hero">' + heroInner + "</figure>"
+      : "";
+    const supportInner = buildFlowTextHtml(page, opts);
+    const supportZone = supportInner
+      ? '<div class="sbv2-zone sbv2-zone--support">' + supportInner + "</div>"
+      : "";
+    return (
+      '<div class="sbv2-spread-layout sbv2-spread-layout--right">' +
+      titleHtml +
+      heroZone +
+      supportZone +
+      buildPageAudioHtml(page, opts) +
+      buildFolioHtml(context.pageNumber) +
+      "</div>"
+    );
+  }
+
+  /** @deprecated Use buildV2LeftPageHtml — alias for older callers. */
+  /** @deprecated Use buildV2LeftPageHtml / buildV2RightPageHtml — kept for external callers. */
+  function buildV2StandardLeftPageHtml(page, opts, context) {
+    return buildV2LeftPageHtml(page, opts, context);
+  }
+
+  /** @deprecated Use buildV2RightPageHtml — alias for older callers. */
+  function buildV2StandardRightPageHtml(page, opts, context) {
+    return buildV2RightPageHtml(page, opts, context);
+  }
+
+  /* ----- Spread math + content helpers (V2 reader) ----- */
+
+  function spreadCount(pages) {
+    if (!Array.isArray(pages) || !pages.length) return 0;
+    return Math.ceil(pages.length / 2);
+  }
+
+  function spreadIndexForPageIndex(pageIndex) {
+    const i = Number(pageIndex);
+    if (!Number.isFinite(i) || i < 0) return 0;
+    return Math.floor(i / 2);
+  }
+
+  function pagesForSpread(pages, spreadIndex) {
+    const list = Array.isArray(pages) ? pages : [];
+    const si = Math.max(0, Math.floor(Number(spreadIndex) || 0));
+    const leftIndex = si * 2;
+    const rightIndex = leftIndex + 1;
+    return {
+      spreadIndex: si,
+      left: leftIndex < list.length ? list[leftIndex] : null,
+      right: rightIndex < list.length ? list[rightIndex] : null,
+      leftIndex: leftIndex < list.length ? leftIndex : -1,
+      rightIndex: rightIndex < list.length ? rightIndex : -1,
+    };
+  }
+
+  function canSpreadPrev(spreadIndex) {
+    return Math.floor(Number(spreadIndex) || 0) > 0;
+  }
+
+  function canSpreadNext(spreadIndex, pages) {
+    const si = Math.floor(Number(spreadIndex) || 0);
+    return si < spreadCount(pages) - 1;
+  }
+
+  function formatSpreadIndicator(spreadIndex, pages) {
+    const n = Array.isArray(pages) ? pages.length : 0;
+    if (!n) return "";
+    const s = pagesForSpread(pages, spreadIndex);
+    const leftNum = s.leftIndex >= 0 ? s.leftIndex + 1 : "—";
+    const rightNum = s.rightIndex >= 0 ? s.rightIndex + 1 : "—";
+    if (leftNum === rightNum) return "Oldal " + leftNum + " / " + n;
+    return "Oldal " + leftNum + "–" + rightNum + " / " + n;
+  }
+
+  function pauseAudioInBook(root) {
+    if (!root) return;
+    root.querySelectorAll("audio").forEach(function (a) {
       try {
-        const img = new Image();
-        img.decoding = "async";
-        img.src = u;
+        a.pause();
       } catch (_) {}
     });
   }
 
-  function clearPanelClasses(panel) {
-    RM_CLASSES.forEach(function (c) {
-      panel.classList.remove(c);
-    });
-  }
-
-  function prefersReducedMotion() {
-    try {
-      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function runPanelTransition(panel, direction, applyPanel, opts) {
-    opts = opts || {};
-    const dir = direction === "prev" ? "prev" : "next";
-
-    function finish() {
-      if (typeof opts.setAnimating === "function") opts.setAnimating(false);
-      if (typeof opts.preloadAdjacent === "function") opts.preloadAdjacent();
-      if (typeof opts.onDone === "function") opts.onDone();
-    }
-
-    if (!panel || typeof applyPanel !== "function" || prefersReducedMotion()) {
-      if (typeof opts.setAnimating === "function") opts.setAnimating(true);
-      applyPanel();
-      finish();
-      return;
-    }
-
-    if (typeof opts.setAnimating === "function") opts.setAnimating(true);
-
-    let finished = false;
-    function doneOnce() {
-      if (finished) return;
-      finished = true;
-      clearPanelClasses(panel);
-      finish();
-    }
-
-    clearPanelClasses(panel);
-    panel.classList.add("page-exit", dir === "next" ? "page-exit--next" : "page-exit--prev");
-
-    const fallback = window.setTimeout(function () {
-      if (finished) return;
-      clearPanelClasses(panel);
-      applyPanel();
-      doneOnce();
-    }, MAGIC_MS + 140);
-
-    function startEnter() {
-      clearPanelClasses(panel);
-      applyPanel();
-      panel.classList.add("page-enter-prep", dir === "next" ? "page-enter-prep--next" : "page-enter-prep--prev");
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          panel.classList.remove("page-enter-prep", "page-enter-prep--next", "page-enter-prep--prev");
-          panel.classList.add("page-enter");
-          window.setTimeout(doneOnce, MAGIC_MS + 80);
-        });
+  function preloadSpreadImages(pages, spreadIndex, assetUrl) {
+    if (!Array.isArray(pages) || typeof assetUrl !== "function") return;
+    const si = Math.floor(Number(spreadIndex) || 0);
+    [-1, 0, 1].forEach(function (delta) {
+      const spread = pagesForSpread(pages, si + delta);
+      [spread.left, spread.right].forEach(function (p) {
+        if (!p || !p.image_url) return;
+        const u = assetUrl(String(p.image_url).trim());
+        if (!u) return;
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.src = u;
+        } catch (_) {}
       });
-    }
-
-    function onExitEnd(ev) {
-      if (ev.target !== panel) return;
-      if (ev.propertyName && ev.propertyName !== "opacity" && ev.propertyName !== "transform") return;
-      panel.removeEventListener("transitionend", onExitEnd);
-      window.clearTimeout(fallback);
-      startEnter();
-    }
-
-    panel.addEventListener("transitionend", onExitEnd);
+    });
   }
 
   window.MesencsiStorybookReader = {
@@ -275,8 +396,17 @@
     parsePercent: parsePercent,
     pageHasCustomDragPos: pageHasCustomDragPos,
     buildPanelHtml: buildPanelHtml,
-    buildPublicReaderShellHtml: buildPublicReaderShellHtml,
-    preloadAdjacentImages: preloadAdjacentImages,
-    runPanelTransition: runPanelTransition,
+    buildV2LeftPageHtml: buildV2LeftPageHtml,
+    buildV2RightPageHtml: buildV2RightPageHtml,
+    buildV2StandardLeftPageHtml: buildV2StandardLeftPageHtml,
+    buildV2StandardRightPageHtml: buildV2StandardRightPageHtml,
+    spreadCount: spreadCount,
+    spreadIndexForPageIndex: spreadIndexForPageIndex,
+    pagesForSpread: pagesForSpread,
+    canSpreadPrev: canSpreadPrev,
+    canSpreadNext: canSpreadNext,
+    formatSpreadIndicator: formatSpreadIndicator,
+    preloadSpreadImages: preloadSpreadImages,
+    pauseAudioInBook: pauseAudioInBook,
   };
 })();

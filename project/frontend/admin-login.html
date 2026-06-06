@@ -11,6 +11,8 @@
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <link rel="stylesheet" href="/style.css" />
     <script src="/viewport-units.js"></script>
+    <script src="/js/ns.js"></script>
+    <script src="/js/notify.js"></script>
     <script src="/auth.js"></script>
     <script src="/password-toggle.js"></script>
     <style>
@@ -179,14 +181,18 @@
 
     <script>
       const auth = window.MesencsiAdminAuth;
+      const notify = window.Mesencsi && window.Mesencsi.notify;
       const msg = document.getElementById("msg");
+      const form = document.getElementById("loginForm");
+      const submitBtn = form.querySelector('button[type="submit"]');
 
       function showError(text) {
         msg.textContent = text;
         msg.style.display = "block";
+        if (notify) notify.error(text);
       }
 
-      document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
         msg.style.display = "none";
 
@@ -197,21 +203,44 @@
           return;
         }
 
-        try {
+        const login = async () => {
           const data = await auth.api("/admin/login", {
             method: "POST",
             body: JSON.stringify({ username, password }),
           });
-          auth.setToken(data.token);
           try {
             localStorage.setItem("admin_role", data.role || "");
             localStorage.setItem("admin_username", data.username || username);
           } catch (_) {}
+          if (notify) notify.info("Belépés sikeres, átirányítás…", { durationMs: 2000 });
           window.location.href = "/admin";
-        } catch (err) {
-          const raw = err && err.message ? String(err.message).trim() : "";
-          showError(raw || "Nem sikerült belépni. Ellenőrizd a nevet és a jelszót, majd próbáld újra.");
-        }
+        };
+
+        try {
+          if (notify && notify.run) {
+            await notify.run({
+              button: submitBtn,
+              loadingText: "Belépés…",
+              errorFallback:
+                "Nem sikerült belépni. Ellenőrizd a nevet és a jelszót, majd próbáld újra.",
+              fn: login,
+              toastOnly: true,
+            });
+          } else {
+            submitBtn.disabled = true;
+            try {
+              await login();
+            } catch (err) {
+              const raw = err && err.message ? String(err.message).trim() : "";
+              showError(
+                raw ||
+                  "Nem sikerült belépni. Ellenőrizd a nevet és a jelszót, majd próbáld újra.",
+              );
+            } finally {
+              submitBtn.disabled = false;
+            }
+          }
+        } catch (_) {}
       });
     </script>
   </body>

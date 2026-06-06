@@ -1,763 +1,1636 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="hu">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Mesencsi — mesevilág webshop</title>
-  <meta name="theme-color" content="#8b5a2b" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-  <link rel="icon" href="/favicon.ico?v=2" sizes="48x48" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
-  <link rel="manifest" href="/site.webmanifest?v=2" />
-  <link rel="stylesheet" href="/style.css" />
-  <script src="/viewport-units.js"></script>
-  <script src="/news-format.js"></script>
-  <script src="/password-toggle.js"></script>
-  
-</head>
-<body data-testid="storefront">
-  <!--
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Mesencsi — mesevilág webshop</title>
+    <meta name="theme-color" content="#8b5a2b" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="icon" href="/favicon.ico?v=2" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="/site.webmanifest?v=2" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/viewport-units.js"></script>
+    <script src="/news-format.js"></script>
+    <script src="/password-toggle.js"></script>
+  </head>
+  <body data-testid="storefront">
+    <!--
     Hivatalos fejlesztői megnyitás: FastAPI (backend/run.bat) → http://127.0.0.1:8000/
     Így a relatív /admin linkek ugyanarra az originre mutatnak, ahol az API is fut.
     apiBase: csak ha máshonnan szolgálod a HTML-t, állítsd be a backend abszolút URL-jét.
   -->
-  <input type="hidden" id="apiBase" value="" />
-  <div
-    id="paymentReturnBanner"
-    class="payment-return-banner"
-    hidden
-    role="status"
-    aria-live="polite"
-  >
-    <p class="payment-return-banner__text" id="paymentReturnBannerText"></p>
-    <button
-      type="button"
-      class="payment-return-banner__action"
-      id="paymentReturnBannerAction"
+    <input type="hidden" id="apiBase" value="" />
+    <div
+      id="paymentReturnBanner"
+      class="payment-return-banner"
       hidden
+      role="status"
+      aria-live="polite"
     >
-      Rendeléseim
-    </button>
-    <button
-      type="button"
-      class="payment-return-banner__close"
-      id="paymentReturnBannerClose"
-      aria-label="Értesítés bezárása"
-    >
-      ×
-    </button>
-  </div>
-  <header class="mobile-top-bar" id="mobileTopBar" aria-label="Mobil menüsor">
-    <button
-      type="button"
-      class="mobile-hamburger"
-      id="mobileMenuToggle"
-      aria-controls="sideRail"
-      aria-expanded="false"
-      aria-label="Menü megnyitása"
-    >
-      ☰
-    </button>
-    <span class="mobile-top-bar__title">Mesencsi</span>
-  </header>
-  <a id="adminFab" class="admin-fab" href="/admin/login" aria-label="Admin" data-testid="admin-fab">⚙</a>
-  <button type="button" id="cartFab" class="cart-fab" aria-label="Kosár megnyitása" title="Kosár" hidden data-testid="cart-fab">
-    🛒
-    <span id="cartFabBadge" class="cart-fab__badge" hidden>0</span>
-  </button>
-
-
-  <div class="page-stack" id="pageStack" data-current-view="home">
-    <header class="hero-band hero" id="heroBand">
-      <div class="hero-story-wrap" id="homeIntro">
-        <div class="hero-glass" id="heroGlass">
-          <p class="hero-hook">Hogy miért írtam meg ezt a könyvet?</p>
-          <div class="hero-body">
-            <p>Azért, mert szerettem volna megmutatni a gyermeki világot. Azt a világot, ahol a lelkek még tiszták, ahol az apró csodák számítanak.</p>
-            <p>Hogy megmutassam: mindannyian mások vagyunk – és ez nem baj. Sőt.</p>
-            <p>Hogy egy kis kavics is adhat hatalmas erőt. Hogy egy apró gesztus képes megváltoztatni egy egész osztályközösséget.</p>
-            <p>És hogy a közös kalandok során hogyan csiszolódnak össze a gyerekek. 🌿</p>
-          </div>
-        </div>
-      </div>
+      <p class="payment-return-banner__text" id="paymentReturnBannerText"></p>
+      <button
+        type="button"
+        class="payment-return-banner__action"
+        id="paymentReturnBannerAction"
+        hidden
+      >
+        Rendeléseim
+      </button>
+      <button
+        type="button"
+        class="payment-return-banner__close"
+        id="paymentReturnBannerClose"
+        aria-label="Értesítés bezárása"
+      >
+        ×
+      </button>
+    </div>
+    <header class="mobile-top-bar" id="mobileTopBar" aria-label="Mobil menüsor">
+      <button
+        type="button"
+        class="mobile-hamburger"
+        id="mobileMenuToggle"
+        aria-controls="sideRail"
+        aria-expanded="false"
+        aria-label="Menü megnyitása"
+      >
+        ☰
+      </button>
+      <span class="mobile-top-bar__title">Mesencsi</span>
     </header>
-
-    <section id="homeNewsArchive" class="home-news-archive" hidden aria-label="További hírek">
-      <h2 class="home-news-archive__title">További hírek</h2>
-      <div id="homeNewsArchiveList" class="home-news-archive__list"></div>
-    </section>
-
-    <template id="newsCommentsBlockTpl">
-      <section class="news-post-comments" data-news-post-comments hidden>
-        <h3 class="news-post-comments__title" data-comment-title>Hozzászólások</h3>
-        <p class="news-post-comments__count" data-comment-count hidden role="status"></p>
-        <p class="news-post-comments__hint" data-login-hint hidden role="status"></p>
-        <form class="news-post-comments__form" data-news-comment-form hidden>
-          <p class="news-post-comments__publish-note" data-publish-note hidden>
-            A beküldött hozzászólás azonnal megjelenik ennél a hírnél.
-          </p>
-          <label class="visually-hidden" data-comment-label>Új hozzászólás</label>
-          <textarea maxlength="2000" rows="3" placeholder="Írd ide a gondolatod…" data-comment-body></textarea>
-          <button type="submit" class="btn-outline-ghost">Hozzászólás elküldése</button>
-          <div class="auth-msg" data-comment-form-msg role="status"></div>
-        </form>
-        <div class="news-post-comments__list" data-comment-list></div>
-        <p class="news-post-comments__empty" data-comment-empty hidden role="status">
-          Még nincs hozzászólás ehhez a hírhez.
-        </p>
-        <p class="news-post-comments__status" data-comment-status hidden></p>
-      </section>
-    </template>
-
-    <!-- Mobil drawer háttér: page-stack-en belül, sideRail alatt (z-index), különben a stack kontextus miatt a backdrop takarja a belépést -->
+    <a
+      id="adminFab"
+      class="admin-fab"
+      href="/admin/login"
+      aria-label="Admin"
+      data-testid="admin-fab"
+      >⚙</a
+    >
     <button
       type="button"
-      id="mobileNavBackdrop"
-      class="mobile-nav-backdrop"
+      id="cartFab"
+      class="cart-fab"
+      aria-label="Kosár megnyitása"
+      title="Kosár"
       hidden
-      aria-hidden="true"
-      tabindex="-1"
-      aria-label="Menü bezárása"
-    ></button>
+      data-testid="cart-fab"
+    >
+      🛒
+      <span id="cartFabBadge" class="cart-fab__badge" hidden>0</span>
+    </button>
 
-    <div class="side-rail-shell" id="sideRail">
-      <div class="side-rail-auth">
-        <div class="auth-widget glass-panel" id="authWidget" aria-label="Vásárlói belépés" data-testid="auth-widget">
-        <div id="authBoot" class="auth-boot" hidden>
-          <p class="auth-boot__text">Fiók ellenőrzése…</p>
-        </div>
-        <div id="authLoggedOut" data-testid="auth-logged-out">
-          <form id="loginForm" class="auth-compact-form" autocomplete="on" data-testid="login-form">
-            <p class="auth-field-hint">Belépés a regisztrált <strong>e-mail címeddel</strong> és jelszavaddal.</p>
-            <label for="loginEmail">E-mail</label>
-            <input id="loginEmail" name="email" type="email" required maxlength="320" autocomplete="email" />
-            <label for="loginPassword">Jelszó</label>
-            <span class="password-field-wrap">
-              <input id="loginPassword" name="password" type="password" required maxlength="128" autocomplete="current-password" data-password-field />
-              <button type="button" class="password-toggle-btn" data-password-toggle-for="loginPassword" aria-label="Jelszó megjelenítése">👁</button>
-            </span>
-            <button type="submit" class="auth-btn-submit">Belépés</button>
-            <p class="auth-switch">
-              <a href="/forgot-password.html">Elfelejtett jelszó?</a>
-            </p>
-            <p class="auth-switch">
-              <button type="button" id="showRegisterBtn">Nincs még fiókod? Regisztrálj</button>
-            </p>
-            <div id="loginMsg" class="auth-msg" role="status"></div>
-          </form>
-        </div>
-        <div id="authRegister" hidden>
-          <form id="registerForm" autocomplete="on">
-            <p class="auth-field-hint">Csak e-mail és jelszó kell — gyors regisztráció. Nevet, címet és egyéb adatot később a <strong>Profilom</strong> menüben tudsz megadni.</p>
-            <label for="regEmail">E-mail</label>
-            <input id="regEmail" type="email" required maxlength="320" autocomplete="email" />
-            <label for="regPassword">Jelszó (legalább 8 karakter)</label>
-            <span class="password-field-wrap">
-              <input id="regPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" data-password-field />
-              <button type="button" class="password-toggle-btn" data-password-toggle-for="regPassword" aria-label="Jelszó megjelenítése">👁</button>
-            </span>
-            <label for="regPassword2">Jelszó megerősítése</label>
-            <span class="password-field-wrap">
-              <input id="regPassword2" type="password" required minlength="8" maxlength="128" autocomplete="new-password" data-password-field />
-              <button type="button" class="password-toggle-btn" data-password-toggle-for="regPassword2" aria-label="Jelszó megjelenítése">👁</button>
-            </span>
-            <input
-              type="text"
-              id="regCompanyWebsite"
-              name="company_website"
-              autocomplete="off"
-              tabindex="-1"
-              aria-hidden="true"
-              style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0"
-            />
-            <button type="submit" class="auth-btn-submit">Regisztráció</button>
-            <button type="button" class="auth-btn-ghost" id="backToLoginBtn">Vissza a belépéshez</button>
-            <div id="registerMsg" class="auth-msg" role="status"></div>
-          </form>
-        </div>
-        <div id="authLoggedIn" hidden data-testid="auth-logged-in">
-          <div class="user-panel user-panel--nav-only" id="userPanelSummary">
-            <div class="user-panel__nav" role="navigation" aria-label="Fiók menü" id="userPanelNav">
-              <button type="button" class="user-panel__nav-btn user-panel__nav-btn--wood" data-user-section="profile" id="userNavProfile">
-                Profilom
-              </button>
-              <button type="button" class="user-panel__nav-btn user-panel__nav-btn--wood" data-user-section="orders" id="userNavOrders">
-                Rendeléseim
-              </button>
-              <button type="button" class="user-panel__nav-btn user-panel__nav-btn--wood" data-user-section="discounts" id="userNavDiscounts">
-                Kedvezményeim
-              </button>
-              <button type="button" class="user-panel__nav-btn user-panel__nav-btn--wood" data-user-section="account" id="userNavAccount">
-                Fiók adatok
-              </button>
-              <button type="button" class="user-panel__nav-btn user-panel__nav-btn--wood-muted" id="logoutBtn">Kijelentkezés</button>
+    <div class="page-stack" id="pageStack" data-current-view="home">
+      <header class="hero-band hero" id="heroBand">
+        <div class="hero-story-wrap" id="homeIntro">
+          <div class="hero-glass" id="heroGlass">
+            <p class="hero-hook">Hogy miért írtam meg ezt a könyvet?</p>
+            <div class="hero-body">
+              <p>
+                Azért, mert szerettem volna megmutatni a gyermeki világot. Azt a
+                világot, ahol a lelkek még tiszták, ahol az apró csodák
+                számítanak.
+              </p>
+              <p>
+                Hogy megmutassam: mindannyian mások vagyunk – és ez nem baj.
+                Sőt.
+              </p>
+              <p>
+                Hogy egy kis kavics is adhat hatalmas erőt. Hogy egy apró
+                gesztus képes megváltoztatni egy egész osztályközösséget.
+              </p>
+              <p>
+                És hogy a közös kalandok során hogyan csiszolódnak össze a
+                gyerekek. 🌿
+              </p>
             </div>
           </div>
         </div>
-        </div>
-      </div>
-      <nav class="side-menu wood-menu side-rail-nav" aria-label="Mesencsi navigáció" data-testid="side-nav">
-        <button type="button" class="wood-button" data-view="webshop" hidden>Webshop</button>
-        <button type="button" class="wood-button" data-view="gallery">Galéria</button>
-        <!-- Belső nézet: data-view="stories" + id="view-stories" (tartalom: GET /products, csak böngészés — kosár a Webshopban). -->
-        <button type="button" class="wood-button" data-view="stories">Termékek</button>
-        <button type="button" class="wood-button" data-view="storybooks" hidden>Mesekönyvek</button>
-        <button type="button" class="wood-button wood-button--mobile-only" data-view="cart" hidden>Kosár</button>
-      </nav>
-    </div>
+      </header>
 
-    <main class="main-views" id="mainViews" aria-live="polite">
-      <div id="userAccountDock" class="user-account-dock" hidden>
-        <div class="glass-card view-inner user-account-dock__card">
-          <button type="button" class="btn-back" id="userAccountDockBack">← Vissza</button>
-          <div id="userAccountDockBody" class="user-account-dock__body">
-            <div id="userSectionAccount" class="user-account-section" hidden>
-              <h2 class="section__title user-account-section__title">Fiók adatok</h2>
-              <div class="user-panel user-panel--account-card">
-                <div class="user-panel__row">
-                  <img id="userPanelAvatar" class="user-panel__avatar" width="44" height="44" hidden alt="" />
-                  <div
-                    id="userPanelAvatarPh"
-                    class="user-panel__avatar user-panel__avatar--ph avatar-ph"
-                    role="img"
-                    aria-label="Alapértelmezett profilkép"
-                  ></div>
-                  <div class="user-panel__meta">
-                    <strong id="userPanelDisplayName"></strong>
-                    <span class="user-panel__login-id" id="userPanelLoginId"></span>
-                    <div class="user-panel__email" id="userPanelEmail"></div>
-                  </div>
-                </div>
-                <div id="userEmailVerifyBanner" class="user-panel__verify" hidden>
-                  <p id="userEmailVerifyText">
-                    Erősítsd meg az e-mail címed a regisztrációkor küldött linkkel — utána láthatod a rendeléseidet és a személyes kuponjaidat.
-                  </p>
-                  <button type="button" class="auth-btn-ghost" id="resendVerificationBtn">Új megerősítő e-mail kérése</button>
-                  <span id="resendVerificationMsg" class="auth-msg" role="status"></span>
-                </div>
-                <p class="user-panel__short-bio user-panel__clamp-2" id="userPanelShortBio" hidden></p>
-                <div class="user-panel__family" id="userPanelFamilyWrap" hidden>
-                  <span class="user-panel__family-label">Kinek keres termékeket</span>
-                  <p class="user-panel__family-text user-panel__clamp-2" id="userPanelFamilyText"></p>
+      <section
+        id="homeNewsArchive"
+        class="home-news-archive"
+        hidden
+        aria-label="További hírek"
+      >
+        <h2 class="home-news-archive__title">További hírek</h2>
+        <div id="homeNewsArchiveList" class="home-news-archive__list"></div>
+      </section>
+
+      <template id="newsCommentsBlockTpl">
+        <section class="news-post-comments" data-news-post-comments hidden>
+          <h3 class="news-post-comments__title" data-comment-title>
+            Hozzászólások
+          </h3>
+          <p
+            class="news-post-comments__count"
+            data-comment-count
+            hidden
+            role="status"
+          ></p>
+          <p
+            class="news-post-comments__hint"
+            data-login-hint
+            hidden
+            role="status"
+          ></p>
+          <form class="news-post-comments__form" data-news-comment-form hidden>
+            <p
+              class="news-post-comments__publish-note"
+              data-publish-note
+              hidden
+            >
+              A beküldött hozzászólás azonnal megjelenik ennél a hírnél.
+            </p>
+            <label class="visually-hidden" data-comment-label
+              >Új hozzászólás</label
+            >
+            <textarea
+              maxlength="2000"
+              rows="3"
+              placeholder="Írd ide a gondolatod…"
+              data-comment-body
+            ></textarea>
+            <button type="submit" class="btn-outline-ghost">
+              Hozzászólás elküldése
+            </button>
+            <div class="auth-msg" data-comment-form-msg role="status"></div>
+          </form>
+          <div class="news-post-comments__list" data-comment-list></div>
+          <p
+            class="news-post-comments__empty"
+            data-comment-empty
+            hidden
+            role="status"
+          >
+            Még nincs hozzászólás ehhez a hírhez.
+          </p>
+          <p class="news-post-comments__status" data-comment-status hidden></p>
+        </section>
+      </template>
+
+      <!-- Mobil drawer háttér: page-stack-en belül, sideRail alatt (z-index), különben a stack kontextus miatt a backdrop takarja a belépést -->
+      <button
+        type="button"
+        id="mobileNavBackdrop"
+        class="mobile-nav-backdrop"
+        hidden
+        aria-hidden="true"
+        tabindex="-1"
+        aria-label="Menü bezárása"
+      ></button>
+
+      <div class="side-rail-shell" id="sideRail">
+        <div class="side-rail-auth">
+          <div
+            class="auth-widget glass-panel"
+            id="authWidget"
+            aria-label="Vásárlói belépés"
+            data-testid="auth-widget"
+          >
+            <div id="authBoot" class="auth-boot" hidden>
+              <p class="auth-boot__text">Fiók ellenőrzése…</p>
+            </div>
+            <div id="authLoggedOut" data-testid="auth-logged-out">
+              <form
+                id="loginForm"
+                class="auth-compact-form"
+                autocomplete="on"
+                data-testid="login-form"
+              >
+                <p class="auth-field-hint">
+                  Belépés a regisztrált <strong>e-mail címeddel</strong> és
+                  jelszavaddal.
+                </p>
+                <label for="loginEmail">E-mail</label>
+                <input
+                  id="loginEmail"
+                  name="email"
+                  type="email"
+                  required
+                  maxlength="320"
+                  autocomplete="email"
+                />
+                <label for="loginPassword">Jelszó</label>
+                <span class="password-field-wrap">
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    required
+                    maxlength="128"
+                    autocomplete="current-password"
+                    data-password-field
+                  />
+                  <button
+                    type="button"
+                    class="password-toggle-btn"
+                    data-password-toggle-for="loginPassword"
+                    aria-label="Jelszó megjelenítése"
+                  >
+                    👁
+                  </button>
+                </span>
+                <button type="submit" class="auth-btn-submit">Belépés</button>
+                <p class="auth-switch">
+                  <a href="/forgot-password.html">Elfelejtett jelszó?</a>
+                </p>
+                <p class="auth-switch">
+                  <button type="button" id="showRegisterBtn">
+                    Nincs még fiókod? Regisztrálj
+                  </button>
+                </p>
+                <div id="loginMsg" class="auth-msg" role="status"></div>
+              </form>
+            </div>
+            <div id="authRegister" hidden>
+              <form id="registerForm" autocomplete="on">
+                <p class="auth-field-hint">
+                  Csak e-mail és jelszó kell — gyors regisztráció. Nevet, címet
+                  és egyéb adatot később a <strong>Profilom</strong> menüben
+                  tudsz megadni.
+                </p>
+                <label for="regEmail">E-mail</label>
+                <input
+                  id="regEmail"
+                  type="email"
+                  required
+                  maxlength="320"
+                  autocomplete="email"
+                />
+                <label for="regPassword">Jelszó (legalább 8 karakter)</label>
+                <span class="password-field-wrap">
+                  <input
+                    id="regPassword"
+                    type="password"
+                    required
+                    minlength="8"
+                    maxlength="128"
+                    autocomplete="new-password"
+                    data-password-field
+                  />
+                  <button
+                    type="button"
+                    class="password-toggle-btn"
+                    data-password-toggle-for="regPassword"
+                    aria-label="Jelszó megjelenítése"
+                  >
+                    👁
+                  </button>
+                </span>
+                <label for="regPassword2">Jelszó megerősítése</label>
+                <span class="password-field-wrap">
+                  <input
+                    id="regPassword2"
+                    type="password"
+                    required
+                    minlength="8"
+                    maxlength="128"
+                    autocomplete="new-password"
+                    data-password-field
+                  />
+                  <button
+                    type="button"
+                    class="password-toggle-btn"
+                    data-password-toggle-for="regPassword2"
+                    aria-label="Jelszó megjelenítése"
+                  >
+                    👁
+                  </button>
+                </span>
+                <input
+                  type="text"
+                  id="regCompanyWebsite"
+                  name="company_website"
+                  autocomplete="off"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  style="
+                    position: absolute;
+                    left: -9999px;
+                    width: 1px;
+                    height: 1px;
+                    opacity: 0;
+                  "
+                />
+                <button
+                  type="submit"
+                  class="auth-btn-submit"
+                  id="registerSubmitBtn"
+                >
+                  <span id="registerSubmitLabel">Regisztráció</span>
+                </button>
+                <button
+                  type="button"
+                  class="auth-btn-ghost"
+                  id="backToLoginBtn"
+                >
+                  Vissza a bejelentkezéshez
+                </button>
+                <div id="registerMsg" class="auth-msg" role="status"></div>
+              </form>
+            </div>
+            <div id="authLoggedIn" hidden data-testid="auth-logged-in">
+              <div
+                class="user-panel user-panel--nav-only"
+                id="userPanelSummary"
+              >
+                <div
+                  class="user-panel__nav"
+                  role="navigation"
+                  aria-label="Fiók menü"
+                  id="userPanelNav"
+                >
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--wood"
+                    data-user-section="profile"
+                    id="userNavProfile"
+                  >
+                    Profilom
+                  </button>
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--wood"
+                    data-user-section="orders"
+                    id="userNavOrders"
+                  >
+                    Rendeléseim
+                  </button>
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--wood"
+                    data-user-section="discounts"
+                    id="userNavDiscounts"
+                  >
+                    Kedvezményeim
+                  </button>
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--wood"
+                    data-user-section="account"
+                    id="userNavAccount"
+                  >
+                    Fiók adatok
+                  </button>
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--wood-muted"
+                    id="logoutBtn"
+                  >
+                    Kijelentkezés
+                  </button>
                 </div>
               </div>
-              <div class="user-account-danger-zone" id="userAccountDangerZone" aria-labelledby="userAccountDangerTitle">
-                <p id="userAccountDangerTitle" class="user-account-danger-zone__title">Fiók kezelése</p>
-                <p class="user-account-danger-zone__hint">
-                  A fiók deaktiválása után nem tudsz belépni ezzel a fiókkal; új regisztráció válhat szükségessé.
+            </div>
+          </div>
+        </div>
+        <nav
+          class="side-menu wood-menu side-rail-nav"
+          aria-label="Mesencsi navigáció"
+          data-testid="side-nav"
+        >
+          <button type="button" class="wood-button" data-view="webshop" hidden>
+            Webshop
+          </button>
+          <button type="button" class="wood-button" data-view="gallery">
+            Galéria
+          </button>
+          <!-- Belső nézet: data-view="stories" + id="view-stories" (tartalom: GET /products, csak böngészés — kosár a Webshopban). -->
+          <button type="button" class="wood-button" data-view="stories">
+            Termékek
+          </button>
+          <button
+            type="button"
+            class="wood-button"
+            data-view="storybooks"
+            hidden
+          >
+            Mesekönyvek
+          </button>
+          <button
+            type="button"
+            class="wood-button wood-button--mobile-only"
+            data-view="cart"
+            hidden
+          >
+            Kosár
+          </button>
+        </nav>
+      </div>
+
+      <main class="main-views" id="mainViews" aria-live="polite">
+        <!-- User account dock (profile, orders, discounts) -->
+        <div id="userAccountDock" class="user-account-dock" hidden>
+          <div class="glass-card view-inner user-account-dock__card">
+            <button type="button" class="btn-back" id="userAccountDockBack">
+              ← Vissza
+            </button>
+            <div id="userAccountDockBody" class="user-account-dock__body">
+              <div id="userSectionAccount" class="user-account-section" hidden>
+                <h2 class="section__title user-account-section__title">
+                  Fiók adatok
+                </h2>
+                <div class="user-panel user-panel--account-card">
+                  <div class="user-panel__row">
+                    <img
+                      id="userPanelAvatar"
+                      class="user-panel__avatar"
+                      width="44"
+                      height="44"
+                      hidden
+                      alt=""
+                    />
+                    <div
+                      id="userPanelAvatarPh"
+                      class="user-panel__avatar user-panel__avatar--ph avatar-ph"
+                      role="img"
+                      aria-label="Alapértelmezett profilkép"
+                    ></div>
+                    <div class="user-panel__meta">
+                      <strong id="userPanelDisplayName"></strong>
+                      <span
+                        class="user-panel__login-id"
+                        id="userPanelLoginId"
+                      ></span>
+                      <div class="user-panel__email" id="userPanelEmail"></div>
+                    </div>
+                  </div>
+                  <div
+                    id="userEmailVerifyBanner"
+                    class="user-panel__verify"
+                    hidden
+                  >
+                    <p id="userEmailVerifyText">
+                      Erősítsd meg az e-mail címed a regisztrációkor küldött
+                      linkkel — utána láthatod a rendeléseidet és a személyes
+                      kuponjaidat.
+                    </p>
+                    <button
+                      type="button"
+                      class="auth-btn-ghost"
+                      id="resendVerificationBtn"
+                    >
+                      Új megerősítő e-mail kérése
+                    </button>
+                    <span
+                      id="resendVerificationMsg"
+                      class="auth-msg"
+                      role="status"
+                    ></span>
+                  </div>
+                  <p
+                    class="user-panel__short-bio user-panel__clamp-2"
+                    id="userPanelShortBio"
+                    hidden
+                  ></p>
+                  <div
+                    class="user-panel__family"
+                    id="userPanelFamilyWrap"
+                    hidden
+                  >
+                    <span class="user-panel__family-label"
+                      >Kinek keres termékeket</span
+                    >
+                    <p
+                      class="user-panel__family-text user-panel__clamp-2"
+                      id="userPanelFamilyText"
+                    ></p>
+                  </div>
+                </div>
+                <details
+                  class="user-account-password-zone"
+                  id="userAccountPasswordZone"
+                >
+                  <summary class="user-account-password-zone__summary">
+                    Jelszó módosítása
+                  </summary>
+                  <div class="user-account-password-zone__body">
+                    <form id="changePasswordForm" novalidate>
+                      <label for="changePasswordCurrent">Jelenlegi jelszó</label>
+                      <span class="password-field-wrap">
+                        <input
+                          id="changePasswordCurrent"
+                          type="password"
+                          autocomplete="current-password"
+                          required
+                          minlength="1"
+                          data-password-field
+                        />
+                        <button
+                          type="button"
+                          class="password-toggle-btn"
+                          data-password-toggle-for="changePasswordCurrent"
+                          aria-label="Jelszó megjelenítése"
+                        >
+                          👁
+                        </button>
+                      </span>
+                      <label for="changePasswordNew">Új jelszó</label>
+                      <span class="password-field-wrap">
+                        <input
+                          id="changePasswordNew"
+                          type="password"
+                          autocomplete="new-password"
+                          required
+                          minlength="8"
+                          data-password-field
+                        />
+                        <button
+                          type="button"
+                          class="password-toggle-btn"
+                          data-password-toggle-for="changePasswordNew"
+                          aria-label="Jelszó megjelenítése"
+                        >
+                          👁
+                        </button>
+                      </span>
+                      <label for="changePasswordConfirm">Új jelszó megerősítése</label>
+                      <span class="password-field-wrap">
+                        <input
+                          id="changePasswordConfirm"
+                          type="password"
+                          autocomplete="new-password"
+                          required
+                          minlength="8"
+                          data-password-field
+                        />
+                        <button
+                          type="button"
+                          class="password-toggle-btn"
+                          data-password-toggle-for="changePasswordConfirm"
+                          aria-label="Jelszó megjelenítése"
+                        >
+                          👁
+                        </button>
+                      </span>
+                      <button type="submit" class="auth-btn-ghost" id="changePasswordSubmit">
+                        Jelszó mentése
+                      </button>
+                      <span
+                        id="changePasswordMsg"
+                        class="auth-msg"
+                        role="status"
+                      ></span>
+                    </form>
+                  </div>
+                </details>
+                <div
+                  class="user-account-danger-zone"
+                  id="userAccountDangerZone"
+                  aria-labelledby="userAccountDangerTitle"
+                >
+                  <p
+                    id="userAccountDangerTitle"
+                    class="user-account-danger-zone__title"
+                  >
+                    Fiók kezelése
+                  </p>
+                  <p class="user-account-danger-zone__hint">
+                    A fiók deaktiválása után nem tudsz belépni ezzel a fiókkal;
+                    új regisztráció válhat szükségessé.
+                  </p>
+                  <button
+                    type="button"
+                    class="user-panel__nav-btn user-panel__nav-btn--danger-subtle"
+                    id="deactivateAccountBtn"
+                  >
+                    Fiók deaktiválása
+                  </button>
+                </div>
+              </div>
+              <div id="userSectionProfile" class="user-account-section" hidden>
+                <div id="profileEditPanel">
+                  <p class="profile-edit-title">Profilom szerkesztése</p>
+                  <form id="profileForm" novalidate>
+                    <p
+                      class="auth-field-hint"
+                      id="profVerifyHint"
+                      style="margin-top: 0"
+                    ></p>
+                    <label for="profNickname">Megjelenő név (becenév)</label>
+                    <input
+                      id="profNickname"
+                      type="text"
+                      maxlength="128"
+                      autocomplete="nickname"
+                    />
+                    <label for="profEmail">E-mail</label>
+                    <input
+                      id="profEmail"
+                      type="email"
+                      maxlength="320"
+                      autocomplete="email"
+                    />
+                    <label for="profPhone">Telefonszám</label>
+                    <input
+                      id="profPhone"
+                      type="tel"
+                      maxlength="32"
+                      autocomplete="tel"
+                      placeholder="06 30 123 4567"
+                    />
+                    <div class="profile-address-block">
+                      <p class="profile-address-block__title">
+                        Szállítási cím
+                        <span style="font-weight: 400; color: var(--muted)"
+                          >(a rendelésnél előtölthető)</span
+                        >
+                      </p>
+                      <div class="profile-address-grid">
+                        <div class="profile-field profile-field--wide">
+                          <label for="profShipName">Átvevő neve</label>
+                          <input
+                            id="profShipName"
+                            type="text"
+                            maxlength="256"
+                            autocomplete="shipping name"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--zip">
+                          <label for="profShipZip">Irányítószám</label>
+                          <input
+                            id="profShipZip"
+                            type="text"
+                            minlength="4"
+                            maxlength="4"
+                            pattern="\d{4}"
+                            inputmode="numeric"
+                            autocomplete="shipping postal-code"
+                            placeholder="1234"
+                          />
+                        </div>
+                        <div class="profile-field">
+                          <label for="profShipCity">Város</label>
+                          <input
+                            id="profShipCity"
+                            type="text"
+                            maxlength="128"
+                            autocomplete="shipping address-level2"
+                          />
+                        </div>
+                        <div class="profile-field">
+                          <label for="profShipStreet">Utca</label>
+                          <input
+                            id="profShipStreet"
+                            type="text"
+                            minlength="2"
+                            maxlength="256"
+                            autocomplete="shipping address-line1"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--zip">
+                          <label for="profShipHouse">Házszám</label>
+                          <input
+                            id="profShipHouse"
+                            type="text"
+                            minlength="1"
+                            maxlength="32"
+                            autocomplete="off"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--wide">
+                          <label for="profShipLine2"
+                            >Emelet, ajtó
+                            <span style="font-weight: 400; color: var(--muted)"
+                              >(opcionális)</span
+                            ></label
+                          >
+                          <input
+                            id="profShipLine2"
+                            type="text"
+                            maxlength="256"
+                            autocomplete="shipping address-line2"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--wide">
+                          <label for="profShipCountry">Ország</label>
+                          <input
+                            id="profShipCountry"
+                            type="text"
+                            maxlength="128"
+                            autocomplete="shipping country-name"
+                            placeholder="Magyarország"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <label class="profile-billing-same">
+                      <input id="profBillSame" type="checkbox" checked />
+                      <span
+                        >A számlázási cím megegyezik a szállítási címmel</span
+                      >
+                    </label>
+                    <div
+                      id="profBillingBlock"
+                      class="profile-address-block"
+                      hidden
+                    >
+                      <p class="profile-address-block__title">
+                        Számlázási cím
+                        <span style="font-weight: 400; color: var(--muted)"
+                          >(opcionális — csak ha eltér)</span
+                        >
+                      </p>
+                      <div class="profile-address-grid">
+                        <div class="profile-field profile-field--wide">
+                          <label for="profBillName">Számlázási név / cég</label>
+                          <input
+                            id="profBillName"
+                            type="text"
+                            maxlength="256"
+                            autocomplete="billing name"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--zip">
+                          <label for="profBillZip">Irányítószám</label>
+                          <input
+                            id="profBillZip"
+                            type="text"
+                            minlength="4"
+                            maxlength="4"
+                            pattern="\d{4}"
+                            inputmode="numeric"
+                            autocomplete="billing postal-code"
+                            placeholder="1234"
+                          />
+                        </div>
+                        <div class="profile-field">
+                          <label for="profBillCity">Város</label>
+                          <input
+                            id="profBillCity"
+                            type="text"
+                            maxlength="128"
+                            autocomplete="billing address-level2"
+                          />
+                        </div>
+                        <div class="profile-field">
+                          <label for="profBillStreet">Utca</label>
+                          <input
+                            id="profBillStreet"
+                            type="text"
+                            minlength="2"
+                            maxlength="256"
+                            autocomplete="billing address-line1"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--zip">
+                          <label for="profBillHouse">Házszám</label>
+                          <input
+                            id="profBillHouse"
+                            type="text"
+                            minlength="1"
+                            maxlength="32"
+                            autocomplete="off"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--wide">
+                          <label for="profBillLine2"
+                            >Emelet, ajtó
+                            <span style="font-weight: 400; color: var(--muted)"
+                              >(opcionális)</span
+                            ></label
+                          >
+                          <input
+                            id="profBillLine2"
+                            type="text"
+                            maxlength="256"
+                            autocomplete="billing address-line2"
+                          />
+                        </div>
+                        <div class="profile-field profile-field--wide">
+                          <label for="profBillCountry">Ország</label>
+                          <input
+                            id="profBillCountry"
+                            type="text"
+                            maxlength="128"
+                            autocomplete="billing country-name"
+                            placeholder="Magyarország"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <label for="profShortBio">Rövid bemutatkozás</label>
+                    <textarea
+                      id="profShortBio"
+                      maxlength="4000"
+                      rows="2"
+                    ></textarea>
+                    <label for="profFamilyNote"
+                      >Családi / vásárlási megjegyzés</label
+                    >
+                    <textarea
+                      id="profFamilyNote"
+                      maxlength="4000"
+                      rows="2"
+                    ></textarea>
+                    <p
+                      class="profile-address-block__title"
+                      style="margin-top: 0.5rem"
+                    >
+                      Profilkép
+                    </p>
+                    <p class="auth-field-hint" style="margin-top: 0">
+                      Tölts fel saját képet, vagy válassz egy színes
+                      alapértelmezett avatárt. Nincs feltöltött kép esetén a
+                      becenév vagy felhasználónév monogramja jelenik meg.
+                    </p>
+                    <input type="hidden" id="profProfileImageUrl" value="" />
+                    <div class="profile-avatar-row">
+                      <div
+                        id="profAvatarPreviewPh"
+                        class="profile-avatar-preview-wrap profile-avatar-preview-wrap--empty avatar-ph"
+                        role="img"
+                        aria-label="Alapértelmezett profilkép előnézet"
+                      ></div>
+                      <img
+                        id="profAvatarPreviewImg"
+                        class="profile-avatar-preview-wrap"
+                        width="72"
+                        height="72"
+                        hidden
+                        alt=""
+                      />
+                      <div class="profile-avatar-actions">
+                        <input
+                          id="profAvatarFile"
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
+                          style="max-width: 100%"
+                        />
+                        <button
+                          type="button"
+                          class="auth-btn-ghost"
+                          id="profAvatarUploadBtn"
+                        >
+                          Kép feltöltése
+                        </button>
+                        <button
+                          type="button"
+                          class="auth-btn-ghost"
+                          id="profAvatarClearBtn"
+                        >
+                          Profilkép eltávolítása
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      class="profile-avatar-presets"
+                      id="profAvatarPresets"
+                      aria-label="Előre beállított avatárok"
+                    ></div>
+                    <button type="submit" class="auth-btn-submit">
+                      Mentés
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-btn-ghost"
+                      id="cancelProfileBtn"
+                    >
+                      Mégse
+                    </button>
+                    <div id="profileMsg" class="auth-msg" role="status"></div>
+                  </form>
+                </div>
+              </div>
+              <div id="userSectionOrders" class="user-account-section" hidden>
+                <h2 class="section__title user-account-section__title">
+                  Rendeléseim
+                </h2>
+                <div
+                  id="userOrdersPanel"
+                  class="user-panel__orders user-panel__orders--in-dock"
+                >
+                  <p
+                    class="user-panel__orders-status"
+                    id="userOrdersStatus"
+                    role="status"
+                  ></p>
+                  <div
+                    id="userOrdersList"
+                    class="user-panel__orders-list"
+                  ></div>
+                </div>
+              </div>
+              <div
+                id="userSectionDiscounts"
+                class="user-account-section"
+                hidden
+              >
+                <h2 class="section__title user-account-section__title">
+                  Kedvezményeim
+                </h2>
+                <p class="user-discounts-lead">
+                  Válassz egy kedvezményt — a kosárban automatikusan érvényesül.
+                  Egyszerre csak egy kupon használható.
                 </p>
-                <button type="button" class="user-panel__nav-btn user-panel__nav-btn--danger-subtle" id="deactivateAccountBtn">
-                  Fiók deaktiválása
+                <div
+                  id="userDiscountsPanel"
+                  class="user-panel__orders user-panel__orders--in-dock user-discounts-panel"
+                >
+                  <p
+                    class="user-panel__orders-status"
+                    id="userDiscountsStatus"
+                    role="status"
+                  ></p>
+                  <div id="userDiscountsList" class="user-discounts-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- View: webshop -->
+        <section
+          id="view-webshop"
+          class="view"
+          hidden
+          data-testid="view-webshop"
+        >
+          <div class="glass-card view-inner">
+            <button type="button" class="btn-back" data-view="home">
+              ← Vissza a főoldalra
+            </button>
+            <h2 class="section__title">Webshop</h2>
+            <p class="section__lead">
+              Válassz a kínálatból. A „Kosárba” gombbal a termék a kosárba kerül
+              — a rendelést onnan tudod elküldeni.
+            </p>
+            <div id="webshopCartHint" class="webshop-cart-hint" hidden>
+              <p>A termék bekerült a kosárba.</p>
+              <div class="hint-actions">
+                <button
+                  type="button"
+                  class="btn-outline-ghost"
+                  data-view="cart"
+                  hidden
+                >
+                  Kosár megnyitása
                 </button>
               </div>
             </div>
-            <div id="userSectionProfile" class="user-account-section" hidden>
-              <div id="profileEditPanel">
-                <p class="profile-edit-title">Profilom szerkesztése</p>
-                <form id="profileForm">
-                  <p class="auth-field-hint" id="profVerifyHint" style="margin-top: 0"></p>
-                  <label for="profNickname">Megjelenő név (becenév)</label>
-                  <input id="profNickname" type="text" maxlength="128" autocomplete="nickname" />
-                  <label for="profEmail">E-mail</label>
-                  <input id="profEmail" type="email" maxlength="320" autocomplete="email" />
-                  <label for="profPhone">Telefonszám</label>
-                  <input id="profPhone" type="tel" maxlength="32" autocomplete="tel" placeholder="06 30 123 4567" />
-                  <div class="profile-address-block">
-                    <p class="profile-address-block__title">Szállítási cím <span style="font-weight:400;color:var(--muted)">(a rendelésnél előtölthető)</span></p>
-                    <div class="profile-address-grid">
-                      <div class="profile-field profile-field--wide">
-                        <label for="profShipName">Átvevő neve</label>
-                        <input id="profShipName" type="text" maxlength="256" autocomplete="shipping name" />
-                      </div>
-                      <div class="profile-field profile-field--zip">
-                        <label for="profShipZip">Irányítószám</label>
-                        <input id="profShipZip" type="text" minlength="4" maxlength="4" pattern="\d{4}" inputmode="numeric" autocomplete="shipping postal-code" placeholder="1234" />
-                      </div>
-                      <div class="profile-field">
-                        <label for="profShipCity">Város</label>
-                        <input id="profShipCity" type="text" maxlength="128" autocomplete="shipping address-level2" />
-                      </div>
-                      <div class="profile-field">
-                        <label for="profShipStreet">Utca</label>
-                        <input id="profShipStreet" type="text" minlength="2" maxlength="256" autocomplete="shipping address-line1" />
-                      </div>
-                      <div class="profile-field profile-field--zip">
-                        <label for="profShipHouse">Házszám</label>
-                        <input id="profShipHouse" type="text" minlength="1" maxlength="32" autocomplete="off" />
-                      </div>
-                      <div class="profile-field profile-field--wide">
-                        <label for="profShipLine2">Emelet, ajtó <span style="font-weight:400;color:var(--muted)">(opcionális)</span></label>
-                        <input id="profShipLine2" type="text" maxlength="256" autocomplete="shipping address-line2" />
-                      </div>
-                      <div class="profile-field profile-field--wide">
-                        <label for="profShipCountry">Ország</label>
-                        <input id="profShipCountry" type="text" maxlength="128" autocomplete="shipping country-name" placeholder="Magyarország" />
-                      </div>
-                    </div>
-                  </div>
-                  <label class="profile-billing-same">
-                    <input id="profBillSame" type="checkbox" checked />
-                    <span>A számlázási cím megegyezik a szállítási címmel</span>
-                  </label>
-                  <div id="profBillingBlock" class="profile-address-block" hidden>
-                    <p class="profile-address-block__title">Számlázási cím <span style="font-weight:400;color:var(--muted)">(opcionális — csak ha eltér)</span></p>
-                    <div class="profile-address-grid">
-                      <div class="profile-field profile-field--wide">
-                        <label for="profBillName">Számlázási név / cég</label>
-                        <input id="profBillName" type="text" maxlength="256" autocomplete="billing name" />
-                      </div>
-                      <div class="profile-field profile-field--zip">
-                        <label for="profBillZip">Irányítószám</label>
-                        <input id="profBillZip" type="text" minlength="4" maxlength="4" pattern="\d{4}" inputmode="numeric" autocomplete="billing postal-code" placeholder="1234" />
-                      </div>
-                      <div class="profile-field">
-                        <label for="profBillCity">Város</label>
-                        <input id="profBillCity" type="text" maxlength="128" autocomplete="billing address-level2" />
-                      </div>
-                      <div class="profile-field">
-                        <label for="profBillStreet">Utca</label>
-                        <input id="profBillStreet" type="text" minlength="2" maxlength="256" autocomplete="billing address-line1" />
-                      </div>
-                      <div class="profile-field profile-field--zip">
-                        <label for="profBillHouse">Házszám</label>
-                        <input id="profBillHouse" type="text" minlength="1" maxlength="32" autocomplete="off" />
-                      </div>
-                      <div class="profile-field profile-field--wide">
-                        <label for="profBillLine2">Emelet, ajtó <span style="font-weight:400;color:var(--muted)">(opcionális)</span></label>
-                        <input id="profBillLine2" type="text" maxlength="256" autocomplete="billing address-line2" />
-                      </div>
-                      <div class="profile-field profile-field--wide">
-                        <label for="profBillCountry">Ország</label>
-                        <input id="profBillCountry" type="text" maxlength="128" autocomplete="billing country-name" placeholder="Magyarország" />
-                      </div>
-                    </div>
-                  </div>
-                  <label for="profShortBio">Rövid bemutatkozás</label>
-                  <textarea id="profShortBio" maxlength="4000" rows="2"></textarea>
-                  <label for="profFamilyNote">Családi / vásárlási megjegyzés</label>
-                  <textarea id="profFamilyNote" maxlength="4000" rows="2"></textarea>
-                  <p class="profile-address-block__title" style="margin-top: 0.5rem">Profilkép</p>
-                  <p class="auth-field-hint" style="margin-top: 0">
-                    Tölts fel saját képet, vagy válassz egy színes alapértelmezett avatárt. Nincs feltöltött kép esetén a becenév vagy felhasználónév monogramja jelenik meg.
-                  </p>
-                  <input type="hidden" id="profProfileImageUrl" value="" />
-                  <div class="profile-avatar-row">
-                    <div
-                      id="profAvatarPreviewPh"
-                      class="profile-avatar-preview-wrap profile-avatar-preview-wrap--empty avatar-ph"
-                      role="img"
-                      aria-label="Alapértelmezett profilkép előnézet"
-                    ></div>
-                    <img id="profAvatarPreviewImg" class="profile-avatar-preview-wrap" width="72" height="72" hidden alt="" />
-                    <div class="profile-avatar-actions">
-                      <input id="profAvatarFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp" style="max-width: 100%" />
-                      <button type="button" class="auth-btn-ghost" id="profAvatarUploadBtn">Kép feltöltése</button>
-                      <button type="button" class="auth-btn-ghost" id="profAvatarClearBtn">Profilkép eltávolítása</button>
-                    </div>
-                  </div>
-                  <div class="profile-avatar-presets" id="profAvatarPresets" aria-label="Előre beállított avatárok"></div>
-                  <button type="submit" class="auth-btn-submit">Mentés</button>
-                  <button type="button" class="auth-btn-ghost" id="cancelProfileBtn">Mégse</button>
-                  <div id="profileMsg" class="auth-msg" role="status"></div>
-                </form>
-              </div>
-            </div>
-            <div id="userSectionOrders" class="user-account-section" hidden>
-              <h2 class="section__title user-account-section__title">Rendeléseim</h2>
-              <div id="userOrdersPanel" class="user-panel__orders user-panel__orders--in-dock">
-                <p class="user-panel__orders-status" id="userOrdersStatus" role="status"></p>
-                <div id="userOrdersList" class="user-panel__orders-list"></div>
-              </div>
-            </div>
-            <div id="userSectionDiscounts" class="user-account-section" hidden>
-              <h2 class="section__title user-account-section__title">Kedvezményeim</h2>
-              <p class="user-discounts-lead">
-                Válassz egy kedvezményt — a kosárban automatikusan érvényesül. Egyszerre csak egy kupon használható.
-              </p>
-              <div id="userDiscountsPanel" class="user-panel__orders user-panel__orders--in-dock user-discounts-panel">
-                <p class="user-panel__orders-status" id="userDiscountsStatus" role="status"></p>
-                <div id="userDiscountsList" class="user-discounts-list"></div>
-              </div>
-            </div>
+            <div id="productsOut" class="product-grid"></div>
           </div>
-        </div>
-      </div>
-      <section id="view-webshop" class="view" hidden data-testid="view-webshop">
-        <div class="glass-card view-inner">
-          <button type="button" class="btn-back" data-view="home">← Vissza a főoldalra</button>
-          <h2 class="section__title">Webshop</h2>
-          <p class="section__lead">
-            Válassz a kínálatból. A „Kosárba” gombbal a termék a kosárba kerül — a rendelést onnan tudod elküldeni.
-          </p>
-          <div id="webshopCartHint" class="webshop-cart-hint" hidden>
-            <p>A termék bekerült a kosárba.</p>
-            <div class="hint-actions">
-              <button type="button" class="btn-outline-ghost" data-view="cart" hidden>Kosár megnyitása</button>
-            </div>
+        </section>
+
+        <section
+          id="view-gallery"
+          class="view"
+          hidden
+          data-testid="view-gallery"
+        >
+          <div class="glass-card view-inner">
+            <button type="button" class="btn-back" data-view="home">
+              ← Vissza a főoldalra
+            </button>
+            <h2 class="section__title">Galéria</h2>
+            <p class="section__lead">
+              A mesevilág illusztrációi és pillanatai — frissítve az admin
+              galériából.
+            </p>
+            <div
+              id="galleryPublicOut"
+              class="gallery-public-out"
+              aria-live="polite"
+            ></div>
           </div>
-          <div id="productsOut" class="product-grid"></div>
-        </div>
-      </section>
+        </section>
 
-      <section id="view-gallery" class="view" hidden data-testid="view-gallery">
-        <div class="glass-card view-inner">
-          <button type="button" class="btn-back" data-view="home">← Vissza a főoldalra</button>
-          <h2 class="section__title">Galéria</h2>
-          <p class="section__lead">A mesevilág illusztrációi és pillanatai — frissítve az admin galériából.</p>
-          <div id="galleryPublicOut" class="gallery-public-out" aria-live="polite"></div>
-        </div>
-      </section>
-
-      <section id="view-stories" class="view" hidden>
-        <div class="glass-card view-inner">
-          <button type="button" class="btn-back" data-view="home">← Vissza a főoldalra</button>
-          <h2 class="section__title">Termékek</h2>
-          <p class="section__lead">
-            Itt böngészhetsz a kínálatban. A kosárba tenni és rendelni csak bejelentkezés után lehet — belépés után a menüben
-            megjelenik a <strong>Webshop</strong>, onnan érhető el a teljes vásárlási folyamat.
-          </p>
-          <div id="productsCatalogOut" class="product-grid" aria-live="polite"></div>
-          <p style="margin-top: 1.25rem">
-            <button type="button" class="btn-outline-ghost" data-view="webshop" hidden>Megnyitom a webshopot</button>
-          </p>
-        </div>
-      </section>
-
-      <section id="view-storybooks" class="view" hidden data-testid="view-storybooks">
-        <div class="glass-card view-inner">
-          <button type="button" class="btn-back" data-view="home">← Vissza a főoldalra</button>
-          <div id="storybooksPublicList">
-            <h2 class="section__title">Digitális mesekönyvek</h2>
-            <p class="section__lead">Itt csak a közzétett lapozható könyvek jelennek meg.</p>
-            <div id="storybooksCatalogOut" class="product-grid" aria-live="polite"></div>
-          </div>
-          <div id="storybooksPublicReader" class="storybooks-reader-host" hidden>
-            <button type="button" class="btn-outline-ghost" id="btnStorybookBackList">← Vissza a listához</button>
-            <div id="storybooksReaderOut"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="view-cart" class="view" hidden data-testid="view-cart">
-        <div class="glass-card view-inner order-panel cart-panel">
-          <button type="button" class="btn-back" data-view="home">← Vissza a főoldalra</button>
-          <h2 class="order-panel__title">Kosár</h2>
-
-          <div id="cartEmpty" class="empty-state">
-            <p class="empty">A kosarad jelenleg üres.</p>
-            <p>
-              <button type="button" class="btn-outline-ghost" data-view="webshop" hidden>Vissza a webshophoz</button>
+        <section id="view-stories" class="view" hidden>
+          <div class="glass-card view-inner">
+            <button type="button" class="btn-back" data-view="home">
+              ← Vissza a főoldalra
+            </button>
+            <h2 class="section__title">Termékek</h2>
+            <p class="section__lead">
+              Itt böngészhetsz a kínálatban. A kosárba tenni és rendelni csak
+              bejelentkezés után lehet — belépés után a menüben megjelenik a
+              <strong>Webshop</strong>, onnan érhető el a teljes vásárlási
+              folyamat.
+            </p>
+            <div
+              id="productsCatalogOut"
+              class="product-grid"
+              aria-live="polite"
+            ></div>
+            <p style="margin-top: 1.25rem">
+              <button
+                type="button"
+                class="btn-outline-ghost"
+                data-view="webshop"
+                hidden
+              >
+                Megnyitom a webshopot
+              </button>
             </p>
           </div>
+        </section>
 
-          <div id="cartWithItems" hidden>
-            <p class="order-panel__subtitle">Ellenőrizd a tételeket, majd add meg az adataidat a rendeléshez.</p>
-            <div id="cartLines" class="cart-lines" aria-live="polite"></div>
-            <p class="cart-grand-total">Összesen: <span id="cartGrandTotal">0 Ft</span></p>
-            <p id="couponSummaryLine" class="cart-coupon-summary" hidden role="status"></p>
-            <div class="cart-coupon-box" id="checkoutCouponPicker">
-              <p class="cart-coupon-box__label">Kedvezmény</p>
-              <p id="checkoutCouponActive" class="cart-coupon-active" hidden role="status"></p>
-              <p id="checkoutCouponHint" class="cart-coupon-hint">
-                Válassz a fiók
-                <button type="button" class="cart-coupon-link" data-open-user-discounts>Kedvezményeim</button>
-                menüben, vagy hagyd üresen a választást.
+        <section
+          id="view-storybooks"
+          class="view"
+          hidden
+          data-testid="view-storybooks"
+        >
+          <div class="glass-card view-inner">
+            <button type="button" class="btn-back" data-view="home">
+              ← Vissza a főoldalra
+            </button>
+            <div id="storybooksPublicList">
+              <h2 class="section__title">Digitális mesekönyvek</h2>
+              <p class="section__lead">
+                Itt csak a közzétett lapozható könyvek jelennek meg.
               </p>
-              <button type="button" class="btn-outline-ghost btn-coupon-clear" id="btnCouponClear" hidden>
-                Kedvezmény eltávolítása
-              </button>
+              <aside
+                class="storybook-reading-tip"
+                aria-label="Olvasási tipp"
+              >
+                <h3 class="storybook-reading-tip__title">📖 Olvasási tipp</h3>
+                <p class="storybook-reading-tip__text">
+                  A lapozási animációk a rendszer megjelenítési beállításait is
+                  használhatják. A teljes élmény érdekében érdemes engedélyezni a
+                  rendszer animációit.
+                </p>
+              </aside>
+              <div
+                id="storybooksCatalogOut"
+                class="product-grid"
+                aria-live="polite"
+              ></div>
+            </div>
+            <div id="storybooksPublicReader" class="storybook-v2-root" hidden>
+              <header class="sbv2-chrome sb-book-chrome">
+                <button
+                  type="button"
+                  class="btn-outline-ghost"
+                  id="btnStorybookBackList"
+                >
+                  ← Vissza a listához
+                </button>
+              </header>
+              <div
+                id="storybooksBookViewport"
+                class="sbv2-viewport sb-book-viewport"
+              >
+                <div id="storybooksReaderOut"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: cart / checkout -->
+        <section id="view-cart" class="view" hidden data-testid="view-cart">
+          <div class="glass-card view-inner order-panel cart-panel">
+            <button type="button" class="btn-back" data-view="home">
+              ← Vissza a főoldalra
+            </button>
+            <h2 class="order-panel__title">Kosár</h2>
+
+            <div id="cartEmpty" class="empty-state">
+              <p class="empty">A kosarad jelenleg üres.</p>
+              <p>
+                <button
+                  type="button"
+                  class="btn-outline-ghost"
+                  data-view="webshop"
+                  hidden
+                >
+                  Vissza a webshophoz
+                </button>
+              </p>
             </div>
 
-            <h3 class="section__title" style="font-size: 1.1rem; margin-top: 0.5rem">Rendelés elküldése</h3>
-            <form id="checkoutForm" class="checkout-form" novalidate>
-              <input
-                type="text"
-                id="checkoutCompanyWebsite"
-                name="company_website"
-                autocomplete="off"
-                tabindex="-1"
-                aria-hidden="true"
-                style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0"
-              />
-              <div class="form-row checkout-form__row">
-                <label for="checkoutName">
-                  Neved (megrendelő)
-                  <input id="checkoutName" name="customer_name" type="text" required minlength="2" maxlength="128" autocomplete="name" />
-                </label>
-                <label for="checkoutEmail">
-                  E-mail
-                  <input id="checkoutEmail" name="email" type="email" required maxlength="320" autocomplete="email" readonly />
-                </label>
-                <label for="checkoutPhone">
-                  Telefonszám
-                  <input id="checkoutPhone" name="phone" type="tel" required maxlength="32" autocomplete="tel" inputmode="tel" placeholder="06 30 123 4567" />
-                </label>
+            <div id="cartWithItems" hidden>
+              <p class="order-panel__subtitle">
+                Ellenőrizd a tételeket, majd add meg az adataidat a rendeléshez.
+              </p>
+              <div id="cartLines" class="cart-lines" aria-live="polite"></div>
+              <p class="cart-grand-total">
+                Összesen: <span id="cartGrandTotal">0 Ft</span>
+              </p>
+              <p
+                id="couponSummaryLine"
+                class="cart-coupon-summary"
+                hidden
+                role="status"
+              ></p>
+              <div class="cart-coupon-box" id="checkoutCouponPicker">
+                <p class="cart-coupon-box__label">Kedvezmény</p>
+                <p
+                  id="checkoutCouponActive"
+                  class="cart-coupon-active"
+                  hidden
+                  role="status"
+                ></p>
+                <p id="checkoutCouponHint" class="cart-coupon-hint">
+                  Válassz a fiók
+                  <button
+                    type="button"
+                    class="cart-coupon-link"
+                    data-open-user-discounts
+                  >
+                    Kedvezményeim
+                  </button>
+                  menüben, vagy hagyd üresen a választást.
+                </p>
+                <button
+                  type="button"
+                  class="btn-outline-ghost btn-coupon-clear"
+                  id="btnCouponClear"
+                  hidden
+                >
+                  Kedvezmény eltávolítása
+                </button>
               </div>
-              <div class="checkout-shipping-block profile-address-block checkout-address-block">
-                <p class="profile-address-block__title">
-                  Szállítási cím
-                  <span class="checkout-shipping-block__hint-inline">(kötelező a rendeléshez)</span>
-                </p>
-                <p class="checkout-shipping-hint">
-                  Más címre is rendelhetsz — a mezőket szabadon szerkesztheted, vagy betöltheted a profilból.
-                </p>
-                <p id="checkoutZipCityWarn" class="checkout-zip-city-warn" hidden role="status"></p>
-                <div class="checkout-shipping-tools">
-                  <button type="button" class="btn-outline-ghost" id="btnCheckoutImportProfileAddress">
-                    Profilból betöltés
-                  </button>
-                  <button type="button" class="btn-outline-ghost" id="btnCheckoutClearShippingAddress">
-                    Cím mezők törlése
-                  </button>
-                </div>
-                <div class="profile-address-grid">
-                  <div class="profile-field profile-field--wide">
-                    <label for="checkoutShipName">Átvevő neve</label>
+
+              <h3
+                class="section__title"
+                style="font-size: 1.1rem; margin-top: 0.5rem"
+              >
+                Rendelés elküldése
+              </h3>
+              <form id="checkoutForm" class="checkout-form" novalidate>
+                <input
+                  type="text"
+                  id="checkoutCompanyWebsite"
+                  name="company_website"
+                  autocomplete="off"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  style="
+                    position: absolute;
+                    left: -9999px;
+                    width: 1px;
+                    height: 1px;
+                    opacity: 0;
+                  "
+                />
+                <div class="form-row checkout-form__row">
+                  <label for="checkoutName">
+                    Neved (megrendelő)
                     <input
-                      id="checkoutShipName"
-                      name="shipping_recipient_name"
+                      id="checkoutName"
+                      name="customer_name"
                       type="text"
                       required
                       minlength="2"
                       maxlength="128"
-                      autocomplete="shipping name"
+                      autocomplete="name"
                     />
-                  </div>
-                  <div class="profile-field profile-field--zip">
-                    <label for="checkoutShipZip">Irányítószám</label>
+                  </label>
+                  <label for="checkoutEmail">
+                    E-mail
                     <input
-                      id="checkoutShipZip"
-                      name="shipping_postal_code"
-                      type="text"
+                      id="checkoutEmail"
+                      name="email"
+                      type="email"
                       required
-                      minlength="4"
-                      maxlength="4"
-                      pattern="\d{4}"
-                      inputmode="numeric"
-                      autocomplete="shipping postal-code"
-                      placeholder="1234"
+                      maxlength="320"
+                      autocomplete="email"
+                      readonly
                     />
-                  </div>
-                  <div class="profile-field">
-                    <label for="checkoutShipCity">Város</label>
+                  </label>
+                  <label for="checkoutPhone">
+                    Telefonszám
                     <input
-                      id="checkoutShipCity"
-                      name="shipping_city"
-                      type="text"
+                      id="checkoutPhone"
+                      name="phone"
+                      type="tel"
                       required
-                      minlength="2"
-                      maxlength="128"
-                      autocomplete="shipping address-level2"
-                    />
-                  </div>
-                  <div class="profile-field">
-                    <label for="checkoutShipStreet">Utca</label>
-                    <input
-                      id="checkoutShipStreet"
-                      name="shipping_street"
-                      type="text"
-                      required
-                      minlength="2"
-                      maxlength="256"
-                      autocomplete="shipping address-line1"
-                    />
-                  </div>
-                  <div class="profile-field profile-field--zip">
-                    <label for="checkoutShipHouse">Házszám</label>
-                    <input
-                      id="checkoutShipHouse"
-                      name="shipping_house_number"
-                      type="text"
-                      required
-                      minlength="1"
                       maxlength="32"
-                      autocomplete="off"
+                      autocomplete="tel"
+                      inputmode="tel"
+                      placeholder="06 30 123 4567"
                     />
+                  </label>
+                </div>
+                <div
+                  class="checkout-shipping-block profile-address-block checkout-address-block"
+                >
+                  <p class="profile-address-block__title">
+                    Szállítási cím
+                    <span class="checkout-shipping-block__hint-inline"
+                      >(kötelező a rendeléshez)</span
+                    >
+                  </p>
+                  <p class="checkout-shipping-hint">
+                    Más címre is rendelhetsz — a mezőket szabadon
+                    szerkesztheted, vagy betöltheted a profilból.
+                  </p>
+                  <p
+                    id="checkoutZipCityWarn"
+                    class="checkout-zip-city-warn"
+                    hidden
+                    role="status"
+                  ></p>
+                  <div class="checkout-shipping-tools">
+                    <button
+                      type="button"
+                      class="btn-outline-ghost"
+                      id="btnCheckoutImportProfileAddress"
+                    >
+                      Profilból betöltés
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-outline-ghost"
+                      id="btnCheckoutClearShippingAddress"
+                    >
+                      Cím mezők törlése
+                    </button>
                   </div>
-                  <div class="profile-field profile-field--wide">
-                    <label for="checkoutShipLine2">
-                      Emelet, ajtó <span class="checkout-shipping-block__hint-inline">(opcionális)</span>
-                    </label>
-                    <input
-                      id="checkoutShipLine2"
-                      name="shipping_line2"
-                      type="text"
-                      maxlength="256"
-                      autocomplete="shipping address-line2"
-                    />
-                  </div>
-                  <div class="profile-field profile-field--wide">
-                    <label for="checkoutShipCountry">Ország</label>
-                    <input
-                      id="checkoutShipCountry"
-                      name="shipping_country"
-                      type="text"
-                      required
-                      minlength="2"
-                      maxlength="128"
-                      autocomplete="shipping country-name"
-                      placeholder="Magyarország"
-                      value="Magyarország"
-                    />
+                  <div class="profile-address-grid">
+                    <div class="profile-field profile-field--wide">
+                      <label for="checkoutShipName">Átvevő neve</label>
+                      <input
+                        id="checkoutShipName"
+                        name="shipping_recipient_name"
+                        type="text"
+                        required
+                        minlength="2"
+                        maxlength="128"
+                        autocomplete="shipping name"
+                      />
+                    </div>
+                    <div class="profile-field profile-field--zip">
+                      <label for="checkoutShipZip">Irányítószám</label>
+                      <input
+                        id="checkoutShipZip"
+                        name="shipping_postal_code"
+                        type="text"
+                        required
+                        minlength="4"
+                        maxlength="4"
+                        pattern="\d{4}"
+                        inputmode="numeric"
+                        autocomplete="shipping postal-code"
+                        placeholder="1234"
+                      />
+                    </div>
+                    <div class="profile-field">
+                      <label for="checkoutShipCity">Város</label>
+                      <input
+                        id="checkoutShipCity"
+                        name="shipping_city"
+                        type="text"
+                        required
+                        minlength="2"
+                        maxlength="128"
+                        autocomplete="shipping address-level2"
+                      />
+                    </div>
+                    <div class="profile-field">
+                      <label for="checkoutShipStreet">Utca</label>
+                      <input
+                        id="checkoutShipStreet"
+                        name="shipping_street"
+                        type="text"
+                        required
+                        minlength="2"
+                        maxlength="256"
+                        autocomplete="shipping address-line1"
+                      />
+                    </div>
+                    <div class="profile-field profile-field--zip">
+                      <label for="checkoutShipHouse">Házszám</label>
+                      <input
+                        id="checkoutShipHouse"
+                        name="shipping_house_number"
+                        type="text"
+                        required
+                        minlength="1"
+                        maxlength="32"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="profile-field profile-field--wide">
+                      <label for="checkoutShipLine2">
+                        Emelet, ajtó
+                        <span class="checkout-shipping-block__hint-inline"
+                          >(opcionális)</span
+                        >
+                      </label>
+                      <input
+                        id="checkoutShipLine2"
+                        name="shipping_line2"
+                        type="text"
+                        maxlength="256"
+                        autocomplete="shipping address-line2"
+                      />
+                    </div>
+                    <div class="profile-field profile-field--wide">
+                      <label for="checkoutShipCountry">Ország</label>
+                      <input
+                        id="checkoutShipCountry"
+                        name="shipping_country"
+                        type="text"
+                        required
+                        minlength="2"
+                        maxlength="128"
+                        autocomplete="shipping country-name"
+                        placeholder="Magyarország"
+                        value="Magyarország"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div id="checkoutAddressConfirm" class="checkout-address-confirm">
-                <p class="checkout-address-confirm__title">Ellenőrizd a szállítási adatokat fizetés előtt</p>
-                <pre id="checkoutAddressConfirmBody" class="checkout-address-confirm__body"></pre>
-                <label class="checkout-address-confirm__ack">
-                  <input id="checkoutAddressConfirmCb" type="checkbox" required />
-                  <span>Megnéztem — a szállítási adatok helyesek.</span>
+                <div
+                  id="checkoutAddressConfirm"
+                  class="checkout-address-confirm"
+                >
+                  <p class="checkout-address-confirm__title">
+                    Ellenőrizd a szállítási adatokat fizetés előtt
+                  </p>
+                  <pre
+                    id="checkoutAddressConfirmBody"
+                    class="checkout-address-confirm__body"
+                  ></pre>
+                  <label class="checkout-address-confirm__ack">
+                    <input
+                      id="checkoutAddressConfirmCb"
+                      type="checkbox"
+                      required
+                    />
+                    <span>Megnéztem — a szállítási adatok helyesek.</span>
+                  </label>
+                </div>
+                <label
+                  for="checkoutNotes"
+                  class="checkout-form__field checkout-form__field--spaced"
+                >
+                  Üzenet a bolt számára
+                  <textarea
+                    id="checkoutNotes"
+                    name="notes"
+                    rows="2"
+                    maxlength="2000"
+                    placeholder="Pl. dedikálás, ajándékba…"
+                  ></textarea>
                 </label>
-              </div>
-              <label for="checkoutNotes" class="checkout-form__field checkout-form__field--spaced">
-                Üzenet a bolt számára
-                <textarea id="checkoutNotes" name="notes" rows="2" maxlength="2000" placeholder="Pl. dedikálás, ajándékba…"></textarea>
-              </label>
-              <button type="submit" class="btn-submit">Megrendelés és fizetés indítása</button>
-            </form>
+                <button type="submit" class="btn-submit">
+                  Megrendelés és fizetés indítása
+                </button>
+              </form>
+            </div>
+            <div id="cartMsg" class="status" role="status"></div>
           </div>
-          <div id="cartMsg" class="status" role="status"></div>
+        </section>
+
+        <!-- View: legal (ÁSZF, adatkezelés, impresszum) -->
+        <section id="view-aszf" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">
+              ← Vissza a főoldalra
+            </button>
+            <h2>Általános Szerződési Feltételek (ÁSZF)</h2>
+            <p>
+              Ez az oldal tájékoztató jellegű. Vásárlás előtt kérjük, olvasd el
+              figyelmesen.
+            </p>
+
+            <h3>1. A szolgáltató adatai</h3>
+            <ul>
+              <li><strong>Mesencsi / Nagy Enikő</strong></li>
+              <li>2859 Vérteskethely, Kossuth Lajos utca 150</li>
+              <li>Adószám: 91820350-1-31</li>
+              <li>
+                E-mail: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
+              </li>
+            </ul>
+
+            <h3>2. Megrendelés folyamata</h3>
+            <ul>
+              <li>
+                Válaszd ki a termék(ek)et a webshopban, majd tedd a kosárba.
+              </li>
+              <li>A kosárban add meg a neved és az e-mail címed.</li>
+              <li>
+                A kosárban a „Megrendelés és fizetés indítása” gombbal a
+                rendelés létrejön, majd a Barion fizetési oldalra irányítunk.
+              </li>
+            </ul>
+
+            <h3>3. Fizetés és szállítás</h3>
+            <p>
+              A fizetés online, a Barion rendszerén keresztül történik. A
+              szállítás részleteit a visszaigazolás során egyeztetjük.
+            </p>
+
+            <h3>4. Elállás, panaszkezelés</h3>
+            <p>
+              Ha kérdésed vagy problémád van, írj az e-mail címünkre, és
+              segítünk a megoldásban.
+            </p>
+
+            <div class="legal-meta">Utolsó frissítés: 2026.05.06.</div>
+          </div>
+        </section>
+
+        <section id="view-adatkezeles" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">
+              ← Vissza a főoldalra
+            </button>
+            <h2>Adatkezelési tájékoztató</h2>
+            <p>
+              Az alábbiakban röviden leírjuk, milyen adatokat kérünk és mire
+              használjuk.
+            </p>
+
+            <h3>1. Milyen adatokat kezelünk?</h3>
+            <ul>
+              <li>Név</li>
+              <li>E-mail cím</li>
+              <li>Szállítási cím (ha megadod)</li>
+              <li>Üzenet a bolt számára (ha írsz)</li>
+            </ul>
+
+            <h3>2. Mire használjuk?</h3>
+            <ul>
+              <li>A rendelés feldolgozására és a kapcsolattartásra.</li>
+              <li>Szállítás egyeztetésére, ha szükséges.</li>
+            </ul>
+
+            <h3>3. Meddig tároljuk?</h3>
+            <p>
+              Az adatokat csak a rendelés teljesítéséhez szükséges ideig,
+              illetve a jogszabályoknak megfelelően őrizzük meg.
+            </p>
+
+            <h3>4. Kapcsolat</h3>
+            <p>
+              Adatkezeléssel kapcsolatos kérdés esetén írj:
+              <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
+            </p>
+
+            <div class="legal-meta">Utolsó frissítés: 2026.05.06.</div>
+          </div>
+        </section>
+
+        <section id="view-impresszum" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">
+              ← Vissza a főoldalra
+            </button>
+            <h2>Impresszum</h2>
+            <p><strong>Mesencsi / Nagy Enikő</strong></p>
+            <p>2859 Vérteskethely, Kossuth Lajos utca 150</p>
+            <p>Adószám: 91820350-1-31</p>
+            <p>
+              E-mail: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <!-- Site footer -->
+      <footer class="site-footer">
+        <div class="site-footer__inner">
+          <span class="site-footer__brand">© Mesencsi</span>
+          <span class="site-footer__sep">·</span>
+          <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
+          <span class="site-footer__sep">·</span>
+          <nav class="site-footer__links" aria-label="Jogi információk">
+            <a href="/aszf" data-route="/aszf">ÁSZF</a>
+            <a href="/adatkezeles" data-route="/adatkezeles">Adatkezelés</a>
+            <a href="/impresszum" data-route="/impresszum">Impresszum</a>
+          </nav>
         </div>
-      </section>
+      </footer>
+    </div>
 
-      <section id="view-aszf" class="view" hidden>
-        <div class="glass-card view-inner legal-prose">
-          <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
-          <h2>Általános Szerződési Feltételek (ÁSZF)</h2>
-          <p>Ez az oldal tájékoztató jellegű. Vásárlás előtt kérjük, olvasd el figyelmesen.</p>
-
-          <h3>1. A szolgáltató adatai</h3>
-          <ul>
-            <li><strong>Mesencsi / Nagy Enikő</strong></li>
-            <li>2859 Vérteskethely, Kossuth Lajos utca 150</li>
-            <li>Adószám: 91820350-1-31</li>
-            <li>E-mail: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a></li>
-          </ul>
-
-          <h3>2. Megrendelés folyamata</h3>
-          <ul>
-            <li>Válaszd ki a termék(ek)et a webshopban, majd tedd a kosárba.</li>
-            <li>A kosárban add meg a neved és az e-mail címed.</li>
-            <li>A kosárban a „Megrendelés és fizetés indítása” gombbal a rendelés létrejön, majd a Barion fizetési oldalra irányítunk.</li>
-          </ul>
-
-          <h3>3. Fizetés és szállítás</h3>
-          <p>A fizetés online, a Barion rendszerén keresztül történik. A szállítás részleteit a visszaigazolás során egyeztetjük.</p>
-
-          <h3>4. Elállás, panaszkezelés</h3>
-          <p>Ha kérdésed vagy problémád van, írj az e-mail címünkre, és segítünk a megoldásban.</p>
-
-          <div class="legal-meta">Utolsó frissítés: 2026.05.06.</div>
+    <!-- Modals -->
+    <div
+      id="deactivateAccountModal"
+      class="deactivate-account-modal"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="deactivateAccountModalTitle"
+    >
+      <button
+        type="button"
+        class="deactivate-account-modal__backdrop"
+        id="deactivateAccountModalBackdrop"
+        tabindex="-1"
+        aria-label="Bezárás"
+      ></button>
+      <div
+        class="deactivate-account-modal__card glass-card view-inner"
+        role="document"
+      >
+        <h2
+          id="deactivateAccountModalTitle"
+          class="deactivate-account-modal__heading"
+        >
+          Fiók deaktiválása
+        </h2>
+        <p
+          id="deactivateAccountModalText"
+          class="deactivate-account-modal__text"
+        >
+          Biztosan deaktiválni szeretnéd a fiókodat? Ez a művelet korlátozhatja
+          a belépést és a rendeléseid elérését.
+        </p>
+        <p
+          id="deactivateAccountModalError"
+          class="auth-msg err deactivate-account-modal__err"
+          hidden
+          role="alert"
+        ></p>
+        <div class="deactivate-account-modal__actions">
+          <button
+            type="button"
+            class="btn-outline-ghost"
+            id="deactivateAccountModalCancel"
+          >
+            Mégsem
+          </button>
+          <button
+            type="button"
+            class="auth-btn-submit deactivate-account-modal__confirm"
+            id="deactivateAccountModalConfirm"
+          >
+            Igen, deaktiválom
+          </button>
         </div>
-      </section>
-
-      <section id="view-adatkezeles" class="view" hidden>
-        <div class="glass-card view-inner legal-prose">
-          <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
-          <h2>Adatkezelési tájékoztató</h2>
-          <p>Az alábbiakban röviden leírjuk, milyen adatokat kérünk és mire használjuk.</p>
-
-          <h3>1. Milyen adatokat kezelünk?</h3>
-          <ul>
-            <li>Név</li>
-            <li>E-mail cím</li>
-            <li>Szállítási cím (ha megadod)</li>
-            <li>Üzenet a bolt számára (ha írsz)</li>
-          </ul>
-
-          <h3>2. Mire használjuk?</h3>
-          <ul>
-            <li>A rendelés feldolgozására és a kapcsolattartásra.</li>
-            <li>Szállítás egyeztetésére, ha szükséges.</li>
-          </ul>
-
-          <h3>3. Meddig tároljuk?</h3>
-          <p>Az adatokat csak a rendelés teljesítéséhez szükséges ideig, illetve a jogszabályoknak megfelelően őrizzük meg.</p>
-
-          <h3>4. Kapcsolat</h3>
-          <p>Adatkezeléssel kapcsolatos kérdés esetén írj: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a></p>
-
-          <div class="legal-meta">Utolsó frissítés: 2026.05.06.</div>
-        </div>
-      </section>
-
-      <section id="view-impresszum" class="view" hidden>
-        <div class="glass-card view-inner legal-prose">
-          <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
-          <h2>Impresszum</h2>
-          <p><strong>Mesencsi / Nagy Enikő</strong></p>
-          <p>2859 Vérteskethely, Kossuth Lajos utca 150</p>
-          <p>Adószám: 91820350-1-31</p>
-          <p>E-mail: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a></p>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div class="site-footer__inner">
-        <span class="site-footer__brand">© Mesencsi</span>
-        <span class="site-footer__sep">·</span>
-        <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
-        <span class="site-footer__sep">·</span>
-        <nav class="site-footer__links" aria-label="Jogi információk">
-          <a href="/aszf" data-route="/aszf">ÁSZF</a>
-          <a href="/adatkezeles" data-route="/adatkezeles">Adatkezelés</a>
-          <a href="/impresszum" data-route="/impresszum">Impresszum</a>
-        </nav>
-      </div>
-    </footer>
-  </div>
-
-  <div
-    id="deactivateAccountModal"
-    class="deactivate-account-modal"
-    hidden
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="deactivateAccountModalTitle"
-  >
-    <button
-      type="button"
-      class="deactivate-account-modal__backdrop"
-      id="deactivateAccountModalBackdrop"
-      tabindex="-1"
-      aria-label="Bezárás"
-    ></button>
-    <div class="deactivate-account-modal__card glass-card view-inner" role="document">
-      <h2 id="deactivateAccountModalTitle" class="deactivate-account-modal__heading">Fiók deaktiválása</h2>
-      <p id="deactivateAccountModalText" class="deactivate-account-modal__text">
-        Biztosan deaktiválni szeretnéd a fiókodat? Ez a művelet korlátozhatja a belépést és a rendeléseid elérését.
-      </p>
-      <p id="deactivateAccountModalError" class="auth-msg err deactivate-account-modal__err" hidden role="alert"></p>
-      <div class="deactivate-account-modal__actions">
-        <button type="button" class="btn-outline-ghost" id="deactivateAccountModalCancel">Mégsem</button>
-        <button type="button" class="auth-btn-submit deactivate-account-modal__confirm" id="deactivateAccountModalConfirm">
-          Igen, deaktiválom
-        </button>
       </div>
     </div>
-  </div>
 
-  <div id="galleryLightbox" class="gallery-lightbox" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="Galéria kép nagyítva">
-    <button type="button" class="gallery-lightbox__close" id="galleryLightboxClose" aria-label="Bezárás">×</button>
-    <div class="gallery-lightbox__backdrop" id="galleryLightboxBackdrop"></div>
-    <button type="button" class="gallery-lightbox__nav gallery-lightbox__nav--prev" id="galleryLightboxPrev" aria-label="Előző kép">
-      <span class="gallery-lightbox__nav-icon" aria-hidden="true">‹</span>
-    </button>
-    <button type="button" class="gallery-lightbox__nav gallery-lightbox__nav--next" id="galleryLightboxNext" aria-label="Következő kép">
-      <span class="gallery-lightbox__nav-icon" aria-hidden="true">›</span>
-    </button>
-    <p class="gallery-lightbox__counter" id="galleryLightboxCounter" aria-live="polite"></p>
-    <figure class="gallery-lightbox__figure">
-      <img id="galleryLightboxImg" class="gallery-lightbox__img" alt="" />
-      <figcaption id="galleryLightboxCaption" class="gallery-lightbox__caption"></figcaption>
-    </figure>
-  </div>
+    <div
+      id="galleryLightbox"
+      class="gallery-lightbox"
+      hidden
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Galéria kép nagyítva"
+    >
+      <button
+        type="button"
+        class="gallery-lightbox__close"
+        id="galleryLightboxClose"
+        aria-label="Bezárás"
+      >
+        ×
+      </button>
+      <div
+        class="gallery-lightbox__backdrop"
+        id="galleryLightboxBackdrop"
+      ></div>
+      <button
+        type="button"
+        class="gallery-lightbox__nav gallery-lightbox__nav--prev"
+        id="galleryLightboxPrev"
+        aria-label="Előző kép"
+      >
+        <span class="gallery-lightbox__nav-icon" aria-hidden="true">‹</span>
+      </button>
+      <button
+        type="button"
+        class="gallery-lightbox__nav gallery-lightbox__nav--next"
+        id="galleryLightboxNext"
+        aria-label="Következő kép"
+      >
+        <span class="gallery-lightbox__nav-icon" aria-hidden="true">›</span>
+      </button>
+      <p
+        class="gallery-lightbox__counter"
+        id="galleryLightboxCounter"
+        aria-live="polite"
+      ></p>
+      <figure class="gallery-lightbox__figure">
+        <img id="galleryLightboxImg" class="gallery-lightbox__img" alt="" />
+        <figcaption
+          id="galleryLightboxCaption"
+          class="gallery-lightbox__caption"
+        ></figcaption>
+      </figure>
+    </div>
 
-  <script src="/storybook-reader.js"></script>
-  <script src="/app.js"></script>
-
-
-</body>
+    <script src="/storybook-reader.js"></script>
+    <script src="/storybook-reader-v2.js"></script>
+    <script src="/js/ns.js"></script>
+    <script src="/js/boot.js"></script>
+    <script src="/js/storage.js"></script>
+    <script src="/js/dom-utils.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/notify.js"></script>
+    <script src="/js/validate-address.js"></script>
+    <script src="/js/auth-ui.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/checkout.js"></script>
+    <script src="/js/orders-ui.js"></script>
+    <script src="/js/discounts-ui.js"></script>
+    <script src="/js/news.js"></script>
+    <script src="/js/gallery.js"></script>
+    <script src="/js/storybooks.js"></script>
+    <script src="/js/products.js"></script>
+    <script src="/js/router.js"></script>
+    <script src="/js/nav-overlays.js"></script>
+    <script src="/app.js"></script>
+  </body>
 </html>

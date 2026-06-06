@@ -1,0 +1,93 @@
+services:
+  - type: web
+    name: mesencsi-staging
+    runtime: python
+    plan: starter
+    region: frankfurt
+    branch: main
+    healthCheckPath: /health
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m alembic upgrade head && python -m uvicorn mesencsi:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # NOTE: Render is used as staging/test (e.g. Barion + SMTP verification), not final production.
+      # SECURITY: Set BARION_IPN_SECRET (sync: false) on any public URL — without it and
+      # MESENCSI_PRODUCTION=false, IPN accepts unauthenticated payment sync.
+      - key: ENVIRONMENT
+        value: staging
+      # Set to "true" only when you want production-hard startup validation behavior.
+      - key: MESENCSI_PRODUCTION
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+
+      # --- Required for hosted deployments (Render sets RENDER=true) ---
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USE_TLS
+        value: "1"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+      # --- JWT secrets (must be real values; do not use placeholders) ---
+      - key: USER_JWT_SECRET
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        sync: false
+
+      # --- Admin credentials (bcrypt hashes), required to enable admin login ---
+      - key: OWNER_USERNAME
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: MAINTENANCE_USERNAME
+        sync: false
+      - key: MAINTENANCE_PASSWORD
+        sync: false
+
+      # --- Database ---
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+
+      # --- Public URLs used in emails and Barion URL building ---
+      - key: PUBLIC_SITE_URL
+        sync: false
+      - key: BACKEND_PUBLIC_URL
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+
+      # --- CORS (staging should be explicit; production validation rejects localhost/wildcards) ---
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      # --- Barion (staging usually sandbox; production mode requires BARION_ENV=production) ---
+      - key: BARION_ENV
+        value: sandbox
+      - key: BARION_POS_KEY
+        sync: false
+      - key: BARION_PAYEE_EMAIL
+        sync: false
+      - key: BARION_IPN_SECRET
+        sync: false
+      - key: BARION_BACKEND_PUBLIC_URL
+        sync: false
+      - key: BARION_RETURN_URL
+        sync: false
+      - key: BARION_CALLBACK_URL
+        sync: false
+      - key: BARION_FRONTEND_LANDING_URL
+        sync: false

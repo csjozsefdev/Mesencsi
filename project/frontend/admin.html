@@ -11,9 +11,13 @@
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <link rel="stylesheet" href="/style.css" />
     <script src="/viewport-units.js"></script>
+    <script src="/js/ns.js"></script>
+    <script src="/js/notify.js"></script>
     <script src="/auth.js"></script>
     <script src="/storybook-reader.js"></script>
+    <script src="/storybook-reader-v2.js"></script>
     <script src="/news-format.js"></script>
+    <!-- ADMIN:STYLE:START — candidate extract to admin.css -->
     <style>
       :root {
         --admin-text: #2c2419;
@@ -25,8 +29,6 @@
         --admin-card: rgba(255, 255, 255, 0.72);
         --admin-border: rgba(255, 255, 255, 0.45);
         --admin-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
-        --sb-magic-duration: 0.42s;
-        --sb-magic-ease: cubic-bezier(0.42, 0, 0.22, 1);
         font-family: "Segoe UI", Georgia, serif;
       }
 
@@ -762,6 +764,25 @@
       .admin-field select.admin-multiselect {
         min-height: 12rem;
         padding: 0.45rem;
+      }
+      #view-users #usersOwnerPanel {
+        margin-top: 1.25rem;
+      }
+      #view-users #couponUserSelect {
+        min-height: 9.5rem;
+      }
+      #view-users .coupon-user-selected {
+        margin: -0.35rem 0 0.85rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: 10px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(255, 248, 235, 0.92);
+        font-size: 0.9rem;
+        line-height: 1.45;
+        color: var(--admin-text);
+      }
+      #view-users .coupon-user-selected strong {
+        color: var(--admin-accent-dark);
       }
       .admin-product-checklist {
         display: flex;
@@ -1709,10 +1730,6 @@
         box-shadow: 0 0 0 2px rgba(165, 90, 60, 0.35);
         border-radius: 8px;
       }
-      .sb-reader-root {
-        margin-top: 0.5rem;
-        padding: 0.75rem 0;
-      }
       .sb-reader-topbar {
         display: flex;
         flex-wrap: wrap;
@@ -1730,279 +1747,6 @@
       .sb-reader-page-ind {
         font-size: 0.9rem;
         color: var(--admin-muted);
-      }
-      .sb-reader-mount {
-        max-width: 560px;
-        margin: 0 auto 1.25rem;
-        min-height: 280px;
-      }
-      .sb-reader-mount .sb-read-page-stage {
-        overflow: hidden;
-        position: relative;
-        min-height: 240px;
-        isolation: isolate;
-      }
-      .sb-reader-mount .sb-read-page-panel {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-        filter: brightness(1) blur(0);
-        box-shadow: 0 0 0 rgba(212, 175, 95, 0);
-        transition-property: opacity, transform, filter, box-shadow;
-        transition-duration: var(--sb-magic-duration);
-        transition-timing-function: var(--sb-magic-ease);
-        transition-delay: 0s;
-        will-change: opacity, transform, filter;
-      }
-      .sb-reader-mount .sb-read-page-panel.sb-read-panel--exit-next {
-        opacity: 0;
-        transform: translate3d(6px, 10px, 0) scale(0.993);
-        filter: brightness(0.9) blur(3px);
-        box-shadow:
-          0 0 36px rgba(212, 175, 95, 0.14),
-          inset 0 0 28px rgba(255, 252, 245, 0.22);
-      }
-      .sb-reader-mount .sb-read-page-panel.sb-read-panel--exit-prev {
-        opacity: 0;
-        transform: translate3d(-6px, 10px, 0) scale(0.993);
-        filter: brightness(0.9) blur(3px);
-        box-shadow:
-          0 0 36px rgba(212, 175, 95, 0.14),
-          inset 0 0 28px rgba(255, 252, 245, 0.22);
-      }
-      .sb-reader-mount .sb-read-page-panel.sb-read-panel--enter-next {
-        opacity: 0;
-        transform: translate3d(0, -10px, 0) scale(0.995);
-        filter: brightness(1.08) blur(2px);
-        box-shadow: 0 0 32px rgba(212, 175, 95, 0.18);
-      }
-      .sb-reader-mount .sb-read-page-panel.sb-read-panel--enter-prev {
-        opacity: 0;
-        transform: translate3d(0, 10px, 0) scale(0.995);
-        filter: brightness(1.08) blur(2px);
-        box-shadow: 0 0 32px rgba(212, 175, 95, 0.18);
-      }
-      @keyframes sb-page-magic-glow-in {
-        0% {
-          opacity: 0;
-        }
-        30% {
-          opacity: 0.4;
-        }
-        100% {
-          opacity: 0;
-        }
-      }
-      @keyframes sb-page-magic-sweep {
-        0% {
-          transform: translate3d(-40%, 0, 0) skewX(-6deg);
-          opacity: 0;
-        }
-        18% {
-          opacity: 1;
-        }
-        100% {
-          transform: translate3d(40%, 0, 0) skewX(-6deg);
-          opacity: 0;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .sb-reader-mount .sb-read-page-panel:not(.storybook-page) {
-          transition: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.sb-read-panel--exit-next,
-        .sb-reader-mount .sb-read-page-panel.sb-read-panel--exit-prev,
-        .sb-reader-mount .sb-read-page-panel.sb-read-panel--enter-next,
-        .sb-reader-mount .sb-read-page-panel.sb-read-panel--enter-prev {
-          opacity: 1 !important;
-          transform: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-exit,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--next,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--prev,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-transition-out,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-transition-in-prep,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.page-transition-in {
-          transition: none !important;
-          opacity: 1 !important;
-          transform: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-out {
-          opacity: 0 !important;
-          transform: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-          transition: opacity 240ms ease !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in-prep {
-          opacity: 0 !important;
-          transform: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-          transition: none !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in {
-          opacity: 1 !important;
-          transform: none !important;
-          filter: none !important;
-          box-shadow: none !important;
-          transition: opacity 240ms ease !important;
-        }
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-out::before,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-out::after,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in-prep::before,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in-prep::after,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in::before,
-        .sb-reader-mount .sb-read-page-panel.storybook-page.sb-page-rm-fade-in::after {
-          opacity: 0 !important;
-          animation: none !important;
-          visibility: hidden;
-        }
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page {
-        position: relative;
-        --sb-page-magic-ms: 420ms;
-        --sb-page-magic-ease: cubic-bezier(0.33, 0, 0.2, 1);
-        isolation: isolate;
-        filter: brightness(1) blur(0);
-        box-shadow:
-          0 0 0 rgba(255, 230, 180, 0),
-          inset 0 0 0 rgba(255, 248, 220, 0);
-        transition:
-          opacity var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          transform var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          filter var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          box-shadow var(--sb-page-magic-ms) var(--sb-page-magic-ease);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page > * {
-        position: relative;
-        z-index: 1;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page::before {
-        content: "";
-        position: absolute;
-        inset: -14%;
-        z-index: 0;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity var(--sb-page-magic-ms) var(--sb-page-magic-ease);
-        background: radial-gradient(
-          ellipse 74% 58% at 50% 36%,
-          rgba(255, 236, 200, 0.32) 0%,
-          rgba(255, 220, 170, 0.12) 44%,
-          transparent 70%
-        );
-        mix-blend-mode: multiply;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        pointer-events: none;
-        opacity: 0;
-        background: linear-gradient(
-          102deg,
-          transparent 0%,
-          rgba(255, 250, 235, 0) 38%,
-          rgba(255, 236, 190, 0.22) 50%,
-          rgba(255, 250, 235, 0) 62%,
-          transparent 100%
-        );
-        mix-blend-mode: soft-light;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep::before,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep::after,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--next::before,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--next::after,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--prev::before,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--prev::after {
-        opacity: 0 !important;
-        animation: none !important;
-        transition: none !important;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-exit {
-        opacity: 0;
-        transform: translate3d(-14px, 5px, 0) scale(0.99);
-        filter: brightness(0.9) blur(1.4px);
-        box-shadow:
-          0 0 44px rgba(255, 210, 150, 0.16),
-          inset 0 0 28px rgba(255, 248, 230, 0.14);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-exit::before {
-        opacity: 0.48;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-exit--next {
-        transform: translate3d(-14px, 5px, 0) scale(0.99);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-exit--prev {
-        transform: translate3d(14px, 5px, 0) scale(0.99);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--next,
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--prev {
-        transition: none;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--next {
-        opacity: 0;
-        transform: translate3d(12px, -4px, 0) scale(0.992);
-        filter: brightness(1.04) blur(1px);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter-prep--prev {
-        opacity: 0;
-        transform: translate3d(-12px, -4px, 0) scale(0.992);
-        filter: brightness(1.04) blur(1px);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-        filter: brightness(1) blur(0);
-        box-shadow:
-          0 0 36px rgba(255, 220, 170, 0.12),
-          inset 0 0 22px rgba(255, 252, 245, 0.08);
-        transition:
-          opacity var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          transform var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          filter var(--sb-page-magic-ms) var(--sb-page-magic-ease),
-          box-shadow var(--sb-page-magic-ms) var(--sb-page-magic-ease);
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter::before {
-        animation: sb-page-magic-glow-in 500ms ease-out forwards;
-      }
-      .sb-reader-mount .sb-read-page-panel.storybook-page.page-enter::after {
-        animation: sb-page-magic-sweep 520ms var(--sb-page-magic-ease) forwards;
-      }
-      .sb-read-image-wrap {
-        text-align: center;
-        margin: 0 0 1rem;
-      }
-      .sb-read-image-wrap img {
-        max-width: 100%;
-        max-height: min(48vh, 360px);
-        border-radius: 12px;
-        object-fit: contain;
-        vertical-align: middle;
-      }
-      .sb-read-text-stage {
-        min-height: 100px;
-        display: flex;
-        flex-direction: column;
-        margin-top: 0.5rem;
-      }
-      .sb-reader-footer {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.75rem;
-        padding: 0.5rem 0 1rem;
-        border-top: 1px solid rgba(61, 36, 16, 0.1);
       }
       .sb-props-section {
         padding-bottom: 0.85rem;
@@ -2259,6 +2003,7 @@
         }
       }
     </style>
+    <!-- ADMIN:STYLE:END -->
   </head>
   <body data-testid="admin-app">
     <div class="admin-shell">
@@ -2462,7 +2207,7 @@
         <div id="galleryMount"></div>
       </section>
 
-      <!-- Mesék (tulajdonos) -->
+      <!-- Mesék (tulajdonos) — ORPHAN: no navTo entry; loadStoriesAdmin wired but unreachable -->
       <section id="view-stories-admin" class="view glass-panel" aria-label="Mesék szerkesztése">
         <div class="back-row">
           <button type="button" class="btn btn-ghost btn-sm" data-nav="dashboard">← Vissza az admin főoldalra</button>
@@ -2696,6 +2441,7 @@
               <div id="sbPageNavList" class="sb-page-thumb-list"></div>
             </aside>
 
+            <!-- sb: canvas workspace -->
             <div class="sb-creator-canvas-wrap">
               <div id="sbPageEmptyState" class="sb-canvas-empty glass-panel">
                 <p class="sb-canvas-empty-title">Még nincs oldal ebben a mesekönyvben.</p>
@@ -2746,6 +2492,7 @@
               </div>
             </div>
 
+            <!-- sb: props panel -->
             <aside id="sbPropsPanel" class="sb-creator-sidebar sb-creator-sidebar--props glass-panel" hidden aria-label="Oldal tulajdonságok">
               <h4 class="sb-sidebar-title" style="margin-top: 0">Tulajdonságok</h4>
 
@@ -2803,18 +2550,16 @@
           </div>
         </div>
 
-        <!-- ADMIN OLVASÓ / ELŐNÉZET (lapozó) -->
-        <div id="sbReaderRoot" class="sb-reader-root" hidden>
-          <header class="sb-reader-topbar glass-panel" style="padding: 0.65rem 1rem">
+        <!-- ADMIN OLVASÓ / ELŐNÉZET (V2 lapozó — public parity) -->
+        <div id="sbReaderRoot" class="storybook-v2-root" hidden>
+          <header class="sbv2-chrome sb-reader-topbar" style="padding: 0.65rem 1rem">
             <button type="button" class="btn btn-ghost btn-sm" id="btnSbReaderBack">← Vissza a listához</button>
             <h3 id="sbReaderTitle" class="sb-reader-title"></h3>
             <span id="sbReaderPageInd" class="sb-reader-page-ind" aria-live="polite"></span>
           </header>
-          <div id="sbReaderMount" class="sb-reader-mount glass-panel" style="padding: 1.25rem"></div>
-          <footer class="sb-reader-footer">
-            <button type="button" class="btn" id="btnSbReaderPrev">Előző oldal</button>
-            <button type="button" class="btn" id="btnSbReaderNext">Következő oldal</button>
-          </footer>
+          <div id="sbReaderViewport" class="sbv2-viewport">
+            <div id="sbReaderMount"></div>
+          </div>
         </div>
       </section>
 
@@ -2827,15 +2572,31 @@
         <p class="page-desc">
           Regisztrált vásárlói fiókok listája. A személyre szabott kupont csak a <strong>tulajdonos</strong> hozhatja létre.
         </p>
+        <div id="usersMount"></div>
+        <!-- Users: discount assignment (owner only) -->
         <div id="usersOwnerPanel" class="admin-form-panel" hidden>
-          <h3>Új kupon hozzárendelése</h3>
+          <h3>Kedvezmény hozzárendelése</h3>
           <p class="sub" style="margin: 0 0 0.75rem">
-            A kuponkód egyedi legyen. A kedvezmény százalékban (1–100).
+            Válassz felhasználót a fenti listából, majd add meg a kupon adatait. A kuponkód egyedi legyen; a kedvezmény százalékban (1–100).
           </p>
           <label class="admin-field">
-            Vásárló ID (a táblázatból)
-            <input type="number" id="couponUserId" min="1" step="1" />
+            Felhasználó kiválasztása
+            <input
+              type="search"
+              id="couponUserFilter"
+              placeholder="Keresés név vagy e-mail alapján…"
+              autocomplete="off"
+            />
+            <select id="couponUserSelect">
+              <option value="">— Válassz felhasználót —</option>
+            </select>
           </label>
+          <p
+            id="couponUserSelectedFeedback"
+            class="coupon-user-selected"
+            hidden
+            aria-live="polite"
+          ></p>
           <label class="admin-field">
             Kuponkód
             <input type="text" id="couponCode" maxlength="64" autocomplete="off" />
@@ -2849,13 +2610,12 @@
             <input type="datetime-local" id="couponExpires" />
           </label>
           <div class="form-actions">
-            <button type="button" class="btn" id="btnCouponAssign">Kupon létrehozása</button>
+            <button type="button" class="btn" id="btnCouponAssign">Kedvezmény adása</button>
           </div>
         </div>
-        <div id="usersMount"></div>
       </section>
 
-      <!-- Beállítások -->
+      <!-- Beállítások — ORPHAN: #settings hash redirects elsewhere; section kept for future wiring -->
       <section id="view-settings" class="view glass-panel" aria-label="Beállítások">
         <div class="back-row">
           <button type="button" class="btn btn-ghost btn-sm" data-nav="dashboard">← Vissza az admin főoldalra</button>
@@ -2900,6 +2660,64 @@
         }
         const $ = (id) => document.getElementById(id);
 
+        // --- DOM / format helpers ---
+
+        function escapeHtml(s) {
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function humanError(err) {
+          const raw = err && err.message ? String(err.message).trim() : "";
+          if (raw) return raw;
+          return "Valami hiba történt. Próbáld újra egy kicsit később.";
+        }
+
+        function showToast(text, type) {
+          const kind =
+            type === true || type === "ok"
+              ? "ok"
+              : type === false || type === "err"
+                ? "err"
+                : "info";
+          const notify = window.Mesencsi && window.Mesencsi.notify;
+          if (notify && typeof notify.toast === "function") {
+            notify.toast(text, kind);
+            return;
+          }
+          const el = $("toast");
+          if (!el) return;
+          el.textContent = text;
+          el.className = "toast " + kind + " is-visible";
+          clearTimeout(showToast._t);
+          showToast._t = setTimeout(() => {
+            el.classList.remove("is-visible");
+          }, 4200);
+        }
+
+        function formatMoney(n) {
+          try {
+            return new Intl.NumberFormat("hu-HU").format(n) + " Ft";
+          } catch {
+            return n + " Ft";
+          }
+        }
+
+        function formatDate(iso) {
+          try {
+            const d = new Date(iso);
+            return new Intl.DateTimeFormat("hu-HU", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(d);
+          } catch {
+            return "—";
+          }
+        }
+
         const STATUS_LABELS = {
           new: "Új rendelés",
           processing: "Feldolgozás alatt",
@@ -2925,12 +2743,16 @@
         let sbEditorIsOpen = false;
         let sbReaderIsOpen = false;
         let sbReaderBook = null;
-        let sbReaderIdx = 0;
+        let sbReaderSpreadIndex = 0;
         let sbReaderAnimating = false;
         let sbPageAutosaveTimer = null;
         let sbDragPageId = null;
         let sbStorybookViewportTimer = null;
         let sbUploadOverlayWatchdogTimer = null;
+
+        // ADMIN:MODULE:storybook-editor
+
+        // --- Storybook editor ---
 
         const SB_EDITOR_MIN_WIDTH_PX = 768;
         const SB_EDITOR_MOBILE_MSG =
@@ -2948,22 +2770,6 @@
           { id: "bookpage", label: "Könyvlap" },
           { id: "magic_frame", label: "Varázskeret" },
         ];
-
-        function sbBoxStyleClass(styleId) {
-          return SBR.boxStyleClass(styleId);
-        }
-
-        function sbNormPageLayout(p) {
-          return SBR.normPageLayout(p);
-        }
-
-        function sbParsePercent(v) {
-          return SBR.parsePercent(v);
-        }
-
-        function sbPageHasCustomDragPos(p) {
-          return SBR.pageHasCustomDragPos(p);
-        }
 
         function sbExitCustomTextPercentLocal() {
           const stage = $("sbCanvasTextStage");
@@ -3020,14 +2826,14 @@
           if (!sbDetail || !sbSelectedPageId) return false;
           const p = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
           if (!p) return false;
-          const srv = sbPageHasCustomDragPos(p);
+          const srv = SBR.pageHasCustomDragPos(p);
           const ui = sbUiHasCustomTextOverlay();
           if (srv !== ui) return true;
           if (!ui) return false;
           const pair = sbUiTextPercentPair();
           if (!pair) return true;
-          const sx = sbParsePercent(p.text_x_percent);
-          const sy = sbParsePercent(p.text_y_percent);
+          const sx = SBR.parsePercent(p.text_x_percent);
+          const sy = SBR.parsePercent(p.text_y_percent);
           if (sx == null || sy == null) return true;
           return Math.abs(pair.x - sx) > 0.35 || Math.abs(pair.y - sy) > 0.35;
         }
@@ -3046,15 +2852,15 @@
           const box = $("sbCanvasTextBox");
           const wrap = $("sbCanvasTextBoxWrap");
           if (!stage || !box) return;
-          const n = sbNormPageLayout(p);
-          if (sbPageHasCustomDragPos(p)) {
+          const n = SBR.normPageLayout(p);
+          if (SBR.pageHasCustomDragPos(p)) {
             stage.className = "sb-canvas-text-stage sb-text-stage--overlay";
             if (wrap) {
               wrap.style.left = "";
               wrap.style.top = "";
               wrap.style.transform = "";
-              const xp = sbParsePercent(p.text_x_percent);
-              const yp = sbParsePercent(p.text_y_percent);
+              const xp = SBR.parsePercent(p.text_x_percent);
+              const yp = SBR.parsePercent(p.text_y_percent);
               const inner = $("sbCanvasPageInner");
               if (inner && xp != null && yp != null) {
                 wrap.style.left = xp + "%";
@@ -3077,7 +2883,7 @@
               wrap.removeAttribute("data-sb-yp");
             }
           }
-          box.className = "sb-text-box " + sbBoxStyleClass(n.style);
+          box.className = "sb-text-box " + SBR.boxStyleClass(n.style);
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
           const ss = $("sbPropsTextBoxStyle");
@@ -3108,7 +2914,7 @@
           if (!stage.classList.contains("sb-text-stage--overlay")) {
             stage.className = "sb-canvas-text-stage sb-pos-v-" + v + " sb-pos-h-" + h;
           }
-          box.className = "sb-text-box " + sbBoxStyleClass(st);
+          box.className = "sb-text-box " + SBR.boxStyleClass(st);
           if (stage.classList.contains("sb-text-stage--overlay")) {
             requestAnimationFrame(() => sbRefineWrapPercentLayout());
           }
@@ -3119,14 +2925,14 @@
           const ss = $("sbPropsTextBoxStyle");
           if (!box || !ss) return;
           const st = SB_TEXT_BOX_OPTIONS.some((x) => x.id === ss.value) ? ss.value : "card";
-          box.className = "sb-text-box " + sbBoxStyleClass(st);
+          box.className = "sb-text-box " + SBR.boxStyleClass(st);
         }
 
         function sbPageLayoutDirtyVsServer() {
           if (!sbDetail || !sbSelectedPageId) return false;
           const p = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
           if (!p) return false;
-          const n = sbNormPageLayout(p);
+          const n = SBR.normPageLayout(p);
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
           const ss = $("sbPropsTextBoxStyle");
@@ -3134,113 +2940,104 @@
           return sv.value !== n.v || sh.value !== n.h || ss.value !== n.style;
         }
 
+        function sbAdminPanelOpts() {
+          return {
+            escapeHtml: escapeHtml,
+            assetUrl: sbAbsAssetUrl,
+            layout: "admin",
+          };
+        }
+
+        function sbSyncAdminReaderNav(mount, pages) {
+          const SBR2 = window.MesencsiStorybookReaderV2;
+          if (!mount || !SBR2 || typeof SBR2.syncV2NavState !== "function") return;
+          SBR2.syncV2NavState(mount, {
+            spreadIndex: sbReaderSpreadIndex,
+            pages: pages || [],
+            busy: sbReaderAnimating,
+          });
+        }
+
         function sbRenderAdminReaderPage(opts) {
           opts = opts || {};
           const mount = $("sbReaderMount");
           const titleEl = $("sbReaderTitle");
           const indEl = $("sbReaderPageInd");
-          const prevB = $("btnSbReaderPrev");
-          const nextB = $("btnSbReaderNext");
-          if (!mount || !sbReaderBook) return;
+          if (!mount || !sbReaderBook || !SBR) return;
+          const SBR2 = window.MesencsiStorybookReaderV2;
+          if (
+            !SBR2 ||
+            typeof SBR2.mountV2ShellIfNeeded !== "function" ||
+            typeof SBR2.paintSpreadResting !== "function"
+          ) {
+            console.error("[admin-storybook-v2] missing V2 reader module");
+            mount.innerHTML =
+              '<p class="empty-state">Az olvasó modul nem tölthető be.</p>';
+            return;
+          }
           const book = sbReaderBook;
           const pages = sbSortedPages(book);
-          const n = pages.length;
-
-          const timedAnim = !!(
-            opts.direction &&
-            typeof opts.oldIndex === "number" &&
-            typeof opts.newIndex === "number"
-          );
-
-          let i;
-          if (timedAnim) {
-            i = Math.max(0, Math.min(opts.oldIndex, n - 1));
-          } else {
-            i = Math.max(0, Math.min(sbReaderIdx, Math.max(0, n - 1)));
-            sbReaderIdx = i;
-          }
 
           if (titleEl) titleEl.textContent = book.title || "Mesekönyv";
-          if (indEl) indEl.textContent = n ? "Oldal " + (i + 1) + " / " + n : "";
-          if (prevB) prevB.disabled = i <= 0 || sbReaderAnimating;
-          if (nextB) nextB.disabled = n === 0 || i >= n - 1 || sbReaderAnimating;
-          const p = pages[i];
-          if (!p) {
-            mount.innerHTML = "<p class=\"empty-state\">Nincs megjeleníthető oldal.</p>";
+
+          if (!pages.length) {
+            mount.innerHTML = '<p class="empty-state">Nincs megjeleníthető oldal.</p>';
+            if (indEl) indEl.textContent = "";
             return;
           }
-          let panel = $("sbAdminReadPagePanel");
-          if (!panel) {
-            mount.innerHTML =
-              '<div class="sb-read-page-stage"><div id="sbAdminReadPagePanel" class="sb-read-page-panel storybook-page"></div></div>';
-            panel = $("sbAdminReadPagePanel");
-          }
-          if (panel && !panel.classList.contains("storybook-page")) panel.classList.add("storybook-page");
 
-          function applyPanel() {
-            if (typeof opts.newIndex === "number") sbReaderIdx = opts.newIndex;
-            const pLive = pages[sbReaderIdx];
-            if (!panel || !pLive) return;
-            if (indEl) indEl.textContent = n ? "Oldal " + (sbReaderIdx + 1) + " / " + n : "";
-            panel.innerHTML = SBR.buildPanelHtml(pLive, {
-              escapeHtml: escapeHtml,
-              assetUrl: sbAbsAssetUrl,
-              layout: "admin",
-            });
+          if (mount.querySelector(".sb-book-reader") && !mount.querySelector(".sbv2-reader")) {
+            // Remove stale V1 reader DOM before V2 mount.
+            mount.innerHTML = "";
+            try {
+              mount.removeAttribute("data-sb-book-nav-wired");
+            } catch (_) {}
           }
 
-          if (!timedAnim) {
-            panel.classList.remove(
-              "sb-read-panel--enter-next",
-              "sb-read-panel--enter-prev",
-              "sb-read-panel--exit-next",
-              "sb-read-panel--exit-prev",
-              "page-exit",
-              "page-exit--next",
-              "page-exit--prev",
-              "page-enter-prep",
-              "page-enter-prep--next",
-              "page-enter-prep--prev",
-              "page-enter",
-              "sb-page-rm-fade-out",
-              "sb-page-rm-fade-in-prep",
-              "sb-page-rm-fade-in",
-              "page-transition-out",
-              "page-transition-out--next",
-              "page-transition-out--prev",
-              "page-transition-in-prep",
-              "page-transition-in"
-            );
-            applyPanel();
-            SBR.preloadAdjacentImages(pages, sbReaderIdx, sbAbsAssetUrl);
-            if (prevB) prevB.disabled = sbReaderIdx <= 0;
-            if (nextB) nextB.disabled = n === 0 || sbReaderIdx >= n - 1;
+          const spreadIndex =
+            typeof opts.targetSpreadIndex === "number"
+              ? opts.targetSpreadIndex
+              : sbReaderSpreadIndex;
+
+          if (indEl) {
+            indEl.textContent = SBR.formatSpreadIndicator(spreadIndex, pages);
+          }
+
+          SBR2.mountV2ShellIfNeeded(mount);
+          if (!mount.querySelector(".sbv2-reader")) {
+            mount.innerHTML = '<p class="empty-state">Az olvasó nem indítható.</p>';
             return;
           }
-          SBR.runPanelTransition(panel, opts.direction, applyPanel, {
-            getAnimating: () => sbReaderAnimating,
-            setAnimating: (v) => {
-              sbReaderAnimating = v;
+
+          wireSbReaderAndLayoutControls();
+
+          const renderResult = SBR2.runV2SpreadRender({
+            mountEl: mount,
+            pages: pages,
+            currentSpreadIndex: sbReaderSpreadIndex,
+            targetSpreadIndex: spreadIndex,
+            direction: opts.direction,
+            panelOpts: sbAdminPanelOpts(),
+            isAnimating: function () {
+              return sbReaderAnimating;
             },
-            oldIndex: opts.oldIndex,
-            newIndex: opts.newIndex,
-            preloadAdjacent: () => SBR.preloadAdjacentImages(pages, sbReaderIdx, sbAbsAssetUrl),
-            onDone: function () {
-              var prevB2 = $("btnSbReaderPrev");
-              var nextB2 = $("btnSbReaderNext");
-              var n2 = pages.length;
-              var i2 = sbReaderIdx;
-              if (prevB2) prevB2.disabled = i2 <= 0;
-              if (nextB2) nextB2.disabled = n2 === 0 || i2 >= n2 - 1;
+            setAnimating: function (v) {
+              sbReaderAnimating = v;
+              sbSyncAdminReaderNav(mount, pages);
+            },
+            onSpreadCommitted: function (newSi) {
+              sbReaderSpreadIndex = newSi;
+              if (indEl) indEl.textContent = SBR.formatSpreadIndicator(newSi, pages);
+            },
+            preloadAdjacent: function () {
+              SBR.preloadSpreadImages(pages, sbReaderSpreadIndex, sbAbsAssetUrl);
+            },
+            syncNav: function () {
+              sbSyncAdminReaderNav(mount, pages);
             },
           });
-          {
-            const prevB3 = $("btnSbReaderPrev");
-            const nextB3 = $("btnSbReaderNext");
-            const busy = sbReaderAnimating;
-            const i3 = sbReaderIdx;
-            if (prevB3) prevB3.disabled = i3 <= 0 || busy;
-            if (nextB3) nextB3.disabled = n === 0 || i3 >= n - 1 || busy;
+          if (renderResult.reason === "mount-failed") {
+            mount.innerHTML = '<p class="empty-state">Az olvasó nem indítható.</p>';
           }
         }
 
@@ -3250,7 +3047,7 @@
             sbShowUploadUi(true, 0);
             const book = await auth.api("/admin/storybooks/" + bookId);
             sbReaderBook = book;
-            sbReaderIdx = 0;
+            sbReaderSpreadIndex = 0;
             sbReaderAnimating = false;
             sbReaderIsOpen = true;
             sbEditorIsOpen = false;
@@ -3260,10 +3057,11 @@
             if (list) list.hidden = true;
             if (ed) ed.hidden = true;
             if (rd) rd.hidden = false;
+            sbSetAdminReaderImmersive(true);
             sbRenderAdminReaderPage();
             if (rd) rd.scrollIntoView({ behavior: "smooth", block: "nearest" });
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           } finally {
             sbShowUploadUi(false, 0);
           }
@@ -3274,33 +3072,59 @@
           loadStorybooksAdmin();
         }
 
+        function sbAdminNavigateSpread(direction) {
+          if (!sbReaderBook || sbReaderAnimating || !SBR) return;
+          const pages = sbSortedPages(sbReaderBook);
+          const si = sbReaderSpreadIndex;
+          if (direction === "prev") {
+            if (!SBR.canSpreadPrev(si)) return;
+            sbRenderAdminReaderPage({
+              direction: "prev",
+              targetSpreadIndex: si - 1,
+            });
+          } else if (direction === "next") {
+            if (!SBR.canSpreadNext(si, pages)) return;
+            sbRenderAdminReaderPage({
+              direction: "next",
+              targetSpreadIndex: si + 1,
+            });
+          }
+        }
+
         function wireSbReaderAndLayoutControls() {
+          const mount = $("sbReaderMount");
+          if (mount && mount.dataset.sbv2NavWired !== "1") {
+            mount.dataset.sbv2NavWired = "1";
+            mount.addEventListener("click", (e) => {
+              const btn =
+                e.target && e.target.closest ? e.target.closest("[data-sbv2-zone]") : null;
+              if (!btn || btn.disabled || sbReaderAnimating) return;
+              const dir = btn.getAttribute("data-sbv2-zone");
+              if (dir === "prev" || dir === "next") sbAdminNavigateSpread(dir);
+            });
+          }
+          if (document.documentElement.dataset.sbAdminBookKeyWired !== "1") {
+            document.documentElement.dataset.sbAdminBookKeyWired = "1";
+            document.addEventListener("keydown", (e) => {
+              const rd = $("sbReaderRoot");
+              if (!rd || rd.hidden || !sbReaderIsOpen) return;
+              if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+              const tag = (e.target && e.target.tagName) || "";
+              if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(tag)) return;
+              if (sbReaderAnimating) return;
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                sbAdminNavigateSpread("prev");
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                sbAdminNavigateSpread("next");
+              }
+            });
+          }
           const back = $("btnSbReaderBack");
           if (back && back.dataset.sbWired !== "1") {
             back.dataset.sbWired = "1";
             back.addEventListener("click", () => sbCloseReaderToList());
-          }
-          const prev = $("btnSbReaderPrev");
-          if (prev && prev.dataset.sbWired !== "1") {
-            prev.dataset.sbWired = "1";
-            prev.addEventListener("click", () => {
-              if (!sbReaderBook || sbReaderIdx <= 0 || sbReaderAnimating) return;
-              const oldIndex = sbReaderIdx;
-              const newIndex = oldIndex - 1;
-              sbRenderAdminReaderPage({ direction: "prev", oldIndex: oldIndex, newIndex: newIndex });
-            });
-          }
-          const next = $("btnSbReaderNext");
-          if (next && next.dataset.sbWired !== "1") {
-            next.dataset.sbWired = "1";
-            next.addEventListener("click", () => {
-              if (!sbReaderBook || sbReaderAnimating) return;
-              const n = sbSortedPages(sbReaderBook).length;
-              if (sbReaderIdx >= n - 1) return;
-              const oldIndex = sbReaderIdx;
-              const newIndex = oldIndex + 1;
-              sbRenderAdminReaderPage({ direction: "next", oldIndex: oldIndex, newIndex: newIndex });
-            });
           }
         }
 
@@ -3352,18 +3176,17 @@
             let cy = my + drag.dy;
             const w = drag.inner.clientWidth || 1;
             const h = drag.inner.clientHeight || 1;
-            const wrap = drag.wrap;
-            const hw = Math.min(w * 0.49, Math.max(8, (wrap.offsetWidth || 120) / 2));
-            const hh = Math.min(h * 0.49, Math.max(8, (wrap.offsetHeight || 48) / 2));
-            cx = Math.min(w - hw, Math.max(hw, cx));
-            cy = Math.min(h - hh, Math.max(hh, cy));
-            const xp = (cx / w) * 100;
-            const yp = (cy / h) * 100;
-            wrap.style.left = xp + "%";
-            wrap.style.top = yp + "%";
+            const clamped = sbClampCenterPercent(
+              drag.inner,
+              drag.wrap,
+              (cx / w) * 100,
+              (cy / h) * 100
+            );
+            wrap.style.left = clamped.xp + "%";
+            wrap.style.top = clamped.yp + "%";
             wrap.style.transform = "translate(-50%, -50%)";
-            wrap.dataset.sbXp = String(xp);
-            wrap.dataset.sbYp = String(yp);
+            wrap.dataset.sbXp = String(clamped.xp);
+            wrap.dataset.sbYp = String(clamped.yp);
           };
           const endDrag = (e) => {
             if (!drag || e.pointerId !== drag.pid) return;
@@ -3428,12 +3251,6 @@
           });
         }
 
-        function humanError(err) {
-          const raw = err && err.message ? String(err.message).trim() : "";
-          if (raw) return raw;
-          return "Valami hiba történt. Próbáld újra egy kicsit később.";
-        }
-
         /** Storybook lista GET — részletes hiba + 503 migráció (auth.api nem ad vissza status kódot). */
         function sbHumanizeStorybookListError(status, data, rawText) {
           const detail =
@@ -3475,7 +3292,7 @@
               headers: {
                 Accept: "application/json",
                 "Content-Type": "application/json",
-                ...auth.getAuthHeaders(),
+                // Admin auth uses HttpOnly cookies (credentials: include is set in auth.api)
               },
             });
           } catch (e) {
@@ -3500,34 +3317,19 @@
           return data;
         }
 
-        function showToast(text, kind) {
-          const el = $("toast");
-          el.textContent = text;
-          const cls = kind === true ? "ok" : kind === false ? "err" : "info";
-          el.className = "toast " + cls + " is-visible";
-          clearTimeout(showToast._t);
-          showToast._t = setTimeout(() => {
-            el.classList.remove("is-visible");
-          }, 4200);
-        }
-
-        function formatMoney(n) {
+        /** Gomb letiltása mentés/törlés közben (toast a hívóban marad). */
+        async function withAdminBusy(btn, fn, loadingText) {
+          if (!btn || typeof fn !== "function") return fn();
+          const prev = btn.textContent;
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+          btn.textContent = loadingText || "Mentés…";
           try {
-            return new Intl.NumberFormat("hu-HU").format(n) + " Ft";
-          } catch {
-            return n + " Ft";
-          }
-        }
-
-        function formatDate(iso) {
-          try {
-            const d = new Date(iso);
-            return new Intl.DateTimeFormat("hu-HU", {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }).format(d);
-          } catch {
-            return "—";
+            return await fn();
+          } finally {
+            btn.disabled = false;
+            btn.removeAttribute("aria-busy");
+            btn.textContent = prev;
           }
         }
 
@@ -3682,7 +3484,7 @@
                 newStatus === "completed" &&
                 canonicalPaymentStatus(sel.getAttribute("data-payment-status")) !== "paid"
               ) {
-                showToast(ORDER_COMPLETED_REQUIRES_PAID_MSG, false);
+                showToast(ORDER_COMPLETED_REQUIRES_PAID_MSG, "err");
                 sel.value = prev;
                 return;
               }
@@ -3694,10 +3496,10 @@
                   });
                 }
                 sel.dataset.prevValue = newStatus;
-                showToast("Az állapot sikeresen mentve.", true);
+                showToast("Az állapot sikeresen mentve.", "ok");
                 loadOrders();
               } catch (err) {
-                showToast(orderStatusPatchErrorMessage(err), false);
+                showToast(orderStatusPatchErrorMessage(err), "err");
                 sel.value = prev;
               }
               return;
@@ -3719,10 +3521,10 @@
                   });
                 }
                 sel.dataset.prevValue = newPay;
-                showToast("A fizetési állapot mentve.", true);
+                showToast("A fizetési állapot mentve.", "ok");
                 loadOrders();
               } catch (err) {
-                showToast((err && err.message) || "Nem sikerült menteni a fizetést, próbáld újra.", false);
+                showToast((err && err.message) || "Nem sikerült menteni a fizetést, próbáld újra.", "err");
                 sel.value = prev;
               }
             }
@@ -4044,12 +3846,124 @@
           return true;
         }
 
+        let shopUsersCache = [];
+
+        function formatShopUserLabel(u) {
+          if (!u) return "";
+          const name = String(u.nickname || u.username || "").trim();
+          const email = String(u.email || "").trim();
+          if (name && email) return name + " — " + email;
+          if (email) return email;
+          if (name) return name;
+          return "Felhasználó #" + u.id;
+        }
+
+        function formatShopUserSelectedDetail(u) {
+          if (!u) return "";
+          const name = String(u.nickname || u.username || "").trim();
+          const email = String(u.email || "").trim();
+          if (name && email) return name + " (" + email + ")";
+          if (email) return email;
+          if (name) return name;
+          return "Felhasználó #" + u.id;
+        }
+
+        function populateCouponUserSelect(users, filterText) {
+          const sel = $("couponUserSelect");
+          const filterEl = $("couponUserFilter");
+          if (!sel) return;
+          const prev = sel.value;
+          const q = String(
+            filterText != null ? filterText : filterEl ? filterEl.value : ""
+          )
+            .trim()
+            .toLowerCase();
+          const list = Array.isArray(users) ? users : [];
+          sel.innerHTML = "";
+          if (!list.length) {
+            sel.appendChild(
+              Object.assign(document.createElement("option"), {
+                value: "",
+                textContent: "Nincs elérhető felhasználó",
+              })
+            );
+            sel.disabled = true;
+            updateCouponUserSelectedFeedback();
+            return;
+          }
+          const filtered = list.filter(function (u) {
+            if (!q) return true;
+            const label = formatShopUserLabel(u).toLowerCase();
+            return label.includes(q) || String(u.id).includes(q);
+          });
+          if (!filtered.length) {
+            sel.appendChild(
+              Object.assign(document.createElement("option"), {
+                value: "",
+                textContent: "Nincs találat a szűrésre",
+              })
+            );
+            sel.disabled = true;
+            updateCouponUserSelectedFeedback();
+            return;
+          }
+          sel.disabled = false;
+          sel.appendChild(
+            Object.assign(document.createElement("option"), {
+              value: "",
+              textContent: "— Válassz felhasználót —",
+            })
+          );
+          filtered.forEach(function (u) {
+            sel.appendChild(
+              Object.assign(document.createElement("option"), {
+                value: String(u.id),
+                textContent: formatShopUserLabel(u),
+              })
+            );
+          });
+          if (prev && filtered.some(function (u) { return String(u.id) === prev; })) {
+            sel.value = prev;
+          }
+          updateCouponUserSelectedFeedback();
+        }
+
+        function updateCouponUserSelectedFeedback() {
+          const sel = $("couponUserSelect");
+          const fb = $("couponUserSelectedFeedback");
+          if (!sel || !fb) return;
+          const userId = parseInt(sel.value, 10);
+          const u = shopUsersCache.find(function (x) { return x.id === userId; });
+          if (!u) {
+            fb.hidden = true;
+            fb.textContent = "";
+            return;
+          }
+          fb.hidden = false;
+          fb.innerHTML =
+            "<strong>Kiválasztott felhasználó:</strong> " +
+            escapeHtml(formatShopUserSelectedDetail(u));
+        }
+
+        function resetCouponUserPickerState() {
+          shopUsersCache = [];
+          const filterEl = $("couponUserFilter");
+          if (filterEl) filterEl.value = "";
+          populateCouponUserSelect([], "");
+        }
+
+        // ADMIN:MODULE:users-discounts
+
+        // --- Users / discounts ---
+
         async function loadUsersAdmin() {
           const mount = $("usersMount");
           if (!mount) return;
           mount.innerHTML = "<p class=\"empty-state\">Betöltés…</p>";
           try {
             const rows = await auth.api("/admin/shop-users");
+            shopUsersCache = Array.isArray(rows) ? rows.slice() : [];
+            populateCouponUserSelect(shopUsersCache, "");
             if (!Array.isArray(rows) || !rows.length) {
               mount.innerHTML = "<div class=\"empty-state\"><p>Nincs listázható vásárló.</p></div>";
               return;
@@ -4120,17 +4034,42 @@
                 }
                 try {
                   await auth.api("/admin/users/" + userId, { method: "DELETE" });
-                  showToast("A vásárlói fiók deaktiválva — eltávolítva a listából.", true);
+                  showToast("A vásárlói fiók deaktiválva — eltávolítva a listából.", "ok");
                   loadUsersAdmin();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
           } catch (e) {
+            resetCouponUserPickerState();
+            const sel = $("couponUserSelect");
+            if (sel) {
+              sel.innerHTML = "";
+              sel.appendChild(
+                Object.assign(document.createElement("option"), {
+                  value: "",
+                  textContent: "A felhasználók betöltése sikertelen",
+                })
+              );
+              sel.disabled = true;
+            }
+            const fb = $("couponUserSelectedFeedback");
+            if (fb) {
+              fb.hidden = false;
+              fb.textContent = "";
+              fb.innerHTML =
+                "<strong>Figyelem:</strong> " +
+                escapeHtml(humanError(e)) +
+                " A kedvezmény hozzárendelése addig nem lehetséges, amíg a lista nem töltődik be.";
+            }
             mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
         }
+
+        // ADMIN:MODULE:orders
+
+        // --- Orders ---
 
         async function loadOrders() {
           const mount = $("ordersMount");
@@ -4206,24 +4145,16 @@
                   for (const id of ids) {
                     await auth.api("/admin/orders/" + id, { method: "DELETE" });
                   }
-                  showToast("A rendelés törlése sikeres volt.", true);
+                  showToast("A rendelés törlése sikeres volt.", "ok");
                   loadOrders();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
           } catch (e) {
             mount.innerHTML = "<p class=\"empty-state\">" + escapeHtml(humanError(e)) + "</p>";
           }
-        }
-
-        function escapeHtml(s) {
-          return String(s)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
         }
 
         function formatShippingAddressForAdmin(raw) {
@@ -4248,6 +4179,10 @@
           }
           return escapeHtml(s).replace(/\n/g, "<br/>");
         }
+
+        // ADMIN:MODULE:products
+
+        // --- Products ---
 
         async function loadProducts() {
           const mount = $("productsMount");
@@ -4334,7 +4269,7 @@
                 try {
                   const res = await fetch("/admin/products/" + id, {
                     method: "DELETE",
-                    headers: auth.getAuthHeaders(),
+                    // Admin auth uses HttpOnly cookies (credentials: include is set in auth.api)
                   });
                   if (!res.ok) {
                     const text = await res.text();
@@ -4345,10 +4280,10 @@
                     } catch (_) {}
                     throw new Error(msg);
                   }
-                  showToast("A termék törölve.", true);
+                  showToast("A termék törölve.", "ok");
                   loadProducts();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
@@ -4483,11 +4418,11 @@
                 if (!confirm("Biztosan törlöd ezt a kombó kedvezményt?")) return;
                 try {
                   await auth.api("/admin/bundle-discounts/" + id, { method: "DELETE" });
-                  showToast("Törölve.", true);
+                  showToast("Törölve.", "ok");
                   resetBundleDiscountEditor();
                   loadBundleDiscountsAdmin();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
@@ -4529,10 +4464,10 @@
                 if (!confirm("Biztosan törlöd ezt a képet a galériából?")) return;
                 try {
                   await auth.api("/admin/gallery/" + id, { method: "DELETE" });
-                  showToast("A kép törölve.", true);
+                  showToast("A kép törölve.", "ok");
                   loadGallery();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
@@ -4604,10 +4539,10 @@
                 if (!confirm("Biztosan törlöd ezt a mesét?")) return;
                 try {
                   await auth.api("/admin/stories/" + id, { method: "DELETE" });
-                  showToast("A mese törölve.", true);
+                  showToast("A mese törölve.", "ok");
                   loadStoriesAdmin();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
@@ -4752,10 +4687,10 @@
                 if (!confirm("Biztosan törlöd ezt a hírt?")) return;
                 try {
                   await auth.api("/admin/news/" + id, { method: "DELETE" });
-                  showToast("A hír törölve.", true);
+                  showToast("A hír törölve.", "ok");
                   loadNewsAdmin();
                 } catch (e) {
-                  showToast(humanError(e), false);
+                  showToast(humanError(e), "err");
                 }
               });
             });
@@ -4843,11 +4778,27 @@
           return $("sbEditorRoot");
         }
 
+        function sbSetAdminReaderImmersive(on) {
+          const SBR2 = window.MesencsiStorybookReaderV2;
+          if (SBR2 && typeof SBR2.setV2Immersive === "function") {
+            SBR2.setV2Immersive(!!on, {
+              hostEl: $("sbReaderRoot"),
+              viewportEl: $("sbReaderViewport"),
+              readerOutEl: $("sbReaderMount"),
+            });
+            return;
+          }
+          const rd = $("sbReaderRoot");
+          if (rd) rd.classList.toggle("storybook-v2-root--immersive", !!on);
+          document.documentElement.classList.toggle("sb-book-scroll-lock", !!on);
+        }
+
         function sbShowListView() {
           sbEditorIsOpen = false;
           sbReaderIsOpen = false;
           sbReaderBook = null;
-          sbReaderIdx = 0;
+          sbReaderSpreadIndex = 0;
+          sbSetAdminReaderImmersive(false);
           const list = sbListRootEl();
           const ed = sbEditorRootEl();
           const rd = $("sbReaderRoot");
@@ -4900,7 +4851,7 @@
             loadStorybooksAdmin();
             let msg = SB_EDITOR_MOBILE_MSG;
             if (hadDirty) msg += " (Volt mentetlen változás.)";
-            showToast(msg, false);
+            showToast(msg, "err");
             return;
           }
           sbApplyStorybookListEditorButtonsState();
@@ -4909,7 +4860,7 @@
         function sbOpenEditorView() {
           if (!me || me.role !== "owner") return false;
           if (!sbStorybookEditorViewportOk()) {
-            showToast(SB_EDITOR_MOBILE_MSG, false);
+            showToast(SB_EDITOR_MOBILE_MSG, "err");
             return false;
           }
           sbEditorIsOpen = true;
@@ -5072,7 +5023,7 @@
           if (t.length > 50000) {
             t = t.slice(0, 50000);
             tx.textContent = t;
-            showToast("A szöveg elérte a maximális hosszot (50 000 karakter).", false);
+            showToast("A szöveg elérte a maximális hosszot (50 000 karakter).", "err");
           }
           hid.value = t;
         }
@@ -5084,8 +5035,11 @@
             sbPageAutosaveTimer = null;
             try {
               await sbSaveCurrentPageIfDirty({ quiet: true });
-            } catch (_) {
-              /* csendben */
+            } catch (e) {
+              showToast(
+                humanError(e) || "Az oldal automatikus mentése nem sikerült.",
+                false,
+              );
             }
           }, 2600);
         }
@@ -5137,7 +5091,7 @@
             try {
               await sbPersistPageOrder(nu);
             } catch (err) {
-              showToast(humanError(err), false);
+              showToast(humanError(err), "err");
             }
           });
         }
@@ -5295,13 +5249,13 @@
             body: JSON.stringify({ ordered_page_ids: ids }),
           });
           sbFillEditorFromDetail();
-          showToast("Sorrend mentve.", true);
+          showToast("Sorrend mentve.", "ok");
         }
 
         function sbOpenNewWizard() {
           if (!me || me.role !== "owner") return;
           if (!sbStorybookEditorViewportOk()) {
-            showToast(SB_EDITOR_MOBILE_MSG, false);
+            showToast(SB_EDITOR_MOBILE_MSG, "err");
             return;
           }
           const w = $("sbNewBookPanel");
@@ -5317,7 +5271,7 @@
           if (!me || me.role !== "owner") return;
           const title = ($("sbNewTitle").value || "").trim();
           if (!title) {
-            showToast("Add meg a mesekönyv címét.", false);
+            showToast("Add meg a mesekönyv címét.", "err");
             return;
           }
           const description = ($("sbNewDesc").value || "").trim() || null;
@@ -5332,7 +5286,7 @@
             if (cf && cf.files && cf.files[0] && Number.isFinite(id)) {
               const f = cf.files[0];
               if (f.size > SB_MAX_UPLOAD_IMG) {
-                showToast("A borítókép túl nagy (max. 8 MB).", false);
+                showToast("A borítókép túl nagy (max. 8 MB).", "err");
               } else {
                 const fd = new FormData();
                 fd.append("file", f);
@@ -5348,25 +5302,127 @@
             if (!sbStorybookEditorViewportOk()) {
               sbShowListView();
               loadStorybooksAdmin();
-              showToast("Mesekönyv létrehozva. " + SB_EDITOR_MOBILE_MSG, true);
+              showToast("Mesekönyv létrehozva. " + SB_EDITOR_MOBILE_MSG, "ok");
               return;
             }
             sbOpenEditorView();
             sbFillEditorFromDetail();
             const ed = sbEditorRootEl();
             if (ed) ed.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            showToast("Mesekönyv létrehozva. Adj hozzá oldalakat.", true);
+            showToast("Mesekönyv létrehozva. Adj hozzá oldalakat.", "ok");
             loadStorybooksAdmin();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           } finally {
             sbShowUploadUi(false, 0);
           }
         }
 
+        function sbWireStorybookListDelegation(mount) {
+          if (!mount || mount.dataset.sbListDelegated === "1") return;
+          mount.dataset.sbListDelegated = "1";
+          mount.addEventListener("click", async (e) => {
+            const owner = me && me.role === "owner";
+            const readBtn = e.target.closest("[data-sb-read]");
+            if (readBtn) {
+              const id = parseInt(readBtn.getAttribute("data-sb-read"), 10);
+              if (Number.isFinite(id)) await sbOpenReaderFromList(id);
+              return;
+            }
+            const openBtn = e.target.closest("[data-sb-open]");
+            if (openBtn) {
+              const id = parseInt(openBtn.getAttribute("data-sb-open"), 10);
+              if (!Number.isFinite(id)) return;
+              if (!owner) {
+                showToast("A szerkesztéshez tulajdonosi jog kell.", "err");
+                return;
+              }
+              if (!sbStorybookEditorViewportOk()) {
+                showToast(SB_EDITOR_MOBILE_MSG, "err");
+                return;
+              }
+              try {
+                sbShowUploadUi(true, 0);
+                sbDetail = await auth.api("/admin/storybooks/" + id);
+                sbOpenEditorView();
+                sbFillEditorFromDetail();
+                const ed = sbEditorRootEl();
+                if (ed) ed.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              } catch (err) {
+                showToast(humanError(err), "err");
+              } finally {
+                sbShowUploadUi(false, 0);
+              }
+              return;
+            }
+            const pubBtn = e.target.closest("[data-sb-publish]");
+            if (pubBtn) {
+              if (!owner) return;
+              const id = parseInt(pubBtn.getAttribute("data-sb-publish"), 10);
+              if (!Number.isFinite(id)) return;
+              if (!confirm("Publikálod ezt a mesekönyvet? A látogatók a boltban is láthatják.")) return;
+              try {
+                await auth.api("/admin/storybooks/" + id, {
+                  method: "PATCH",
+                  body: JSON.stringify({ is_published: true }),
+                });
+                showToast("Könyv publikálva.", "ok");
+                loadStorybooksAdmin();
+              } catch (err) {
+                showToast(humanError(err), "err");
+              }
+              return;
+            }
+            const unpubBtn = e.target.closest("[data-sb-unpublish]");
+            if (unpubBtn) {
+              if (!owner) return;
+              const id = parseInt(unpubBtn.getAttribute("data-sb-unpublish"), 10);
+              if (!Number.isFinite(id)) return;
+              if (!confirm("Visszavonod a publikálást? A könyv nem lesz látható a boltban.")) return;
+              try {
+                await auth.api("/admin/storybooks/" + id, {
+                  method: "PATCH",
+                  body: JSON.stringify({ is_published: false }),
+                });
+                showToast("Publikálás visszavonva.", "ok");
+                loadStorybooksAdmin();
+              } catch (err) {
+                showToast(humanError(err), "err");
+              }
+              return;
+            }
+            const delBtn = e.target.closest("[data-sb-del]");
+            if (delBtn) {
+              if (!owner) return;
+              const id = parseInt(delBtn.getAttribute("data-sb-del"), 10);
+              if (
+                !confirm(
+                  "Véglegesen törlöd ezt a mesekönyvet és az összes oldalát?\n\nEz nem vonható vissza."
+                )
+              )
+                return;
+              try {
+                await auth.api("/admin/storybooks/" + id, { method: "DELETE" });
+                showToast("A könyv törölve.", "ok");
+                if ((sbDetail && sbDetail.id === id) || (sbReaderBook && sbReaderBook.id === id)) {
+                  if (sbDetail && sbDetail.id === id) {
+                    sbDetail = null;
+                    sbClearEditorPlaceholder();
+                  }
+                  sbShowListView();
+                }
+                loadStorybooksAdmin();
+              } catch (err) {
+                showToast(humanError(err), "err");
+              }
+            }
+          });
+        }
+
         async function loadStorybooksAdmin() {
           const mount = $("storybooksAdminMount");
           const owner = me && me.role === "owner";
+          sbWireStorybookListDelegation(mount);
           try {
             const nbp = $("sbNewBookPanel");
             if (nbp) nbp.hidden = true;
@@ -5445,101 +5501,6 @@
                 })
                 .join("") +
               "</div>";
-            mount.querySelectorAll("[data-sb-read]").forEach((btn) => {
-              btn.addEventListener("click", async () => {
-                const id = parseInt(btn.getAttribute("data-sb-read"), 10);
-                if (!Number.isFinite(id)) return;
-                await sbOpenReaderFromList(id);
-              });
-            });
-            mount.querySelectorAll("[data-sb-open]").forEach((btn) => {
-              btn.addEventListener("click", async () => {
-                const id = parseInt(btn.getAttribute("data-sb-open"), 10);
-                if (!Number.isFinite(id)) return;
-                if (!owner) {
-                  showToast("A szerkesztéshez tulajdonosi jog kell.", false);
-                  return;
-                }
-                if (!sbStorybookEditorViewportOk()) {
-                  showToast(SB_EDITOR_MOBILE_MSG, false);
-                  return;
-                }
-                try {
-                  sbShowUploadUi(true, 0);
-                  sbDetail = await auth.api("/admin/storybooks/" + id);
-                  sbOpenEditorView();
-                  sbFillEditorFromDetail();
-                  const ed = sbEditorRootEl();
-                  if (ed) ed.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                } catch (e) {
-                  showToast(humanError(e), false);
-                } finally {
-                  sbShowUploadUi(false, 0);
-                }
-              });
-            });
-            mount.querySelectorAll("[data-sb-publish]").forEach((btn) => {
-              btn.addEventListener("click", async () => {
-                if (!owner) return;
-                const id = parseInt(btn.getAttribute("data-sb-publish"), 10);
-                if (!Number.isFinite(id)) return;
-                if (!confirm("Publikálod ezt a mesekönyvet? A látogatók a boltban is láthatják.")) return;
-                try {
-                  await auth.api("/admin/storybooks/" + id, {
-                    method: "PATCH",
-                    body: JSON.stringify({ is_published: true }),
-                  });
-                  showToast("Könyv publikálva.", true);
-                  loadStorybooksAdmin();
-                } catch (e) {
-                  showToast(humanError(e), false);
-                }
-              });
-            });
-            mount.querySelectorAll("[data-sb-unpublish]").forEach((btn) => {
-              btn.addEventListener("click", async () => {
-                if (!owner) return;
-                const id = parseInt(btn.getAttribute("data-sb-unpublish"), 10);
-                if (!Number.isFinite(id)) return;
-                if (!confirm("Visszavonod a publikálást? A könyv nem lesz látható a boltban.")) return;
-                try {
-                  await auth.api("/admin/storybooks/" + id, {
-                    method: "PATCH",
-                    body: JSON.stringify({ is_published: false }),
-                  });
-                  showToast("Publikálás visszavonva.", true);
-                  loadStorybooksAdmin();
-                } catch (e) {
-                  showToast(humanError(e), false);
-                }
-              });
-            });
-            mount.querySelectorAll("[data-sb-del]").forEach((btn) => {
-              btn.addEventListener("click", async () => {
-                if (!owner) return;
-                const id = parseInt(btn.getAttribute("data-sb-del"), 10);
-                if (
-                  !confirm(
-                    "Véglegesen törlöd ezt a mesekönyvet és az összes oldalát?\n\nEz nem vonható vissza."
-                  )
-                )
-                  return;
-                try {
-                  await auth.api("/admin/storybooks/" + id, { method: "DELETE" });
-                  showToast("A könyv törölve.", true);
-                  if ((sbDetail && sbDetail.id === id) || (sbReaderBook && sbReaderBook.id === id)) {
-                    if (sbDetail && sbDetail.id === id) {
-                      sbDetail = null;
-                      sbClearEditorPlaceholder();
-                    }
-                    sbShowListView();
-                  }
-                  loadStorybooksAdmin();
-                } catch (e) {
-                  showToast(humanError(e), false);
-                }
-              });
-            });
           } catch (e) {
             if (mount) {
               const detail = humanError(e);
@@ -5678,20 +5639,25 @@
         }
         $("btnCouponAssign").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
-          const userId = parseInt($("couponUserId").value, 10);
+          const sel = $("couponUserSelect");
+          const userId = sel ? parseInt(sel.value, 10) : NaN;
           const code = $("couponCode").value.trim();
           const pct = parseInt($("couponPercent").value, 10);
           const expRaw = $("couponExpires").value;
+          if (sel && sel.disabled) {
+            showToast("A felhasználók listája nem elérhető. Frissítsd az oldalt, vagy próbáld újra később.", "err");
+            return;
+          }
           if (!Number.isFinite(userId) || userId < 1) {
-            showToast("Adj meg érvényes vásárló ID-t.", false);
+            showToast("Válassz ki egy felhasználót a listából.", "err");
             return;
           }
           if (!code) {
-            showToast("Add meg a kuponkódot.", false);
+            showToast("Add meg a kuponkódot.", "err");
             return;
           }
           if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
-            showToast("A kedvezmény 1 és 100 közötti szám legyen.", false);
+            showToast("A kedvezmény 1 és 100 közötti szám legyen.", "err");
             return;
           }
           let expires_at = null;
@@ -5704,15 +5670,25 @@
               method: "POST",
               body: JSON.stringify({ code, percent_discount: pct, is_active: true, expires_at }),
             });
-            showToast("A kupon létrejött.", true);
+            showToast("A kupon létrejött.", "ok");
             $("couponCode").value = "";
             $("couponPercent").value = "";
             $("couponExpires").value = "";
             loadUsersAdmin();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
+        const couponUserSelect = $("couponUserSelect");
+        if (couponUserSelect) {
+          couponUserSelect.addEventListener("change", updateCouponUserSelectedFeedback);
+        }
+        const couponUserFilter = $("couponUserFilter");
+        if (couponUserFilter) {
+          couponUserFilter.addEventListener("input", function () {
+            populateCouponUserSelect(shopUsersCache, couponUserFilter.value);
+          });
+        }
 
         document.querySelector(".admin-shell").addEventListener("click", (e) => {
           const btn = e.target.closest("[data-nav]");
@@ -5792,11 +5768,11 @@
           const imgInp = $("peImageFile");
           const imgFile = imgInp && imgInp.files && imgInp.files[0] ? imgInp.files[0] : null;
           if (!name) {
-            showToast("Add meg a termék nevét.", false);
+            showToast("Add meg a termék nevét.", "err");
             return;
           }
           if (!Number.isFinite(price) || price < 0) {
-            showToast("Adj meg érvényes árat (forintban).", false);
+            showToast("Adj meg érvényes árat (forintban).", "err");
             return;
           }
           try {
@@ -5806,25 +5782,25 @@
                 method: "PATCH",
                 body: JSON.stringify({ name, price, description }),
               });
-              showToast("A termék sikeresen mentve.", true);
+              showToast("A termék sikeresen mentve.", "ok");
             } else {
               const created = await auth.api("/admin/products", {
                 method: "POST",
                 body: JSON.stringify({ name, price, description }),
               });
               productId = created && created.id != null ? Number(created.id) : NaN;
-              showToast("A termék sikeresen felvéve.", true);
+              showToast("A termék sikeresen felvéve.", "ok");
             }
             if (imgFile && Number.isFinite(productId)) {
               const fd = new FormData();
               fd.append("file", imgFile);
               await auth.uploadForm("/admin/products/" + productId + "/image", fd);
-              showToast("A termékkép feltöltve.", true);
+              showToast("A termékkép feltöltve.", "ok");
             }
             $("productEditor").hidden = true;
             loadProducts();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
 
@@ -5851,15 +5827,15 @@
             const is_active = $("bdActive").value === "1";
             const product_ids = getBdSelectedProductIds();
             if (!name) {
-              showToast("Add meg a kedvezmény nevét.", false);
+              showToast("Add meg a kedvezmény nevét.", "err");
               return;
             }
             if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-              showToast("A százalék 0 és 100 között legyen.", false);
+              showToast("A százalék 0 és 100 között legyen.", "err");
               return;
             }
             if (product_ids.length < 2 || new Set(product_ids).size < 2) {
-              showToast("Legalább két különböző terméket jelölj ki.", false);
+              showToast("Legalább két különböző terméket jelölj ki.", "err");
               return;
             }
             const id = $("bdId").value.trim();
@@ -5869,18 +5845,18 @@
                   method: "PATCH",
                   body: JSON.stringify({ name, description, percent_discount: pct, is_active, product_ids }),
                 });
-                showToast("Kombó szabály mentve.", true);
+                showToast("Kombó szabály mentve.", "ok");
               } else {
                 await auth.api("/admin/bundle-discounts", {
                   method: "POST",
                   body: JSON.stringify({ name, description, percent_discount: pct, is_active, product_ids }),
                 });
-                showToast("Kombó szabály létrehozva.", true);
+                showToast("Kombó szabály létrehozva.", "ok");
               }
               resetBundleDiscountEditor();
               loadBundleDiscountsAdmin();
             } catch (e) {
-              showToast(humanError(e), false);
+              showToast(humanError(e), "err");
             }
           });
         }
@@ -5893,11 +5869,11 @@
           const sort_order = parseInt($("gfSort").value, 10);
           const so = Number.isFinite(sort_order) ? sort_order : 0;
           if (!title) {
-            showToast("Add meg a címet.", false);
+            showToast("Add meg a címet.", "err");
             return;
           }
           if (!inp || !inp.files || !inp.files[0]) {
-            showToast("Válassz ki egy képfájlt.", false);
+            showToast("Válassz ki egy képfájlt.", "err");
             return;
           }
           try {
@@ -5906,21 +5882,21 @@
             const up = await auth.uploadForm("/admin/gallery/upload", fd);
             const image_url = up && up.url ? String(up.url).trim() : "";
             if (!image_url) {
-              showToast("A feltöltés nem adott vissza elérési utat.", false);
+              showToast("A feltöltés nem adott vissza elérési utat.", "err");
               return;
             }
             await auth.api("/admin/gallery", {
               method: "POST",
               body: JSON.stringify({ title, image_url, description, sort_order: so }),
             });
-            showToast("A galériakép hozzáadva.", true);
+            showToast("A galériakép hozzáadva.", "ok");
             $("gfTitle").value = "";
             inp.value = "";
             $("gfDesc").value = "";
             $("gfSort").value = "0";
             loadGallery();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
 
@@ -5945,7 +5921,7 @@
           const sort_order = parseInt($("seSort").value, 10);
           const so = Number.isFinite(sort_order) ? sort_order : 0;
           if (!title || !body) {
-            showToast("A cím és a mese szövege kötelező.", false);
+            showToast("A cím és a mese szövege kötelező.", "err");
             return;
           }
           try {
@@ -5954,18 +5930,18 @@
                 method: "PATCH",
                 body: JSON.stringify({ title, body, sort_order: so }),
               });
-              showToast("A mese sikeresen mentve.", true);
+              showToast("A mese sikeresen mentve.", "ok");
             } else {
               await auth.api("/admin/stories", {
                 method: "POST",
                 body: JSON.stringify({ title, body, sort_order: so }),
               });
-              showToast("A mese közzétéve.", true);
+              showToast("A mese közzétéve.", "ok");
             }
             $("storyEditor").hidden = true;
             loadStoriesAdmin();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
 
@@ -5993,6 +5969,8 @@
         });
         $("btnNeSave").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
+          const saveBtn = $("btnNeSave");
+          await withAdminBusy(saveBtn, async () => {
           const id = $("neId").value.trim();
           const title = $("neTitle").value.trim();
           const slugRaw = $("neSlug").value.trim();
@@ -6003,7 +5981,7 @@
           const imgInp = $("neImageFile");
           const imgFile = imgInp && imgInp.files && imgInp.files[0] ? imgInp.files[0] : null;
           if (!title || !summary || !body) {
-            showToast("A cím, az összefoglaló és a szöveg kötelező.", false);
+            showToast("A cím, az összefoglaló és a szöveg kötelező.", "err");
             return;
           }
           try {
@@ -6016,7 +5994,7 @@
                 method: "PATCH",
                 body: JSON.stringify(patch),
               });
-              showToast("A hír mentve.", true);
+              showToast("A hír mentve.", "ok");
             } else {
               const post = { title, summary, body, is_published, is_featured };
               if (slugRaw) post.slug = slugRaw;
@@ -6025,13 +6003,13 @@
                 body: JSON.stringify(post),
               });
               newsId = savedNews && savedNews.id != null ? Number(savedNews.id) : NaN;
-              showToast("A hír létrejött.", true);
+              showToast("A hír létrejött.", "ok");
             }
             if (imgFile && Number.isFinite(newsId)) {
               const fd = new FormData();
               fd.append("file", imgFile);
               await auth.uploadForm("/admin/news/" + newsId + "/image", fd);
-              showToast("A hír képe feltöltve.", true);
+              showToast("A hír képe feltöltve.", "ok");
               const list = await auth.api("/admin/news");
               const refreshed = Array.isArray(list) ? list.find((x) => x.id === newsId) : null;
               if (refreshed) savedNews = refreshed;
@@ -6040,8 +6018,9 @@
             if (savedNews) showNewsAdminPreview(savedNews);
             loadNewsAdmin();
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
+          }, "Mentés…");
         });
 
         // News mini formatting toolbar (textarea only; no WYSIWYG)
@@ -6140,7 +6119,7 @@
           if (!Number.isFinite(id) || !inp || !inp.files || !inp.files[0]) return;
           const f = inp.files[0];
           if (f.size > SB_MAX_UPLOAD_IMG) {
-            showToast("A kép túl nagy (max. 8 MB). Válassz kisebb fájlt.", false);
+            showToast("A kép túl nagy (max. 8 MB). Válassz kisebb fájlt.", "err");
             inp.value = "";
             return;
           }
@@ -6152,33 +6131,56 @@
             sbShowUploadUi(false, 0);
             if (data && data.url) $("sbCoverUrl").value = data.url;
             inp.value = "";
-            showToast("Borító feltöltve.", true);
+            showToast("Borító feltöltve.", "ok");
             await sbReloadDetail();
           } catch (e) {
             sbShowUploadUi(false, 0);
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
 
         async function sbSaveCurrentPageIfDirty(opts) {
           const quiet = opts && opts.quiet;
+          const forceFull = opts && opts.forceFull;
           const bookId = parseInt($("sbBookId").value, 10);
           if (!Number.isFinite(bookId) || !sbDetail || !sbSelectedPageId) return;
           const pSaved = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
           if (!pSaved) return;
+          const built = sbBuildPagePatchFromForm(pSaved, { forceFull: forceFull });
+          const payload = built.payload;
+          if (!Object.keys(payload).length) return;
+          sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + sbSelectedPageId, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          });
+          const pNew = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
+          if (pNew && (built.tDirty || built.layoutChanged)) {
+            sbApplyCanvasTextLayoutFromPage(pNew, {
+              preserveBody: !!(built.tDirty && !built.bodyChanged),
+            });
+          }
+          if (built.tDirty && !quiet) {
+            showToast("Szöveg pozíció mentve.", "ok");
+          }
+        }
+
+        function sbBuildPagePatchFromForm(pSaved, opts) {
+          opts = opts || {};
+          const forceFull = !!opts.forceFull;
           sbSyncCanvasToHidden();
           const body_text = ($("sbCurPageBody").value || "").trim();
           const pk = $("sbPropsPageBg");
           const bgVal = pk && pk.value ? pk.value : "#faf6f0";
+          const payload = {};
           const bodyChanged = body_text !== (pSaved.body_text || "").trim();
           const extraChanged = bgVal.toLowerCase() !== sbPageCanvasBg(pSaved).toLowerCase();
           const layoutChanged = sbPageLayoutDirtyVsServer();
           const tDirty = sbTextPercentDirtyVsServer();
-          if (!bodyChanged && !extraChanged && !layoutChanged && !tDirty) return;
-          const payload = {};
-          if (bodyChanged) payload.body_text = body_text;
-          if (extraChanged) payload.extra = sbMergePageExtra(pSaved, { editor_canvas_bg: bgVal });
-          if (layoutChanged) {
+          if (forceFull || bodyChanged) payload.body_text = body_text;
+          if (forceFull || extraChanged) {
+            payload.extra = sbMergePageExtra(pSaved, { editor_canvas_bg: bgVal });
+          }
+          if (forceFull || layoutChanged) {
             const sv = $("sbPropsTextPosV");
             const sh = $("sbPropsTextPosH");
             const ss = $("sbPropsTextBoxStyle");
@@ -6186,40 +6188,37 @@
             if (sh) payload.text_position_horizontal = sh.value;
             if (ss) payload.text_box_style = ss.value;
           }
-          if (tDirty) {
+          if (forceFull || tDirty) {
             const pr = sbUiTextPercentPair();
             if (sbUiHasCustomTextOverlay() && pr) {
               payload.text_x_percent = pr.x;
               payload.text_y_percent = pr.y;
-            } else {
+            } else if (forceFull || tDirty) {
               payload.text_x_percent = null;
               payload.text_y_percent = null;
             }
           }
-          sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + sbSelectedPageId, {
-            method: "PATCH",
-            body: JSON.stringify(payload),
-          });
-          const pNew = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
-          if (pNew && (tDirty || layoutChanged)) {
-            sbApplyCanvasTextLayoutFromPage(pNew, { preserveBody: !!(tDirty && !bodyChanged) });
-          }
-          if (tDirty && !quiet) {
-            showToast("Szöveg pozíció mentve.", true);
-          }
+          return { payload, bodyChanged, extraChanged, layoutChanged, tDirty };
         }
 
         $("btnSbSaveBook").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
+          const btn = $("btnSbSaveBook");
           const id = parseInt($("sbBookId").value, 10);
           if (!Number.isFinite(id)) return;
           const title = $("sbTitle").value.trim();
           if (!title) {
-            showToast("A cím kötelező.", false);
+            showToast("A cím kötelező.", "err");
             return;
           }
           const animation_settings = sbAnimationSettingsFromDetail();
           const description = $("sbDesc").value.trim() || null;
+          const prevLabel = btn ? btn.textContent : "";
+          if (btn) {
+            btn.disabled = true;
+            btn.setAttribute("aria-busy", "true");
+            btn.textContent = "Mentés…";
+          }
           try {
             await sbSaveCurrentPageIfDirty();
             sbDetail = await auth.api("/admin/storybooks/" + id, {
@@ -6231,9 +6230,15 @@
               }),
             });
             await sbReloadDetail();
-            showToast("Mesekönyv mentve.", true);
+            showToast("Mesekönyv mentve.", "ok");
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
+          } finally {
+            if (btn) {
+              btn.disabled = false;
+              btn.removeAttribute("aria-busy");
+              btn.textContent = prevLabel || "Mesekönyv mentése";
+            }
           }
         });
 
@@ -6249,9 +6254,9 @@
             const pages = sbSortedPages(sbDetail);
             sbSelectedPageId = pages.length ? pages[pages.length - 1].id : null;
             sbFillEditorFromDetail();
-            showToast("Új oldal hozzáadva.", true);
+            showToast("Új oldal hozzáadva.", "ok");
           } catch (e) {
-            showToast(humanError(e), false);
+            showToast(humanError(e), "err");
           }
         });
 
@@ -6261,33 +6266,18 @@
 
         $("btnSbCurPageSave").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
-          const bookId = parseInt($("sbBookId").value, 10);
-          if (!Number.isFinite(bookId) || !sbSelectedPageId) return;
-          sbSyncCanvasToHidden();
-          const body_text = ($("sbCurPageBody").value || "").trim();
-          const pSaved = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
-          const pk = $("sbPropsPageBg");
-          const bgVal = pk && pk.value ? pk.value : "#faf6f0";
-          const newExtra = pSaved ? sbMergePageExtra(pSaved, { editor_canvas_bg: bgVal }) : { editor_canvas_bg: bgVal };
-          const sv = $("sbPropsTextPosV");
-          const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
-          try {
-            sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + sbSelectedPageId, {
-              method: "PATCH",
-              body: JSON.stringify({
-                body_text,
-                extra: newExtra,
-                text_position_vertical: sv ? sv.value : "center",
-                text_position_horizontal: sh ? sh.value : "center",
-                text_box_style: ss ? ss.value : "card",
-              }),
-            });
-            sbFillEditorFromDetail();
-            showToast("Oldal mentve.", true);
-          } catch (err) {
-            showToast(humanError(err), false);
-          }
+          const pageSaveBtn = $("btnSbCurPageSave");
+          await withAdminBusy(pageSaveBtn, async () => {
+            const bookId = parseInt($("sbBookId").value, 10);
+            if (!Number.isFinite(bookId) || !sbSelectedPageId) return;
+            try {
+              await sbSaveCurrentPageIfDirty({ forceFull: true });
+              sbFillEditorFromDetail();
+              showToast("Oldal mentve.", "ok");
+            } catch (err) {
+              showToast(humanError(err), "err");
+            }
+          }, "Mentés…");
         });
 
         $("btnSbCurPageDelete").addEventListener("click", async () => {
@@ -6305,9 +6295,9 @@
             sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + pageId, { method: "DELETE" });
             sbSelectedPageId = null;
             sbFillEditorFromDetail();
-            showToast("Oldal törölve.", true);
+            showToast("Oldal törölve.", "ok");
           } catch (err) {
-            showToast(humanError(err), false);
+            showToast(humanError(err), "err");
           }
         });
 
@@ -6353,7 +6343,7 @@
             try {
               await sbPersistPageOrder(nu);
             } catch (err) {
-              showToast(humanError(err), false);
+              showToast(humanError(err), "err");
             }
             return;
           }
@@ -6402,7 +6392,7 @@
           if (!Number.isFinite(pageId) || !Number.isFinite(bookId)) return;
           const f = t.files[0];
           if (f.size > SB_MAX_UPLOAD_IMG) {
-            showToast("A kép max. 8 MB lehet.", false);
+            showToast("A kép max. 8 MB lehet.", "err");
             t.value = "";
             return;
           }
@@ -6416,10 +6406,10 @@
             sbShowUploadUi(false, 0);
             t.value = "";
             await sbReloadDetail();
-            showToast("Sikeresen mentve.", true);
+            showToast("Sikeresen mentve.", "ok");
           } catch (err) {
             sbShowUploadUi(false, 0);
-            showToast(humanError(err), false);
+            showToast(humanError(err), "err");
           }
         });
         $("sbCurPageAudFile").addEventListener("change", async (e) => {
@@ -6431,7 +6421,7 @@
           if (!Number.isFinite(pageId) || !Number.isFinite(bookId)) return;
           const f = t.files[0];
           if (f.size > SB_MAX_UPLOAD_AUD) {
-            showToast("A hang max. 25 MB lehet.", false);
+            showToast("A hang max. 25 MB lehet.", "err");
             t.value = "";
             return;
           }
@@ -6445,29 +6435,36 @@
             sbShowUploadUi(false, 0);
             t.value = "";
             await sbReloadDetail();
-            showToast("Sikeresen mentve.", true);
+            showToast("Sikeresen mentve.", "ok");
           } catch (err) {
             sbShowUploadUi(false, 0);
-            showToast(humanError(err), false);
+            showToast(humanError(err), "err");
           }
         });
 
+        // ADMIN:MODULE:boot-nav
+
+        // --- Boot / nav ---
+
         async function boot() {
-          if (!auth.getToken()) {
-            window.location.href = "/admin/login";
-            return;
-          }
+          // Cookie-based auth: always probe /admin/me to decide if logged in.
           try {
             me = await auth.api("/admin/me");
           } catch (e) {
             console.error("[admin] admin data fetch error", e);
             auth.clearToken();
-            showToast("Nem sikerült betölteni az admin adatokat. Ellenőrizd a konzolt.", false);
+            showToast("Nem sikerült betölteni az admin adatokat. Ellenőrizd a konzolt.", "err");
             // Ne legyen végtelen töltés / néma állapot
-            setTimeout(() => {
-              window.location.href = "/admin/login";
-            }, 1200);
+            window.location.href = "/admin/login";
             return;
+          }
+          // Ensure CSRF token is available for unsafe admin actions (DELETE/POST/PATCH/PUT).
+          // The backend uses double-submit CSRF; this populates window.__MESENCSI_CSRF_TOKEN for auth.js.
+          try {
+            const csrf = await auth.api("/auth/csrf", { method: "GET" });
+            if (csrf && csrf.csrf_token) window.__MESENCSI_CSRF_TOKEN = String(csrf.csrf_token);
+          } catch (_) {
+            // If CSRF token fetch fails, unsafe actions will be blocked by backend CSRF middleware.
           }
 
           const rLabel = ROLE_LABELS[me.role] || me.role;
@@ -6510,11 +6507,11 @@
 
         window.addEventListener("error", (e) => {
           console.error("[admin] window error", e && e.error ? e.error : e);
-          showToast("Hiba történt az admin felületen. Nyisd meg a konzolt a részletekért.", false);
+          showToast("Hiba történt az admin felületen. Nyisd meg a konzolt a részletekért.", "err");
         });
         window.addEventListener("unhandledrejection", (e) => {
           console.error("[admin] unhandled rejection", e && e.reason ? e.reason : e);
-          showToast("Hiba történt az admin felületen. Nyisd meg a konzolt a részletekért.", false);
+          showToast("Hiba történt az admin felületen. Nyisd meg a konzolt a részletekért.", "err");
         });
         window.addEventListener("pageshow", (ev) => {
           try {

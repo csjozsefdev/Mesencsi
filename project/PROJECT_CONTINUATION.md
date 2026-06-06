@@ -1,10 +1,11 @@
 # Mesencsi — Where we left off (continuation guide)
 
 **Read this first** if you continue development or QA on an existing machine.  
-**Last updated:** May 2026 (post handover / gate / E2E work).
+**Last updated:** May 2026 (post handover / gate / E2E / pre-production audit).
 
 For a clean reviewer overview, see [HANDOVER.md](HANDOVER.md).  
-For tick-box acceptance, see [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md).
+For tick-box acceptance, see [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md).  
+For **Graph-ID** snapshot (now / next / nodes & edges), see [GRAPH_ID_STATUS.md](GRAPH_ID_STATUS.md).
 
 ---
 
@@ -172,6 +173,7 @@ Work in recent sessions focused on **release hygiene**, not new features:
 | Test Barion | [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md) |
 | Run E2E / gates | [E2E_TESTING.md](E2E_TESTING.md) |
 | Deploy live | [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md) |
+| Graph-ID / roadmap snapshot | [GRAPH_ID_STATUS.md](GRAPH_ID_STATUS.md) |
 | Start backend only | [backend/README.md](backend/README.md) |
 
 ---

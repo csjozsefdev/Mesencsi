@@ -79,6 +79,13 @@ Tick each item; note the date and reviewer name.
 
 ---
 
+## I. Pre-production sign-off (owner)
+
+- [ ] Full walkthrough: [backend/docs/pre_production_qa.md](backend/docs/pre_production_qa.md)
+- [ ] Deploy env: [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md)
+
+---
+
 ## I. Production (out of scope for code-only handover)
 
 - [ ] HTTPS + public URLs for Barion return/IPN
