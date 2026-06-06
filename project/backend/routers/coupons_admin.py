@@ -1,4 +1,9 @@
-"""Admin kupon kezelés — csak owner írhat, listázás maintenance+owner."""
+"""Admin kupon kezelés — csak owner írhat, listázás maintenance+owner.
+
+Note: this router is not mounted in mesencsi.py; user discounts are assigned via
+admin_routes.py (POST /admin/users/{id}/discounts). Wire here only if a dedicated
+coupon CRUD UI is added.
+"""
 
 from __future__ import annotations
 

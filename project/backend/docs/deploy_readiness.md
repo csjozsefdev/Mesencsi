@@ -1,7 +1,9 @@
 # Mesencsi — deploy readiness (praktikus checklist)
 
-Utolsó séma: **Alembic `021_product_bundle_discounts`** (`alembic upgrade head`).  
+Utolsó séma: **Alembic `024_password_reset_tokens`** (`alembic upgrade head`).  
 Éles viselkedés: **`MESENCSI_PRODUCTION=true`** → startup validator + Barion/CORS/SMTP kötelező mezők.
+
+**Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md)
 
 ---
 
@@ -14,19 +16,30 @@ Utolsó séma: **Alembic `021_product_bundle_discounts`** (`alembic upgrade head
 | `ADMIN_JWT_SECRET` | Admin JWT (`typ=admin`), **külön** a shop titoktól |
 | `CORS_ALLOWED_ORIGINS` | Vesszővel; nincs `*`, localhost, `null`. Alias: `ALLOWED_ORIGINS` |
 | `POSTGRES_*` | User, jelszó, host, db |
-| `OWNER_*`, `MAINTENANCE_*` | Bcrypt hash a `.env.example` szerint |
+| `OWNER_*`, `MAINTENANCE_*` | **Saját** bcrypt hash — ne az `.env.example` alapértelmezett jelszó |
 | `BARION_ENV=production` | (vagy `prod` / `live` / `release`) — **ne** maradjon `sandbox` élesben |
 | `BARION_POS_KEY`, `BARION_PAYEE_EMAIL` | Üres POSKey = csak dev stub |
-| `BARION_IPN_SECRET` | Production IPN auth |
+| `BARION_IPN_SECRET` | Production IPN auth (kötelező ha `MESENCSI_PRODUCTION=true`) |
 | `BARION_BACKEND_PUBLIC_URL` | HTTPS publikus API |
 | `BARION_RETURN_URL`, `BARION_CALLBACK_URL` | HTTPS (vagy épül a backend URL-ből) |
 | `BARION_FRONTEND_LANDING_URL` | Bolt redirect return után |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Verify + fizetés-visszaigazoló levél |
 | `PUBLIC_SITE_URL` / `FRONTEND_BASE_URL` | Linkek az e-mailekben |
 
-Opcionális: `ORDER_CONFIRMATION_PROCESSING_NOTE`, `ENVIRONMENT=production`, `INCIDENTS_READ_TOKEN`.
+| Ajánlott (production) | Megjegyzés |
+|----------------------|------------|
+| `REDIS_URL` | Több uvicorn worker / több instance: közös rate limit (`auth_limits.py`) |
+| `TRUSTED_PROXY_HOSTS` | Reverse proxy IP/host (vesszővel). Alap: `127.0.0.1`. **`NE`** legyen nyilvános `*` élesben |
+| `MEDIA_STORAGE_MODE=s3` + `MEDIA_PUBLIC_BASE_URL` | Ha nem persistent disk — lásd §5 |
+| `ORDER_CONFIRMATION_PROCESSING_NOTE` | Feldolgozás / szállítás szöveg a fizetés-visszaigazoló levélben |
+| `ENVIRONMENT=production` | Health válaszban |
+| `INCIDENTS_READ_TOKEN` | Opcionális belső incidents |
 
 **Indítás:** hiányzó/hibás éles env → `StartupConfigError` a logban, az app nem indul (`startup_config.py`).
+
+**Shop CSRF:** A böngésző `POST`/`PATCH`/`DELETE` hívásokhoz `mesencsi_csrf` cookie + `X-CSRF-Token` fejléc kell (pl. fizetés újrapróbálás a Rendeléseim menüben). A frontend `GET /auth/csrf`-et hív induláskor és mentés előtt.
+
+**Preset profilképek:** `/images/avatars/presets/preset-1.svg` … `preset-4.svg` — engedélyezett URL a szerver validációban (`image_upload.py`).
 
 ---
 
@@ -48,66 +61,58 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 **Fontos viselkedés (implementálva):**
 - `paid` csak return / IPN / `GetPaymentState` után
 - Duplicate `POST /payments/barion/start` pendingre → meglévő `payment_id` (nem ír felül)
-- `POST /orders` csak **email-verified** userrel
+- `POST /orders` csak **email-verified** userrel; sikeres rendelés után **szerver oldali kosár ürítés**
 - Admin: `completed` csak ha `payment_status=paid`
+
+**Nyilvános staging:** Ha `MESENCSI_PRODUCTION=false` és nincs `BARION_IPN_SECRET`, az IPN **nem hitelesített** — állíts be titkot vagy ne tedd nyilvánosra a staging URL-t.
 
 **Fejlesztői / manuális teszt (nem Barion IPN):**
 - `POST /payments/barion/callback` — stub vagy REST GetPaymentState szinkron (élesben csak belső debug titokkal)
-- `POST /payments/barion/webhook` — **elavult alias** ugyanarra; új integráció: a `/callback` útvonalat használja
+- `POST /payments/barion/webhook` — **elavult alias** ugyanarra
 
 ---
 
 ## 3. E-mail (SMTP)
 
-**Render / staging:** kötelező env és hibakezelés — [render_smtp.md](./render_smtp.md).
+**Render / staging:** [render_smtp.md](./render_smtp.md).
 
-**Password reset:** `POST /auth/forgot-password`, `POST /auth/reset-password` — same SMTP vars as registration; reset links use `FRONTEND_BASE_URL/reset-password.html?token=…` (60 min, single-use, token stored hashed).
+**Password reset:** `POST /auth/forgot-password`, `POST /auth/reset-password` — reset link: `FRONTEND_BASE_URL/reset-password.html?token=…`
 
 | Flow | Mikor | SMTP nélkül |
 |------|--------|-------------|
 | Regisztráció verify | `POST /auth/register` | **Hosted:** startup blocker vagy **503**; **dev:** link a logban |
-| **Fizetés visszaigazolás** | Barion verify → `paid` (IPN/return), **nem** a frontend redirect önmagában | Nincs levél, rendelés `paid` marad |
+| **Fizetés visszaigazolás** | Barion verify → `paid` (IPN/return) | Nincs levél, rendelés `paid` marad |
 
-Sikeres fizetés után: `payment_confirmation_email_sent` log. Duplikált IPN nem küld dupla levelet. SMTP hiba **nem** állítja vissza a fizetést.
-
-Helyi teszt: `docker compose up -d` → Mailpit (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_USE_TLS=0`), UI: `http://127.0.0.1:8025`.
-
-Opcionális staging QA bolt user: `QA_SHOP_EMAIL` + `QA_SHOP_PASSWORD` (email verified induláskor).
+Helyi auth e-mail QA: [local_auth_email_qa.md](./local_auth_email_qa.md).
 
 ---
 
 ## 4. CORS
 
 - **Dev:** nincs env → localhost / 127.0.0.1 alapértelmezés (`cors_config.py`).
-- **Production:** csak `CORS_ALLOWED_ORIGINS` (vagy `ALLOWED_ORIGINS`); wildcard és localhost **tiltva** (startup blocker).
+- **Production:** csak `CORS_ALLOWED_ORIGINS`; wildcard és localhost **tiltva** (startup blocker).
+- **Same-origin deploy** (FastAPI szolgálja a `frontend/`-et): `allow_credentials=False` rendben. Külön frontend origin esetén CORS + credentials együtt kell.
 
 ---
 
 ## 5. Média / Render
 
-- Feltöltések: **`backend/media/uploads/`** (galéria, termék, storybook, avatar) — URL: `/media/uploads/…`
-- A FastAPI egy processzben szolgálja ki a `frontend/` statikus fájlokat is (`/`, CSS/JS, `frontend/images/` dekor képek).
-- **Render / ephemeral disk:** restart után a feltöltött képek **elveszhetnek**, ha nincs persistent disk vagy külső storage (S3/R2). Éles deploynál: volume **vagy** object storage terv.
-- Deploy előtt: `media/uploads` létezik és **írható** (ugyanaz az útvonal, mint `image_upload.UPLOADS_ROOT`).
+- Feltöltések: **`backend/media/uploads/`** — URL: `/media/uploads/…`
+- Statikus bolt dekor: **`frontend/images/`** (pl. preset avatárok) — nem vesznek el restartnál
+- **Render / ephemeral disk:** feltöltött admin képek **elveszhetnek** restart után
+  - **Megoldás A:** persistent volume a `media/uploads` útvonalra
+  - **Megoldás B:** `MEDIA_STORAGE_MODE=s3` + `MEDIA_PUBLIC_BASE_URL` (`media_storage.py`)
+- Deploy előtt: `media/uploads` létezik és **írható** (`GET /health/business` → `media_uploads.ok`)
 
 ---
 
 ## 6. Admin auth
 
-- `POST /admin/login` → **JWT** (`ADMIN_JWT_SECRET`), nem `username|role` string.
-- Szerepkörök: `owner` (teljes), `maintenance` (korlátozott, pl. nincs termék create).
-- Jelszavak: `OWNER_PASSWORD` / `MAINTENANCE_PASSWORD` bcrypt hash az `.env`-ben.
+- `POST /admin/login` → JWT (`ADMIN_JWT_SECRET`), HttpOnly cookie
+- Szerepkörök: `owner` (teljes), `maintenance` (korlátozott írás)
+- Jelszavak: bcrypt hash az `.env`-ben (`scripts/setup_admin_credentials.py`)
 
-**Vásárlói fiókok (admin UI):**
-
-| Művelet | Endpoint |
-|---------|----------|
-| Lista | `GET /admin/shop-users` |
-| Soft delete | `DELETE /admin/users/{id}` |
-| Verify / ban / unban | `PATCH /admin/users/{id}/verify`, `/ban`, `/unban` |
-| Személyes kupon | `POST /admin/users/{id}/discounts` |
-
-A régi `GET /admin/users` lista duplikátum **nincs** — csak a `/shop-users` listázás.
+**Vásárlói fiókok:** `GET /admin/shop-users`, soft delete, verify/ban, személyes kupon.
 
 ---
 
@@ -115,23 +120,8 @@ A régi `GET /admin/users` lista duplikátum **nincs** — csak a `/shop-users` 
 
 | Útvonal | Használat |
 |---------|-----------|
-| `GET /health` | UptimeRobot / liveness (nyilvános) |
-| `GET /health/business` | Belső / CI; **admin JWT** kell; ne külső monitor cél |
-
-`ENVIRONMENT` vagy `ENV` → válaszban `environment` mező.
-
-**`GET /health/business` — `components` (fájlrendszer, titok nélkül):**
-
-| Kulcs | Mit néz | `detail` értékek |
-|-------|---------|------------------|
-| `static_frontend` | `frontend/` + `mesencsi.html` | `ok`, `missing`, `incomplete` |
-| `media_uploads` | `media/uploads` írhatóság (probe fájl) | `ok`, `missing`, `not_writable` |
-
-- Mindkettő OK + DB + admin JWT roundtrip OK → `status: "ok"`.
-- `media_uploads` hiányzik vagy nem írható → `status: "degraded"`.
-- `static_frontend` hiányos → `status: "degraded"`.
-
-Példa (részlet): `components.static_frontend.ok`, `components.media_uploads.detail`.
+| `GET /health` | Liveness |
+| `GET /health/business` | Admin JWT; `static_frontend`, `media_uploads` |
 
 ---
 
@@ -139,54 +129,51 @@ Példa (részlet): `components.static_frontend.ok`, `components.media_uploads.de
 
 ```bash
 cd backend
-.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
-.venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\python.exe -m pytest -q
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m alembic upgrade head
+python -m pytest -q
 ```
 
-- Teszt DB: SQLite memória (`tests/conftest.py`), nem kell éles Postgres a pytesthez.
-- Barion HTTP: mock; integráció: `test_barion_*`, `test_checkout_bundle_integration`, `test_payment_confirmation_email`, `test_admin_jwt_auth`, `test_cors_config`, `test_startup_config`, `test_health_media`.
+Opcionális: `scripts/gate_pytest.ps1`, `e2e` Playwright (`npm test`).
 
 ---
 
-## 9. Manuális smoke — ajánlott sorrend (~20 perc)
+## 9. Manuális smoke — ajánlott sorrend (~25 perc)
 
-1. [ ] `alembic upgrade head` → head = `021`
+1. [ ] `alembic upgrade head` → head = **`024`**
 2. [ ] Szerver indul éles envvel (nincs `StartupConfigError`)
 3. [ ] `GET /health` → 200
-4. [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`, `status: ok`
-5. [ ] `GET /` — storefront betölt
-6. [ ] `GET /payments/barion/status` — Barion env ellenőrzés
-7. [ ] Regisztráció → verify e-mail (Mailpit/SMTP) → login
-8. [ ] Kosár → checkout → **`POST /orders`** (verified user)
-9. [ ] **`POST /payments/barion/start`** → Barion (sandbox vagy éles)
-10. [ ] Fizetés befejezése → return URL → DB: `payment_status=paid`
-11. [ ] IPN érkezik (log: `barion_orders_synced`)
-12. [ ] **Visszaigazoló e-mail** megérkezett (sikertelen fizetésnél **ne** legyen)
-13. [ ] Dupla return/IPN → **egy** e-mail
-14. [ ] `GET /orders` — rendelés látszik
-15. [ ] `/admin/login` → JWT → rendeléslista; `completed` csak paid mellett
-16. [ ] Galéria kép URL; admin kis feltöltés
-17. [ ] CORS: más originről API hívás **tiltva** (prod domainről OK)
-18. [ ] `GET /admin/shop-users` token nélkül → 401
+4. [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`
+5. [ ] `GET /` — storefront
+6. [ ] `GET /payments/barion/status`
+7. [ ] Regisztráció → verify → login
+8. [ ] Kosár → checkout → `POST /orders` → kosár üres a szerveren
+9. [ ] `POST /payments/barion/start` → Barion
+10. [ ] Fizetés → `payment_status=paid`
+11. [ ] IPN log: `barion_orders_synced`
+12. [ ] Visszaigazoló e-mail (ha SMTP)
+13. [ ] Rendeléseim: szállítás + megjegyzés látszik; fizetés újrapróbálás
+14. [ ] Admin: rendeléslista; `completed` csak paid mellett
+15. [ ] CORS / auth smoke (lásd [pre_production_qa.md](./pre_production_qa.md))
 
 ---
 
-## 10. Deploy parancsok (helyi / VPS)
+## 10. Deploy parancsok
 
 ```bash
-docker compose up -d          # Postgres + Mailpit (dev)
-copy .env.example .env        # kitöltés
-run.bat                       # venv + migrate + uvicorn :8000
+docker compose up -d
+copy .env.example .env
+run.bat
 ```
 
-Éles: **ne** `--reload`; uvicorn worker(ek); `MESENCSI_PRODUCTION=true`; HTTPS reverse proxy (Caddy/nginx) a Barion return/IPN URL-ekhez.
+Éles: `MESENCSI_PRODUCTION=true`; HTTPS reverse proxy; `TRUSTED_PROXY_HOSTS` = proxy IP; több worker → `REDIS_URL`.
 
 ---
 
 ## 11. Mit nem csinál a checklist helyetted
 
-- Barion merchant / POS regisztráció a Barion felületén
-- DNS + TLS tanúsítvány
-- Render persistent disk / S3 bekötés
-- CI pipeline beállítás (csak pytest parancs fent)
+- Barion merchant / POS regisztráció
+- DNS + TLS
+- SMTP szolgáltató / domain SPF-DKIM
+- Owner manuális QA aláírás
+- Szállítási díj / futár API (üzleti döntés — jelenleg ár tartalmazza a szállítást)

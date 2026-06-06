@@ -12,7 +12,7 @@ from database import SessionLocal
 from db_models import AppUser
 from mesencsi import app
 from password_utils import verify_password
-from routers.user_mvp import FORGOT_PASSWORD_GENERIC_MSG, RESET_PASSWORD_INVALID_MSG
+from routers.user_auth import FORGOT_PASSWORD_GENERIC_MSG, RESET_PASSWORD_INVALID_MSG
 from tests.helpers import seed_verified_user
 from user_password_reset import RESET_TOKEN_TTL_MINUTES, assign_reset_to_user, issue_reset_token
 
@@ -24,7 +24,7 @@ def client() -> TestClient:
 
 
 def test_forgot_password_unknown_email_generic_success(client: TestClient) -> None:
-    with patch("routers.user_mvp.send_password_reset_email") as mock_send:
+    with patch("routers.user_auth.send_password_reset_email") as mock_send:
         r = client.post("/auth/forgot-password", json={"email": "unknown-reset@example.com"})
     assert r.status_code == 200
     assert r.json()["message"] == FORGOT_PASSWORD_GENERIC_MSG
@@ -39,7 +39,7 @@ def test_forgot_password_existing_user_sends_email(client: TestClient) -> None:
         captured.append(token)
         return True
 
-    with patch("routers.user_mvp.send_password_reset_email", side_effect=_capture):
+    with patch("routers.user_auth.send_password_reset_email", side_effect=_capture):
         r = client.post("/auth/forgot-password", json={"email": "reset-user@example.com"})
     assert r.status_code == 200
     assert r.json()["message"] == FORGOT_PASSWORD_GENERIC_MSG

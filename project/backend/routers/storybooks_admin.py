@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
+import anyio
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,6 +24,7 @@ from image_upload import (
     save_uploaded_image,
     uploads_dir_for,
 )
+from media_storage import media_storage_mode, store_upload_bytes
 from models import (
     AdminImageUploadResponse,
     AdminStorybookMediaUploadResponse,
@@ -259,8 +261,21 @@ def admin_delete_storybook(
 ):
     _require_storybook_tables(db)
     book = find_digital_storybook(db, book_id)
+    cover = (book.cover_image_url or "").strip() or None
+    pages = _load_pages(db, book.id)
+    page_media: list[str] = []
+    for p in pages:
+        if p.image_url and str(p.image_url).strip():
+            page_media.append(str(p.image_url).strip())
+        if p.audio_url and str(p.audio_url).strip():
+            page_media.append(str(p.audio_url).strip())
     db.delete(book)
     db.commit()
+    # Best-effort cleanup of stored objects (DB is source of truth; cleanup must not break deletion).
+    if cover:
+        delete_uploaded_file_by_url(cover)
+    for u in page_media:
+        delete_uploaded_file_by_url(u)
     return None
 
 
@@ -348,10 +363,16 @@ def admin_delete_storybook_page(
     _require_storybook_tables(db)
     find_digital_storybook(db, book_id)
     page = find_storybook_page_for_book(db, book_id, page_id)
+    img = (page.image_url or "").strip() or None
+    aud = (page.audio_url or "").strip() or None
     db.delete(page)
     db.flush()
     _reindex_pages(db, book_id)
     db.commit()
+    if img:
+        delete_uploaded_file_by_url(img)
+    if aud:
+        delete_uploaded_file_by_url(aud)
     book = find_digital_storybook(db, book_id)
     pages = _load_pages(db, book.id)
     return _to_admin_read(book, pages)
@@ -458,15 +479,29 @@ async def admin_upload_storybook_page_audio(
             detail="A fájl tartalma nem egyezik az engedélyezett hangformátumokkal — ellenőrizd a kiterjesztést és a fájlt.",
         )
     sub = _storybook_media_subdir(book_id)
-    dest_dir = uploads_dir_for(sub)
     final_name = f"audio-page-{page_id}-{_safe_stem(file.filename)}-{uuid.uuid4().hex[:10]}{suffix}"
-    dest = (dest_dir / final_name).resolve()
-    _assert_under_uploads(dest)
     prev = page.audio_url
-    dest.write_bytes(body)
-    rel = public_url_for(sub, final_name)
-    page.audio_url = rel
+    mode = media_storage_mode()
+    if mode == "local":
+        dest_dir = uploads_dir_for(sub)
+        dest = (dest_dir / final_name).resolve()
+        _assert_under_uploads(dest)
+        await anyio.to_thread.run_sync(dest.write_bytes, body)
+        rel = public_url_for(sub, final_name)
+        page.audio_url = rel
+        new_url = rel
+    elif mode == "s3":
+        stored = store_upload_bytes(
+            subdir=sub,
+            filename=final_name,
+            body=body,
+            content_type=file.content_type,
+        )
+        page.audio_url = stored.public_url
+        new_url = stored.public_url
+    else:
+        raise HTTPException(status_code=500, detail="Ismeretlen media storage mód.")
     db.commit()
-    if prev and str(prev).strip() and str(prev).strip() != rel.strip():
+    if prev and str(prev).strip() and str(prev).strip() != new_url.strip():
         delete_uploaded_file_by_url(prev)
-    return AdminStorybookMediaUploadResponse(url=rel, filename=final_name)
+    return AdminStorybookMediaUploadResponse(url=new_url, filename=final_name)

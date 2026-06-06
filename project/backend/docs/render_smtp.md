@@ -12,6 +12,21 @@ Registration and order emails use **`send_plain_email`** in `email_outbound.py`.
 
 Hosted (Render / staging / `MESENCSI_PRODUCTION`) **requires relay mode** — startup fails if not fully configured.
 
+## Resend (local + Render)
+
+See **[resend_smtp.md](resend_smtp.md)**. Quick reference:
+
+```env
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USE_TLS=1
+SMTP_USER=resend
+SMTP_PASSWORD=re_your_api_key
+SMTP_FROM=onboarding@resend.dev
+```
+
+`SMTP_USER` is always the literal string `resend`. Password is the API key (`re_…`).
+
 ## Gmail (local + Render)
 
 Use a [Google App Password](https://support.google.com/accounts/answer/185833) (2-Step Verification required). Put values in **`backend/.env`** locally; copy the **same keys** to Render → Environment.

@@ -1,26 +1,23 @@
-"""Shop user password reset tokens — hashed, expiring, single-use."""
+"""Password reset tokens — delegates crypto/TTL to grafi_core; ORM lookups via adapter."""
 
 from __future__ import annotations
 
-import hashlib
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from adapters.user_auth_repository import find_active_shop_user_by_email
 from db_models import AppUser
+from grafi_core.auth.password_reset import (
+    DEFAULT_RESET_TOKEN_TTL_MINUTES,
+    hash_reset_token,
+    issue_reset_token,
+    reset_token_invalid_reason as _reset_token_invalid_reason,
+    reset_token_is_valid_format,
+)
 
-RESET_TOKEN_TTL_MINUTES = 60
-
-
-def issue_reset_token() -> str:
-    """URL-safe one-time token (plain text sent by email; only hash stored)."""
-    return secrets.token_urlsafe(32)
-
-
-def hash_reset_token(plain: str) -> str:
-    return hashlib.sha256(plain.strip().encode("utf-8")).hexdigest()
+RESET_TOKEN_TTL_MINUTES = DEFAULT_RESET_TOKEN_TTL_MINUTES
 
 
 def assign_reset_to_user(db: Session, user: AppUser, plain_token: str) -> None:
@@ -35,44 +32,21 @@ def clear_reset_on_user(user: AppUser) -> None:
     user.password_reset_used_at = None
 
 
-def _sent_at_aware(sent: datetime) -> datetime:
-    return sent if sent.tzinfo else sent.replace(tzinfo=UTC)
-
-
 def reset_token_invalid_reason(user: AppUser, *, now: datetime | None = None) -> str | None:
-    """
-    Return None if token row is valid for reset; otherwise a short reason code:
-    invalid | used | expired.
-    """
-    if not user.password_reset_token_hash or user.password_reset_sent_at is None:
-        return "invalid"
-    if user.password_reset_used_at is not None:
-        return "used"
-    t = now or datetime.now(UTC)
-    sent = _sent_at_aware(user.password_reset_sent_at)
-    if t - sent > timedelta(minutes=RESET_TOKEN_TTL_MINUTES):
-        return "expired"
-    return None
+    return _reset_token_invalid_reason(
+        token_hash=user.password_reset_token_hash,
+        sent_at=user.password_reset_sent_at,
+        used_at=user.password_reset_used_at,
+        ttl_minutes=RESET_TOKEN_TTL_MINUTES,
+        now=now,
+    )
 
 
 def find_user_for_reset_token(db: Session, plain_token: str) -> AppUser | None:
-    if not plain_token or len(plain_token.strip()) < 16:
+    if not reset_token_is_valid_format(plain_token):
         return None
     token_hash = hash_reset_token(plain_token)
     row = db.scalar(select(AppUser).where(AppUser.password_reset_token_hash == token_hash))
-    if row is None:
-        return None
-    if row.is_deleted or not row.is_active or row.is_banned:
-        return None
-    return row
-
-
-def find_active_shop_user_by_email(db: Session, email: str) -> AppUser | None:
-    """Shop AppUser only — admin OWNER/MAINTENANCE are env-based, not in users table."""
-    normalized = email.strip().lower()
-    if not normalized or "@" not in normalized:
-        return None
-    row = db.scalar(select(AppUser).where(func.lower(AppUser.email) == normalized))
     if row is None or row.is_deleted or not row.is_active or row.is_banned:
         return None
     return row

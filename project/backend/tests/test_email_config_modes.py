@@ -8,6 +8,11 @@ from email_config import (
     can_send_via_smtp,
     is_mailpit_style_local,
     is_smtp_configured,
+    smtp_brevo_from_misconfigured,
+    smtp_from_is_brevo_relay_login,
+    smtp_config_issues,
+    smtp_provider_label,
+    smtp_resend_user_misconfigured,
     smtp_mode,
     smtp_config_diagnostic,
 )
@@ -44,6 +49,44 @@ def test_mailpit_optional_not_fully_configured(monkeypatch: pytest.MonkeyPatch) 
     diag = smtp_config_diagnostic()
     assert diag["smtp_fully_configured"] is False
     assert diag["smtp_mailpit_style"] is True
+
+
+def test_brevo_smtp_from_relay_login_misconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp-relay.brevo.com")
+    monkeypatch.setenv("SMTP_USER", "ac902b001@smtp-brevo.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "key")
+    monkeypatch.setenv("SMTP_FROM", "ac902b001@smtp-brevo.com")
+    assert smtp_from_is_brevo_relay_login("ac902b001@smtp-brevo.com") is True
+    assert smtp_brevo_from_misconfigured() is True
+    diag = smtp_config_diagnostic()
+    assert diag["smtp_brevo_from_misconfigured"] is True
+
+
+def test_mailersend_gmail_from_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.mailersend.net")
+    monkeypatch.setenv("SMTP_USER", "MS_test@mlsender.net")
+    monkeypatch.setenv("SMTP_PASSWORD", "token")
+    monkeypatch.setenv("SMTP_FROM", "user@gmail.com")
+    assert smtp_provider_label() == "mailersend"
+    assert "mailersend_from_should_be_verified_domain_not_gmail" in smtp_config_issues()
+
+
+def test_resend_smtp_user_must_be_literal_resend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.resend.com")
+    monkeypatch.setenv("SMTP_USER", "wrong@gmail.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "re_key")
+    monkeypatch.setenv("SMTP_FROM", "onboarding@resend.dev")
+    assert smtp_resend_user_misconfigured() is True
+    monkeypatch.setenv("SMTP_USER", "resend")
+    assert smtp_resend_user_misconfigured() is False
+
+
+def test_brevo_verified_sender_from_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp-relay.brevo.com")
+    monkeypatch.setenv("SMTP_USER", "ac902b001@smtp-brevo.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "key")
+    monkeypatch.setenv("SMTP_FROM", "noreply@mesencsi.hu")
+    assert smtp_brevo_from_misconfigured() is False
 
 
 def test_partial_gmail_missing_password(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from image_upload import AVATAR_UPLOAD_PREFIX, validate_profile_image_url
+from image_upload import (
+    AVATAR_PRESET_PREFIX,
+    AVATAR_UPLOAD_PREFIX,
+    validate_profile_image_url,
+)
 from mesencsi import app
 from tests.test_checkout_bundle_integration import _auth_headers, _seed_verified_user_and_products
 
@@ -13,6 +17,12 @@ from tests.test_checkout_bundle_integration import _auth_headers, _seed_verified
 def test_validate_profile_image_url_accepts_avatar_upload_path() -> None:
     url = AVATAR_UPLOAD_PREFIX + "user-1-abc123.jpg"
     assert validate_profile_image_url(url) == url
+
+
+def test_validate_profile_image_url_accepts_builtin_presets() -> None:
+    for n in range(1, 5):
+        url = f"{AVATAR_PRESET_PREFIX}preset-{n}.svg"
+        assert validate_profile_image_url(url) == url
 
 
 def test_validate_profile_image_url_rejects_external_and_traversal() -> None:
@@ -68,6 +78,18 @@ def test_patch_profile_rejects_unsafe_profile_image_url(
 def test_patch_profile_accepts_valid_avatar_path(client: TestClient) -> None:
     uid, _pa, _pb = _seed_verified_user_and_products()
     url = AVATAR_UPLOAD_PREFIX + "user-99-test.jpg"
+    r = client.patch(
+        "/users/me",
+        json={"profile_image_url": url},
+        headers=_auth_headers(uid),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["profile_image_url"] == url
+
+
+def test_patch_profile_accepts_preset_avatar(client: TestClient) -> None:
+    uid, _pa, _pb = _seed_verified_user_and_products()
+    url = f"{AVATAR_PRESET_PREFIX}preset-2.svg"
     r = client.patch(
         "/users/me",
         json={"profile_image_url": url},

@@ -63,6 +63,22 @@ def test_hidden_comment_not_in_public_list(client: TestClient) -> None:
     assert not any("Rejtett" in (c.get("content") or "") for c in listed.json()["items"])
 
 
+def test_get_comments_for_existing_news_with_no_comments(client: TestClient) -> None:
+    nid = seed_published_news(slug="comment-none")
+    r = client.get(f"/news/{nid}/comments?page=1&page_size=40")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["page"] == 1
+    assert body["page_size"] == 40
+
+
+def test_get_comments_missing_news_returns_404(client: TestClient) -> None:
+    r = client.get("/news/999999/comments?page=1&page_size=40")
+    assert r.status_code == 404, r.text
+
+
 def test_comment_flood_guard_blocks_rapid_second_post(client: TestClient) -> None:
     uid = seed_verified_user(email="flooder@example.com", username="flooder")
     nid = seed_published_news(slug="comment-flood")

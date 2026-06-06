@@ -1,67 +1,34 @@
-"""Sikertelen belépés számolása + ideiglenes zárolás."""
+"""Login throttle — delegates to grafi_core with Mesencsi store and Hungarian message."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from db_models import LoginThrottle
+from adapters.login_throttle_store import MESENCI_LOGIN_THROTTLE_STORE
+from grafi_core.auth.login_throttle import (
+    LoginThrottleSettings,
+    assert_login_allowed as _assert_login_allowed,
+    clear_login_throttle as _clear_login_throttle,
+    record_login_failure as _record_login_failure,
+)
 
-MAX_FAILS = 5
-LOCK_MINUTES = 15
+_SETTINGS = LoginThrottleSettings(
+    max_fails=5,
+    lock_minutes=15,
+    locked_message="Túl sok sikertelen belépési kísérlet. Próbáld újra később (kb. 15 perc múlva).",
+)
 
-
-def _key(email: str) -> str:
-    return email.strip().lower()
-
-
-def _as_utc(dt: datetime) -> datetime:
-    """SQLite teszt DB naív datetimeot ad vissza — összehasonlítás előtt normalizálás."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
+MAX_FAILS = _SETTINGS.max_fails
+LOCK_MINUTES = _SETTINGS.lock_minutes
 
 
 def assert_login_allowed(db: Session, email: str) -> None:
-    row = db.get(LoginThrottle, _key(email))
-    if row is None or row.locked_until is None:
-        return
-    if _as_utc(row.locked_until) > datetime.now(UTC):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Túl sok sikertelen belépési kísérlet. Próbáld újra később (kb. 15 perc múlva).",
-        )
+    _assert_login_allowed(db, email, MESENCI_LOGIN_THROTTLE_STORE, settings=_SETTINGS)
 
 
 def record_login_failure(db: Session, email: str) -> None:
-    key = _key(email)
-    row = db.get(LoginThrottle, key)
-    now = datetime.now(UTC)
-    if row is None:
-        row = LoginThrottle(email_normalized=key, failed_count=1, locked_until=None, updated_at=now)
-        db.add(row)
-    else:
-        row.failed_count = int(row.failed_count or 0) + 1
-        row.updated_at = now
-        if row.failed_count >= MAX_FAILS:
-            row.locked_until = now + timedelta(minutes=LOCK_MINUTES)
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
+    _record_login_failure(db, email, MESENCI_LOGIN_THROTTLE_STORE, settings=_SETTINGS)
 
 
 def clear_login_throttle(db: Session, email: str) -> None:
-    key = _key(email)
-    row = db.get(LoginThrottle, key)
-    if row is None:
-        return
-    db.delete(row)
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
+    _clear_login_throttle(db, email, MESENCI_LOGIN_THROTTLE_STORE)

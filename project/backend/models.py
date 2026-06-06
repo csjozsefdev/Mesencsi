@@ -19,6 +19,9 @@ from shipping_address import (
 OrderPaymentStatus = Literal["pending", "paid", "failed", "cancelled"]
 
 
+# --- Shop: products ---
+
+
 class Product(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -43,6 +46,9 @@ class ProductUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     price: int | None = Field(None, ge=0)
     description: str | None = Field(None, max_length=2000)
+
+
+# --- Shop: cart & orders ---
 
 
 class OrderLineItem(BaseModel):
@@ -207,6 +213,9 @@ class OrderEstimateResponse(BaseModel):
     grand_original: int
     grand_discount: int
     grand_final: int
+
+
+# --- Admin: bundle discounts & coupons ---
 
 
 class ProductBundleDiscountCreate(BaseModel):
@@ -378,6 +387,9 @@ class AdminOrderStatusPatch(BaseModel):
         return self
 
 
+# --- Gallery ---
+
+
 class GalleryItemRead(BaseModel):
     """One gallery image / card for the storefront gallery."""
 
@@ -436,6 +448,9 @@ class GalleryItemUpdate(BaseModel):
         if s.lower().startswith("http://") or s.lower().startswith("https://"):
             raise ValueError("Külső kép URL nem engedélyezett.")
         return s
+
+
+# --- Stories (legacy shop content) ---
 
 
 class StoryRead(BaseModel):
@@ -632,7 +647,7 @@ class NewsFeatureUpdate(BaseModel):
 
 
 class AdminImageUploadResponse(BaseModel):
-    """Public URL path served by ``GET /images/{filename}`` after owner upload."""
+    """Public URL path served under ``/media/uploads/...`` after owner upload."""
 
     url: str
     filename: str
@@ -690,6 +705,9 @@ StorybookTextBoxStyle = Literal[
     "bookpage",
     "magic_frame",
 ]
+
+
+# --- Storybooks ---
 
 
 class StorybookPagePublic(BaseModel):
@@ -940,6 +958,24 @@ class ResetPasswordRequest(BaseModel):
 
 
 class ResetPasswordResponse(BaseModel):
+    message: str
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    current_password: str = Field(..., min_length=1, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
+    password_confirm: str = Field(..., min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> ChangePasswordRequest:
+        if self.password != self.password_confirm:
+            raise ValueError("A jelszó és a megerősítés nem egyezik.")
+        return self
+
+
+class ChangePasswordResponse(BaseModel):
     message: str
 
 

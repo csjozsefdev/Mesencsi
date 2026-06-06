@@ -19,6 +19,8 @@ def test_dev_smtp_config_available_locally(monkeypatch: pytest.MonkeyPatch) -> N
         r = client.get("/dev/smtp-config")
     assert r.status_code == 200
     data = r.json()
+    assert data["smtp_host"] == "127.0.0.1"
+    assert data["smtp_provider"] == "mailpit"
     assert data["smtp_host_present"] is True
     assert data["smtp_port"] == "1025"
     assert data["smtp_password_present"] is False

@@ -1,4 +1,8 @@
-"""Admin: hírkommentek moderálása (lista, láthatóság, törlés)."""
+"""Admin: hírkommentek moderálása (lista, láthatóság, törlés).
+
+Note: this router is not mounted in mesencsi.py yet. Comment moderation models exist;
+wire via admin_routes when the admin UI is ready.
+"""
 
 from __future__ import annotations
 

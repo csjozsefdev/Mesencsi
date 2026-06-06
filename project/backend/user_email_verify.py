@@ -1,21 +1,24 @@
-"""E-mail megerősítés token generálás / ellenőrzés."""
+"""Email verification — delegates token logic to grafi_core; ORM helpers stay here."""
 
 from __future__ import annotations
 
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db_models import AppUser
-from email_outbound import RESEND_COOLDOWN_SEC
+from grafi_core.auth.email_verify import (
+    DEFAULT_RESEND_COOLDOWN_SEC,
+    DEFAULT_VERIFICATION_TOKEN_TTL_HOURS,
+    can_resend_verification as _can_resend_verification,
+    is_verification_token_expired,
+    issue_verification_token,
+    verification_token_is_valid_format,
+)
 
-TOKEN_TTL_HOURS = 48
-
-
-def issue_verification_token() -> str:
-    return secrets.token_urlsafe(32)
+TOKEN_TTL_HOURS = DEFAULT_VERIFICATION_TOKEN_TTL_HOURS
+RESEND_COOLDOWN_SEC = DEFAULT_RESEND_COOLDOWN_SEC
 
 
 def assign_verification_to_user(db: Session, user: AppUser, token: str) -> None:
@@ -25,18 +28,13 @@ def assign_verification_to_user(db: Session, user: AppUser, token: str) -> None:
 
 
 def verify_user_by_token(db: Session, token: str) -> AppUser | None:
-    if not token or len(token) < 16:
+    if not verification_token_is_valid_format(token):
         return None
     row = db.scalar(select(AppUser).where(AppUser.email_verification_token == token.strip()))
-    if row is None:
+    if row is None or row.is_deleted:
         return None
-    if row.is_deleted:
+    if is_verification_token_expired(row.email_verification_sent_at, ttl_hours=TOKEN_TTL_HOURS):
         return None
-    sent = row.email_verification_sent_at
-    if sent is not None:
-        sent_aware = sent if sent.tzinfo else sent.replace(tzinfo=UTC)
-        if datetime.now(UTC) - sent_aware > timedelta(hours=TOKEN_TTL_HOURS):
-            return None
     row.email_verified_at = datetime.now(UTC)
     row.email_verification_token = None
     row.email_verification_sent_at = None
@@ -46,13 +44,8 @@ def verify_user_by_token(db: Session, token: str) -> AppUser | None:
 
 
 def can_resend_verification(user: AppUser, *, now: datetime | None = None) -> tuple[bool, int]:
-    """(allowed, seconds_left)."""
-    t = now or datetime.now(UTC)
-    sent = user.email_verification_sent_at
-    if sent is None:
-        return True, 0
-    sent_aware = sent if sent.tzinfo else sent.replace(tzinfo=UTC)
-    elapsed = (t - sent_aware).total_seconds()
-    if elapsed >= RESEND_COOLDOWN_SEC:
-        return True, 0
-    return False, int(RESEND_COOLDOWN_SEC - elapsed + 0.999)
+    return _can_resend_verification(
+        user.email_verification_sent_at,
+        cooldown_sec=RESEND_COOLDOWN_SEC,
+        now=now,
+    )

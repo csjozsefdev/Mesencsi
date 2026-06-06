@@ -129,6 +129,22 @@ def _author_for_public_comment(user: AppUser | None) -> tuple[str, str | None]:
     return name, av
 
 
+def _author_for_public_comment_cols(
+    *,
+    user_id: int | None,
+    username: str | None,
+    nickname: str | None,
+    profile_image_url: str | None,
+) -> tuple[str, str | None]:
+    """Same display rules as `_author_for_public_comment`, but without loading full AppUser rows."""
+    if user_id is None:
+        return "Törölt felhasználó", None
+    nick = (nickname or "").strip()
+    name = nick or (username or "").strip() or "Törölt felhasználó"
+    av = (profile_image_url or "").strip() or None
+    return name, av
+
+
 @router.get("/{news_id}/comments", response_model=NewsCommentPage)
 def list_visible_news_comments(
     news_id: int,
@@ -150,7 +166,9 @@ def list_visible_news_comments(
     if total == 0 and page > 1:
         raise HTTPException(status_code=422, detail="Ehhez a hírhez még nincs hozzászólás — csak az 1. oldal létezik.")
     stmt = (
-        select(NewsComment, AppUser)
+        # IMPORTANT: Select only the public author fields. Do not load full AppUser rows here,
+        # so the endpoint stays robust even if the users table schema is behind migrations.
+        select(NewsComment, AppUser.username, AppUser.nickname, AppUser.profile_image_url)
         .outerjoin(AppUser, AppUser.id == NewsComment.user_id)
         .where(vis)
         .order_by(NewsComment.created_at.asc(), NewsComment.id.asc())
@@ -159,8 +177,13 @@ def list_visible_news_comments(
     )
     rows = db.execute(stmt).all()
     items: list[NewsCommentPublic] = []
-    for c, u in rows:
-        disp, av = _author_for_public_comment(u)
+    for c, username, nickname, profile_image_url in rows:
+        disp, av = _author_for_public_comment_cols(
+            user_id=c.user_id,
+            username=username,
+            nickname=nickname,
+            profile_image_url=profile_image_url,
+        )
         items.append(
             NewsCommentPublic(
                 id=c.id,

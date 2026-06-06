@@ -6,13 +6,20 @@ import re
 import uuid
 from pathlib import Path
 
+import anyio
 from fastapi import HTTPException, UploadFile, status
+
+from media_storage import media_public_base_url, media_storage_mode, store_upload_bytes, url_to_object_key, delete_key
 
 _BACKEND_DIR = Path(__file__).resolve().parent
 UPLOADS_ROOT = (_BACKEND_DIR / "media" / "uploads").resolve()
 FRONTEND_ROOT = (_BACKEND_DIR.parent / "frontend").resolve()
 PUBLIC_UPLOAD_PREFIX = "/media/uploads"
 AVATAR_UPLOAD_PREFIX = f"{PUBLIC_UPLOAD_PREFIX}/avatars/"
+AVATAR_PRESET_PREFIX = "/images/avatars/presets/"
+ALLOWED_AVATAR_PRESET_URLS = frozenset(
+    {f"{AVATAR_PRESET_PREFIX}preset-{n}.svg" for n in (1, 2, 3, 4)}
+)
 
 # Dangerous URL schemes / protocol-relative paths (profile + other managed media URLs).
 _UNSAFE_URL_SCHEME_RE = re.compile(
@@ -85,29 +92,51 @@ def public_url_for(subdir: str, filename: str) -> str:
     fn = Path(filename).name
     if not fn or fn != filename:
         raise ValueError("Érvénytelen fájlnév.")
-    return f"{PUBLIC_UPLOAD_PREFIX}/{rel}/{fn}"
+    mode = media_storage_mode()
+    if mode == "local":
+        return f"{PUBLIC_UPLOAD_PREFIX}/{rel}/{fn}"
+    if mode == "s3":
+        base = media_public_base_url()
+        if not base:
+            raise ValueError("MEDIA_PUBLIC_BASE_URL must be set when MEDIA_STORAGE=s3")
+        # Keep stable paths: <base>/uploads/<subdir>/<filename>
+        return f"{base}/uploads/{rel}/{fn}"
+    raise ValueError("Ismeretlen media storage mód.")
 
 
 def delete_uploaded_file_by_url(url: str | None) -> None:
-    """Törli a fájlt, ha a tárolt érték a saját uploads prefix alá mutat (biztonságos)."""
+    """Delete an uploaded object only if it points to our managed storage."""
     if not url or not isinstance(url, str):
         return
     u = url.strip()
-    if not u.startswith(PUBLIC_UPLOAD_PREFIX + "/"):
+    mode = media_storage_mode()
+    if mode == "local":
+        if not u.startswith(PUBLIC_UPLOAD_PREFIX + "/"):
+            return
+        rel = u[len(PUBLIC_UPLOAD_PREFIX) :].lstrip("/")
+        if ".." in rel or rel.startswith("/"):
+            return
+        path = (UPLOADS_ROOT / rel).resolve()
+        try:
+            path.relative_to(UPLOADS_ROOT)
+        except ValueError:
+            return
+        try:
+            if path.is_file():
+                path.unlink()
+        except OSError:
+            pass
         return
-    rel = u[len(PUBLIC_UPLOAD_PREFIX) :].lstrip("/")
-    if ".." in rel or rel.startswith("/"):
+    if mode == "s3":
+        key = url_to_object_key(u)
+        if not key:
+            return
+        try:
+            delete_key(key)
+        except Exception:
+            # Best-effort delete — do not fail request paths for cleanup.
+            return
         return
-    path = (UPLOADS_ROOT / rel).resolve()
-    try:
-        path.relative_to(UPLOADS_ROOT)
-    except ValueError:
-        return
-    try:
-        if path.is_file():
-            path.unlink()
-    except OSError:
-        pass
 
 
 async def save_uploaded_image(
@@ -149,22 +178,43 @@ async def save_uploaded_image(
             detail="A fájl tartalma nem egyezik egy engedélyezett képformátummal — ellenőrizd a fájlt.",
         )
 
-    dest_dir = uploads_dir_for(subdir)
     stem = safe_stem(file.filename, "kep")
     prefix = re.sub(r"[^a-zA-Z0-9_-]+", "-", filename_prefix).strip("-") or "img"
     final_name = f"{prefix}-{stem}-{uuid.uuid4().hex[:10]}{suffix}"
-    dest = (dest_dir / final_name).resolve()
-    try:
-        dest.relative_to(UPLOADS_ROOT)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Érvénytelen fájlnév.") from None
-    dest.write_bytes(body)
-    return public_url_for(subdir, final_name), final_name
+    mode = media_storage_mode()
+    if mode == "local":
+        dest_dir = uploads_dir_for(subdir)
+        dest = (dest_dir / final_name).resolve()
+        try:
+            dest.relative_to(UPLOADS_ROOT)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Érvénytelen fájlnév.") from None
+        await anyio.to_thread.run_sync(dest.write_bytes, body)
+        return public_url_for(subdir, final_name), final_name
+    if mode == "s3":
+        try:
+            stored = store_upload_bytes(
+                subdir=assert_relative_subdir(subdir),
+                filename=final_name,
+                body=body,
+                content_type=file.content_type,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+        return stored.public_url, final_name
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ismeretlen media storage mód.")
 
 
 def is_managed_image_url(url: str | None) -> bool:
     s = (url or "").strip()
-    return bool(s.startswith(PUBLIC_UPLOAD_PREFIX + "/"))
+    if not s:
+        return False
+    if s.startswith(PUBLIC_UPLOAD_PREFIX + "/"):
+        return True
+    base = media_public_base_url()
+    if base and s.startswith(base + "/"):
+        return True
+    return False
 
 
 def _reject_unsafe_media_url(s: str) -> None:
@@ -173,14 +223,17 @@ def _reject_unsafe_media_url(s: str) -> None:
         raise ValueError("A kép URL nem tartalmazhat veszélyes protokollt vagy relatív hivatkozást.")
     if ".." in s or "\\" in s:
         raise ValueError("A kép URL érvénytelen vagy tiltott útvonalat tartalmaz.")
-    low = s.lower()
-    if low.startswith("http://") or low.startswith("https://"):
-        raise ValueError("Külső kép URL nem engedélyezett.")
+
+
+def is_allowed_avatar_preset_url(url: str) -> bool:
+    """Built-in storefront preset avatars (static SVG under frontend/images)."""
+    s = (url or "").strip()
+    return s in ALLOWED_AVATAR_PRESET_URLS
 
 
 def validate_profile_image_url(url: str | None) -> str | None:
     """
-    Profile avatars must point at server uploads under ``/media/uploads/avatars/…``.
+    Profile avatars: uploaded files under ``/media/uploads/avatars/…`` or built-in presets.
     Rejects javascript:/data:/external http(s)/,// and path traversal.
     """
     if url is None:
@@ -189,16 +242,42 @@ def validate_profile_image_url(url: str | None) -> str | None:
     if not s:
         return None
     _reject_unsafe_media_url(s)
-    if not s.startswith(AVATAR_UPLOAD_PREFIX):
-        raise ValueError(
-            "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
-        )
-    rel = s[len(AVATAR_UPLOAD_PREFIX) :]
-    if not rel or "/" in rel:
-        raise ValueError(
-            "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
-        )
-    return s
+    if is_allowed_avatar_preset_url(s):
+        return s
+    mode = media_storage_mode()
+    if mode == "local":
+        low = s.lower()
+        if low.startswith("http://") or low.startswith("https://"):
+            raise ValueError("Külső kép URL nem engedélyezett.")
+        if not s.startswith(AVATAR_UPLOAD_PREFIX):
+            raise ValueError(
+                "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
+            )
+        rel = s[len(AVATAR_UPLOAD_PREFIX) :]
+        if not rel or "/" in rel:
+            raise ValueError(
+                "A profilképhez csak a szerverre feltöltött helyi útvonal használható (/media/uploads/avatars/…)."
+            )
+        return s
+    if mode == "s3":
+        low = s.lower()
+        if not (low.startswith("https://") or low.startswith("http://")):
+            raise ValueError("A profilkép URL-nek abszolút http(s) URL-nek kell lennie (MEDIA_PUBLIC_BASE_URL alatt).")
+        base = media_public_base_url()
+        if not base:
+            raise ValueError("MEDIA_PUBLIC_BASE_URL is not configured.")
+        expected_prefix = f"{base}/uploads/avatars/"
+        if not s.startswith(expected_prefix):
+            raise ValueError(
+                "A profilképhez csak a saját tárhelyre feltöltött URL használható (MEDIA_PUBLIC_BASE_URL/uploads/avatars/…)."
+            )
+        rel = s[len(expected_prefix) :]
+        if not rel or "/" in rel:
+            raise ValueError(
+                "A profilképhez csak a saját tárhelyre feltöltött URL használható (MEDIA_PUBLIC_BASE_URL/uploads/avatars/…)."
+            )
+        return s
+    raise ValueError("Ismeretlen media storage mód.")
 
 
 def _safe_file_under(root: Path, rel: str) -> bool:

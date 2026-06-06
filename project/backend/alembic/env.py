@@ -4,7 +4,22 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from database import DATABASE_URL, Base
-from db_models import AppUser, GalleryItem, Incident, Product, ShopOrder, Story  # noqa: F401
+from db_models import (  # noqa: F401
+    AppUser,
+    Coupon,
+    DigitalStorybook,
+    DigitalStorybookPage,
+    GalleryItem,
+    Incident,
+    NewsComment,
+    NewsPost,
+    PaymentAttempt,
+    Product,
+    ProductBundleDiscount,
+    ShopOrder,
+    Story,
+    UserCartItem,
+)
 
 config = context.config
 

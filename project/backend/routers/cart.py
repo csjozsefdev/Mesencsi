@@ -77,3 +77,8 @@ def replace_user_cart(
         db.add(UserCartItem(user_id=user.id, product_id=pid, quantity=qty))
     db.commit()
     return _read_lines(db, user.id)
+
+
+def clear_user_cart(db: Session, user_id: int) -> None:
+    """Remove all server-side cart lines for a user (e.g. after checkout order created)."""
+    db.execute(delete(UserCartItem).where(UserCartItem.user_id == user_id))

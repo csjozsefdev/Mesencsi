@@ -7,9 +7,10 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 
 from database import SessionLocal
-from db_models import AppUser, Product
+from db_models import AppUser, Product, UserCartItem
 from mesencsi import app
 from password_utils import hash_password
+from shipping_address import sample_valid_shipping_json
 from user_tokens import issue_user_access_token
 
 
@@ -70,3 +71,40 @@ def test_cart_put_get_and_clear() -> None:
     r3 = client.put("/cart", headers=headers, json={"items": []})
     assert r3.status_code == 200
     assert r3.json() == []
+
+
+def test_create_order_does_not_clear_server_cart() -> None:
+    """Pending checkout must keep server cart until payment is confirmed paid."""
+    user_id, product_id = _seed_user_and_product()
+    client = TestClient(app)
+    headers = _auth(user_id)
+
+    r1 = client.put(
+        "/cart",
+        headers=headers,
+        json={"items": [{"product_id": product_id, "quantity": 1}]},
+    )
+    assert r1.status_code == 200
+
+    r2 = client.post(
+        "/orders",
+        headers=headers,
+        json={
+            "customer_name": "Cart Buyer",
+            "items": [{"product_id": product_id, "quantity": 1}],
+            "shipping_address": sample_valid_shipping_json(),
+            "company_website": "",
+        },
+    )
+    assert r2.status_code == 201, r2.text
+
+    r3 = client.get("/cart", headers=headers)
+    assert r3.status_code == 200
+    assert len(r3.json()) == 1
+
+    db = SessionLocal()
+    try:
+        n = db.query(UserCartItem).filter(UserCartItem.user_id == user_id).count()
+        assert n == 1
+    finally:
+        db.close()

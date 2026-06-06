@@ -1,21 +1,5 @@
-"""Biztonságos jelszó-hash bcrypt-tel — vásárlói fiókok és admin / karbantartó belépés (OWNER_PASSWORD, MAINTENANCE_PASSWORD)."""
+"""bcrypt password hashing — delegates to grafi_core."""
 
-from __future__ import annotations
+from grafi_core.auth.password import hash_password, verify_password
 
-import bcrypt
-
-
-def hash_password(plain: str) -> str:
-    if not isinstance(plain, str):
-        raise TypeError("plain password must be str")
-    hashed = bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt())
-    return hashed.decode("ascii")
-
-
-def verify_password(plain: str, password_hash: str) -> bool:
-    if not plain or not password_hash:
-        return False
-    try:
-        return bcrypt.checkpw(plain.encode("utf-8"), password_hash.encode("ascii"))
-    except (ValueError, TypeError):
-        return False
+__all__ = ["hash_password", "verify_password"]

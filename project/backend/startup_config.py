@@ -8,62 +8,17 @@ from urllib.parse import urlparse
 
 from cors_config import cors_origins_raw_env, parse_cors_origins_list, validate_production_cors_origins
 from email_config import hosted_deployment, is_mailpit_style_local, is_smtp_configured, smtp_mode
+from grafi_core.ops.startup_helpers import (
+    StartupConfigError,
+    env_value as _env,
+    https_public_url as _https_public_url,
+    secret_ok as _secret_ok,
+)
 from runtime_flags import mesencsi_production
 
 _log = logging.getLogger("mesencsi.startup_config")
 
-_PLACEHOLDER_MARKERS = (
-    "replace_with",
-    "changeme",
-    "your-secret",
-    "example.com",
-)
-
 _MIN_SECRET_LEN = 32
-
-
-class StartupConfigError(RuntimeError):
-    """Éles módban hiányzó vagy érvénytelen konfiguráció — az app nem indulhat."""
-
-    def __init__(self, issues: list[str]) -> None:
-        self.issues = issues
-        super().__init__(
-            "Production configuration invalid:\n- " + "\n- ".join(issues)
-        )
-
-
-def _env(name: str) -> str:
-    return (os.environ.get(name) or "").strip()
-
-
-def _looks_placeholder(value: str) -> bool:
-    low = value.lower()
-    return any(m in low for m in _PLACEHOLDER_MARKERS)
-
-
-def _secret_ok(name: str) -> tuple[bool, str | None]:
-    v = _env(name)
-    if not v:
-        return False, f"{name} is not set"
-    if _looks_placeholder(v):
-        return False, f"{name} looks like a placeholder"
-    if len(v) < _MIN_SECRET_LEN:
-        return False, f"{name} is too short (min {_MIN_SECRET_LEN} chars)"
-    return True, None
-
-
-def _https_public_url(label: str, raw: str) -> tuple[bool, str | None]:
-    if not raw:
-        return False, f"{label} is not set"
-    if not raw.startswith("https://"):
-        return False, f"{label} must use https in production"
-    try:
-        p = urlparse(raw)
-        if not p.netloc:
-            return False, f"{label} has no host"
-    except Exception:
-        return False, f"{label} is not a valid URL"
-    return True, None
 
 
 def _barion_return_url() -> str:
@@ -117,7 +72,6 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
     if production and _env("MESENCSI_TEST_DATABASE_URL"):
         fatal.append("MESENCSI_TEST_DATABASE_URL must not be set in production mode")
     elif _env("MESENCSI_TEST_DATABASE_URL"):
-        # Dev/pytest: alternate DB URL (e.g. SQLite in-memory) — Postgres env vars not required.
         pass
     else:
         for key in ("POSTGRES_USER", "POSTGRES_HOST", "POSTGRES_DB"):
@@ -151,8 +105,6 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
     else:
         if not _env("BARION_POS_KEY"):
             warn.append("BARION_POS_KEY not set — Barion stub/preview mode")
-        if mesencsi_production() is False and _env("BARION_ENV").lower() in ("", "sandbox", "test"):
-            pass
 
     if hosted_deployment():
         if not is_smtp_configured():
@@ -173,7 +125,17 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
     elif is_mailpit_style_local():
         warn.append("SMTP Mailpit mode (127.0.0.1:1025) — ensure Mailpit is running or switch to relay SMTP")
     elif is_smtp_configured():
-        pass  # relay OK for local
+        from email_config import smtp_brevo_from_misconfigured, smtp_resend_user_misconfigured
+
+        if smtp_brevo_from_misconfigured():
+            warn.append(
+                "SMTP_FROM is the Brevo SMTP login (@smtp-brevo.com) — use a verified sender address "
+                "from Brevo → Senders, Domains & IPs (Brevo accepts SMTP but may not deliver)"
+            )
+        if smtp_resend_user_misconfigured():
+            warn.append(
+                "Resend SMTP: set SMTP_USER=resend and SMTP_PASSWORD to your re_ API key (see backend/docs/resend_smtp.md)"
+            )
 
     return fatal, warn
 
@@ -224,6 +186,5 @@ def run_startup_config_validation() -> None:
     if fatal:
         for issue in fatal:
             _log.error("startup_config_error %s", issue)
-        # Block startup on production or any hosted deploy (Render/staging) with fatal config.
         if production or hosted_deployment():
             raise StartupConfigError(fatal)

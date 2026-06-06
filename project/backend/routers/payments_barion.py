@@ -8,6 +8,7 @@ import secrets
 import uuid
 from typing import Any, Literal
 
+import anyio
 BarionStartAction = Literal["new", "resume", "retry"]
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -18,11 +19,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app_logging import get_request_id, log_event
+from adapters.grafi_settings import mesencsi_core_settings
 from barion_api import (
     _barion_errors,
     attach_barion_ipn_query,
+    barion_api_base_url,
     barion_backend_public_base,
     barion_frontend_landing_base,
+    barion_gateway_base_url,
     barion_ipn_secret,
     barion_pos_key,
     barion_sandbox_mode,
@@ -33,10 +37,17 @@ from barion_api import (
     start_payment_request,
     use_barion_rest_api,
 )
-from database import get_db
+from grafi_core.payments.barion_client import (
+    BarionApiHttpError,
+    _agent_debug_log,
+    barion_error_codes_from_body,
+    barion_start_debug_snapshot,
+)
+from database import SessionLocal, get_db
 from db_models import AppUser, PaymentAttempt, ShopOrder
 from dependencies import get_current_app_user
 from payment_confirmation_email import schedule_payment_confirmation_after_paid_sync
+from routers.cart import clear_user_cart
 from runtime_flags import internal_barion_debug_authorized, mesencsi_production
 
 router = APIRouter(prefix="/payments/barion", tags=["payments-barion"])
@@ -46,6 +57,10 @@ _log = logging.getLogger("mesencsi.payments")
 _BARION_STATE_CLIENT_MSG = "A fizetés állapota jelenleg nem ellenőrizhető. Próbáld újra később."
 _BARION_START_CLIENT_MSG = "A fizetés indítása sikertelen. Próbáld újra később."
 _BARION_UNAVAILABLE_CLIENT_MSG = "A fizetési szolgáltatás átmenetileg nem érhető el. Próbáld újra később."
+_BARION_SHOP_DRAFT_CLIENT_MSG = (
+    "A Barion bolt még nincs jóváhagyva (piszkozat állapot). "
+    "Fejezd be a bolt regisztrációt és küldd jóváhagyásra a Barion teszt felületen, majd próbáld újra."
+)
 
 # Webshop `orders.payment_status` — csak backend Barion verify (GetPaymentState) után paid/failed/cancelled.
 SHOP_PAYMENT_STATUSES: tuple[str, ...] = ("pending", "paid", "failed", "cancelled")
@@ -108,6 +123,13 @@ def _apply_verified_payment_status_to_orders(rows: list[ShopOrder], new_status: 
             r.payment_status = new_status
             updated += 1
     return updated
+
+
+def _clear_user_carts_after_confirmed_paid(db: Session, rows: list[ShopOrder]) -> None:
+    """Server-side cart clears only after payment_status is confirmed paid."""
+    user_ids = {int(r.user_id) for r in rows if r.user_id is not None}
+    for uid in sorted(user_ids):
+        clear_user_cart(db, uid)
 
 
 def _map_callback_status(raw: str) -> str:
@@ -361,6 +383,7 @@ def sync_orders_payment_status_from_barion(db: Session, payment_id: str) -> tupl
             rows_updated=rows_updated,
         )
         if shop == "paid":
+            _clear_user_carts_after_confirmed_paid(db, rows)
             try:
                 schedule_payment_confirmation_after_paid_sync(payment_id, rows)
             except Exception:
@@ -381,6 +404,22 @@ def sync_orders_payment_status_from_barion(db: Session, payment_id: str) -> tupl
             rows=len(rows),
         )
     return shop, bstatus_str
+
+
+def sync_orders_payment_status_from_barion_isolated(payment_id: str) -> tuple[str, str | None]:
+    """
+    Run Barion sync in a dedicated DB session.
+
+    This is safe to call from a thread (e.g. async IPN handler) to avoid blocking the event loop
+    and to avoid using a request-scoped SQLAlchemy session across threads.
+    """
+    db = SessionLocal()
+    try:
+        out = sync_orders_payment_status_from_barion(db, payment_id)
+        db.commit()
+        return out
+    finally:
+        db.close()
 
 
 def _load_orders_for_start(db: Session, user: AppUser, order_ids: list[int]) -> list[ShopOrder]:
@@ -539,6 +578,8 @@ def barion_preview_status():
     return {
         "barion_env": env_raw or None,
         "sandbox": sandbox,
+        "api_base_url": barion_api_base_url(),
+        "gateway_base_url": barion_gateway_base_url(),
         "mesencsi_production": mesencsi_production(),
         "pos_key_configured": bool(barion_pos_key()),
         "rest_api_enabled": use_barion_rest_api(),
@@ -638,7 +679,27 @@ def barion_start_payment(
 
         redirect_url = _barion_return_url()
         cb = _callback_url_if_configured()
+        cancel_url = (os.environ.get("BARION_CANCEL_URL") or "").strip() or None
         payer = (rows[0].customer_email or "").strip() or None
+        cs = mesencsi_core_settings()
+        _agent_debug_log(
+            "payments_barion.py:barion_start_payment",
+            "barion_start_endpoint",
+            {
+                **barion_start_debug_snapshot(
+                    core_settings=cs,
+                    order_ids=ids,
+                    total_huf=total_huf,
+                    redirect_url=redirect_url,
+                    callback_url=cb,
+                    cancel_url=cancel_url,
+                ),
+                "start_action": start_action,
+                "user_id": user.id,
+                "rest_api_enabled": True,
+            },
+            hypothesis_id="A",
+        )
         try:
             body = build_start_payment_body(
                 payment_request_id=payment_request_id,
@@ -654,6 +715,41 @@ def barion_start_payment(
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=_BARION_UNAVAILABLE_CLIENT_MSG,
+            ) from e
+        except BarionApiHttpError as e:
+            barion_codes = barion_error_codes_from_body(e.body or "")
+            # #region agent log
+            _agent_debug_log(
+                "payments_barion.py:barion_start_payment",
+                "barion_start_http_error",
+                {
+                    "user_id": user.id,
+                    "barion_http_status": e.status_code,
+                    "barion_error_codes": barion_codes[:5],
+                },
+                hypothesis_id="G",
+            )
+            # #endregion
+            if "ShopIsInDraftState" in barion_codes:
+                _log.error(
+                    "barion_start_shop_draft user_id=%s barion_status=%s",
+                    user.id,
+                    e.status_code,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=_BARION_SHOP_DRAFT_CLIENT_MSG,
+                ) from e
+            _log.error(
+                "barion_start_http_error user_id=%s status=%s barion_error_codes=%s body_prefix=%s",
+                user.id,
+                e.status_code,
+                barion_codes[:3],
+                (e.body or "")[:200],
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=_BARION_START_CLIENT_MSG,
             ) from e
         except Exception as e:
             _log.exception("barion_start_failed user_id=%s", user.id)
@@ -912,7 +1008,8 @@ async def barion_ipn(request: Request, db: Session = Depends(get_db)):
         log_event(_log, logging.INFO, "barion_ipn_skip", request_id=get_request_id(), has_payment_id=bool(pid))
         return {"ok": True, "sync": "skipped"}
     try:
-        sync_orders_payment_status_from_barion(db, pid)
+        # Offload blocking Barion HTTP + DB work to a worker thread.
+        await anyio.to_thread.run_sync(sync_orders_payment_status_from_barion_isolated, pid)
     except HTTPException:
         raise
     except Exception:
@@ -978,6 +1075,8 @@ def barion_callback_stub(
     pay_status = _map_callback_status(payload.status)
     rows_updated = _apply_verified_payment_status_to_orders(rows, pay_status)
     if rows_updated > 0:
+        if pay_status == "paid":
+            _clear_user_carts_after_confirmed_paid(db, rows)
         db.commit()
     log_event(
         _log,

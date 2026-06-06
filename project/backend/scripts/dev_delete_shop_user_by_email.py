@@ -73,16 +73,27 @@ def _preview(db: Session, email: str) -> AppUser | None:
     return user
 
 
+def _payment_attempts_table_exists(db: Session) -> bool:
+    row = db.execute(
+        text(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'payment_attempts'"
+        )
+    ).first()
+    return row is not None
+
+
 def _delete(db: Session, email: str, user_id: int) -> None:
-    # 1) payment_attempts for this user's checkout groups
-    group_ids = db.scalars(
-        select(ShopOrder.checkout_group_id)
-        .where(ShopOrder.user_id == user_id)
-        .where(ShopOrder.checkout_group_id.isnot(None))
-        .distinct()
-    ).all()
-    if group_ids:
-        db.execute(delete(PaymentAttempt).where(PaymentAttempt.checkout_group_id.in_(group_ids)))
+    # 1) payment_attempts for this user's checkout groups (table may be absent on older local DBs)
+    if _payment_attempts_table_exists(db):
+        group_ids = db.scalars(
+            select(ShopOrder.checkout_group_id)
+            .where(ShopOrder.user_id == user_id)
+            .where(ShopOrder.checkout_group_id.isnot(None))
+            .distinct()
+        ).all()
+        if group_ids:
+            db.execute(delete(PaymentAttempt).where(PaymentAttempt.checkout_group_id.in_(group_ids)))
 
     # 2) orders (FK restrict — must delete before user)
     db.execute(delete(ShopOrder).where(ShopOrder.user_id == user_id))

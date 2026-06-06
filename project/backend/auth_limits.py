@@ -1,8 +1,6 @@
-"""API rate limit (slowapi) — IP alapú, egyszerű worker-kompatibilitás."""
+"""API rate limiting — delegates to grafi_core with Mesencsi test env key."""
 
-from __future__ import annotations
+from adapters.grafi_settings import mesencsi_core_settings
+from grafi_core.security.rate_limits import create_limiter
 
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
+limiter = create_limiter(mesencsi_core_settings())

@@ -3,8 +3,6 @@
 # Új tool / framework esetén: ellenőrizd, milyen mappákat / fájlokat hoz létre, és vedd fel ide.
 
 # --- Python / venv ---
-.venv/
-venv/
 **/__pycache__/
 **/*.py[cod]
 **/$py.class
@@ -84,10 +82,6 @@ downloads/
 test-results/
 playwright/.cache/
 
-# --- Titkok / helyi környezet (.env.example maradhat) ---
-.env
-.env.local
-.env.*.local
 
 # --- OS / IDE zaj ---
 .DS_Store

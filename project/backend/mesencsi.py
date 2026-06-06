@@ -7,15 +7,21 @@ from fastapi.responses import FileResponse
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+try:
+    from starlette.middleware.proxy_headers import ProxyHeadersMiddleware  # type: ignore
+except Exception:  # pragma: no cover
+    ProxyHeadersMiddleware = None  # type: ignore[assignment]
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from auth_limits import limiter
+from csrf import CsrfMiddleware
 from database import engine, get_db
-from db_models import AppUser, Product as ProductRow, ShopOrder, Story as StoryRow
+from db_models import AppUser, PaymentAttempt, Product as ProductRow, ShopOrder, Story as StoryRow
 from incident_support import register_incident_support
+from metrics_support import MetricsMiddleware, metrics_endpoint
 from security_headers import register_security_headers
 from admin_routes import router as admin_router
 from bundle_discount_service import compute_checkout_pricing
@@ -34,8 +40,8 @@ from routers.health import router as health_router
 from routers.incidents import router as incidents_router
 from routers.news_public import router as news_public_router
 from routers.storybooks_public import router as storybooks_public_router
-from routers.user_mvp import router_auth as user_auth_router
-from routers.user_mvp import router_users as user_shop_router
+from routers.user_auth import router_auth as user_auth_router
+from routers.user_mvp import router_users
 from routers.payments_barion import router as payments_barion_router
 from dependencies import (
     get_current_app_user,
@@ -48,38 +54,83 @@ from auth import log_admin_auth_startup
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
+from order_guards import assert_order_line_deletable
 from email_config import log_smtp_config_at_startup
 from routers.dev_diagnostics import router as dev_diagnostics_router
 from startup_config import run_startup_config_validation
 from user_tokens import log_user_jwt_startup
 
 
-def _compute_order_estimate(db: Session, user_id: int, payload: OrderEstimateRequest) -> OrderEstimateResponse:
-    """Kosár + kombó kedvezmény és/vagy kupon — csak számolás, nincs DB írás (kombó elsőbbsége a kuponnal szemben)."""
-    priced = compute_checkout_pricing(db, user_id=user_id, items=payload.items, coupon_code=payload.coupon_code)
-    lines_out = [
-        OrderEstimateLine(
-            product_id=pl.product_id,
-            product_name=pl.product_name,
-            quantity=pl.quantity,
-            original_total=pl.original_total,
-            discount_amount=pl.discount_amount,
-            final_total=pl.final_total,
-            bundle_discount_amount=pl.bundle_discount_amount,
-        )
-        for pl in priced.lines
-    ]
+def _priced_line_to_estimate_line(pl) -> OrderEstimateLine:
+    return OrderEstimateLine(
+        product_id=pl.product_id,
+        product_name=pl.product_name,
+        quantity=pl.quantity,
+        original_total=pl.original_total,
+        discount_amount=pl.discount_amount,
+        final_total=pl.final_total,
+        bundle_discount_amount=pl.bundle_discount_amount,
+    )
+
+
+def _priced_lines_to_estimate_response(priced) -> OrderEstimateResponse:
     return OrderEstimateResponse(
         discount_percent=priced.discount_percent,
         coupon_code=priced.coupon_code,
         bundle_rule_name=priced.bundle_rule_name,
         bundle_discount_total=priced.bundle_discount_total,
         bundle_percent=priced.bundle_percent,
-        lines=lines_out,
+        lines=[_priced_line_to_estimate_line(pl) for pl in priced.lines],
         grand_original=priced.grand_original,
         grand_discount=priced.grand_discount,
         grand_final=priced.grand_final,
     )
+
+
+def _persist_discount_amount(pl) -> int | None:
+    """Return discount_amount for DB, or None when no discount applies to the line."""
+    disc_amt = pl.discount_amount
+    disc_pct = pl.discount_percent
+    return disc_amt if (disc_amt or disc_pct is not None or pl.coupon_code) else None
+
+
+def _priced_line_to_shop_order(
+    pl,
+    *,
+    user_id: int,
+    customer_name: str,
+    buyer_email: str,
+    shipping_normalized: str,
+    notes: str | None,
+    checkout_group_id: str,
+) -> ShopOrder:
+    return ShopOrder(
+        user_id=user_id,
+        product_id=pl.product_id,
+        product_name=pl.product_name,
+        quantity=pl.quantity,
+        total_price=pl.final_total,
+        original_total=pl.original_total,
+        discount_percent=pl.discount_percent,
+        discount_amount=_persist_discount_amount(pl),
+        coupon_code=pl.coupon_code,
+        customer_name=customer_name,
+        customer_email=buyer_email,
+        shipping_address=shipping_normalized,
+        notes=notes,
+        status="new",
+        payment_status="pending",
+        checkout_group_id=checkout_group_id,
+        bundle_rule_id=pl.bundle_rule_id,
+        bundle_rule_name=pl.bundle_rule_name,
+        bundle_discount_amount=pl.bundle_discount_amount,
+    )
+
+
+def _compute_order_estimate(db: Session, user_id: int, payload: OrderEstimateRequest) -> OrderEstimateResponse:
+    """Kosár + kombó kedvezmény és/vagy kupon — csak számolás, nincs DB írás (kombó elsőbbsége a kuponnal szemben)."""
+    priced = compute_checkout_pricing(db, user_id=user_id, items=payload.items, coupon_code=payload.coupon_code)
+    return _priced_lines_to_estimate_response(priced)
 
 
 def _configure_logging() -> None:
@@ -119,11 +170,28 @@ app.include_router(dev_diagnostics_router)
 app.include_router(incidents_router)
 app.include_router(gallery_router)
 app.include_router(user_auth_router)
-app.include_router(user_shop_router)
+app.include_router(router_users)
 app.include_router(cart_router)
 app.include_router(payments_barion_router)
 app.include_router(news_public_router)
 app.include_router(storybooks_public_router)
+
+app.add_middleware(MetricsMiddleware)
+
+def _proxy_trusted_hosts() -> str | list[str]:
+    """Comma-separated hosts for X-Forwarded-* trust (default: loopback only)."""
+    raw = (os.environ.get("TRUSTED_PROXY_HOSTS") or "").strip()
+    if not raw:
+        return "127.0.0.1"
+    if raw == "*":
+        return "*"
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    return parts if len(parts) > 1 else (parts[0] if parts else "127.0.0.1")
+
+
+if ProxyHeadersMiddleware is not None:
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_proxy_trusted_hosts())
+app.add_middleware(CsrfMiddleware)
 
 
 # Production: ``CORS_ALLOWED_ORIGINS`` (vagy ``ALLOWED_ORIGINS``) — vesszővel elválasztott lista, nincs wildcard.
@@ -155,22 +223,33 @@ def read_mesencsi_alias():
     """Alias for static-server habits; same storefront as ``/``."""
     return read_index()
 
+
+def _serve_storefront_shell():
+    """Shared handler for legal/hash SPA routes — frontend renders the view."""
+    return read_index()
+
+
 @app.get("/aszf")
 def read_aszf_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return read_index()
+    return _serve_storefront_shell()
 
 
 @app.get("/adatkezeles")
 def read_adatkezeles_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return read_index()
+    return _serve_storefront_shell()
+
+
+@app.get("/internal/metrics")
+def internal_metrics(request: Request):
+    return metrics_endpoint(request)
 
 
 @app.get("/impresszum")
 def read_impresszum_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return read_index()
+    return _serve_storefront_shell()
 
 
 @app.get("/site.webmanifest", include_in_schema=False)
@@ -280,30 +359,18 @@ def create_order(
     priced = compute_checkout_pricing(db, user_id=user.id, items=order.items, coupon_code=order.coupon_code)
 
     checkout_group_id = str(uuid.uuid4())
+    customer_name = order.customer_name.strip()
+    order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
     for pl in priced.lines:
-        disc_amt = pl.discount_amount
-        disc_pct = pl.discount_percent
-        row = ShopOrder(
+        row = _priced_line_to_shop_order(
+            pl,
             user_id=user.id,
-            product_id=pl.product_id,
-            product_name=pl.product_name,
-            quantity=pl.quantity,
-            total_price=pl.final_total,
-            original_total=pl.original_total,
-            discount_percent=disc_pct,
-            discount_amount=disc_amt if (disc_amt or disc_pct is not None or pl.coupon_code) else None,
-            coupon_code=pl.coupon_code,
-            customer_name=order.customer_name.strip(),
-            customer_email=buyer_email,
-            shipping_address=shipping_normalized,
-            notes=order.notes.strip() if order.notes else None,
-            status="new",
-            payment_status="pending",
+            customer_name=customer_name,
+            buyer_email=buyer_email,
+            shipping_normalized=shipping_normalized,
+            notes=order_notes,
             checkout_group_id=checkout_group_id,
-            bundle_rule_id=pl.bundle_rule_id,
-            bundle_rule_name=pl.bundle_rule_name,
-            bundle_discount_amount=pl.bundle_discount_amount,
         )
         db.add(row)
         rows.append(row)
@@ -330,6 +397,7 @@ def delete_order(
     user: AppUser = Depends(require_email_verified_shop_user),
 ):
     order_row = find_order_owned(db, order_id, user.id)
+    assert_order_line_deletable(db, order_row)
     db.delete(order_row)
     db.commit()
     return None

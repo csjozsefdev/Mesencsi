@@ -8,7 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mesencsi import app
+from grafi_core.payments.barion_client import BarionApiHttpError
 from routers.payments_barion import (
+    _BARION_SHOP_DRAFT_CLIENT_MSG,
     _BARION_START_CLIENT_MSG,
     _BARION_STATE_CLIENT_MSG,
     _BARION_UNAVAILABLE_CLIENT_MSG,
@@ -74,6 +76,30 @@ def test_start_payment_failure_returns_generic_detail(client: TestClient, monkey
     assert br.status_code == 502, br.text
     assert br.json()["detail"] == _BARION_START_CLIENT_MSG
     assert "xyzzy" not in br.text
+
+
+def test_start_payment_shop_draft_returns_503(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    _barion_rest_env(monkeypatch)
+    uid, pa, _pb = _seed_verified_user_and_products()
+    cr = client.post(
+        "/orders",
+        json=_checkout_order_body("Barion draft", [{"product_id": pa, "quantity": 1}]),
+        headers=_auth_headers(uid),
+    )
+    assert cr.status_code == 201, cr.text
+    oid = cr.json()[0]["id"]
+    draft_body = (
+        '{"Errors":[{"Title":"Your shop is in draft state.",'
+        '"ErrorCode":"ShopIsInDraftState"}]}'
+    )
+    with patch(
+        "routers.payments_barion.start_payment_request",
+        side_effect=BarionApiHttpError(401, draft_body, url="https://api.test.barion.com/v2/Payment/Start"),
+    ):
+        br = client.post("/payments/barion/start", json={"order_ids": [oid]}, headers=_auth_headers(uid))
+    assert br.status_code == 503, br.text
+    assert br.json()["detail"] == _BARION_SHOP_DRAFT_CLIENT_MSG
+    assert "ShopIsInDraftState" not in br.text
 
 
 def test_start_payment_config_error_returns_generic_503(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

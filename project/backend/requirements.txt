@@ -10,3 +10,7 @@ python-multipart>=0.0.27
 bcrypt>=4.1.0
 PyJWT>=2.8.0
 slowapi>=0.1.9
+starlette>=1.0.1
+boto3>=1.40.0
+anyio>=4.0.0
+redis>=5.0.0

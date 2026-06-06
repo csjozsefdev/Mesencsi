@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -19,11 +19,20 @@ class CurrentAdmin:
     role: AdminRole
 
 
-def get_current_admin(authorization: str | None = Header(default=None)) -> CurrentAdmin:
-    """``Authorization: Bearer <admin JWT>`` — ``ADMIN_JWT_SECRET``, ``typ=admin``."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hiányzik a belépési azonosító.")
-    token = authorization.removeprefix("Bearer ").strip()
+_ADMIN_COOKIE = "mesencsi_admin_token"
+_USER_COOKIE = "mesencsi_user_token"
+
+
+def get_current_admin(
+    authorization: str | None = Header(default=None),
+    admin_cookie: str | None = Cookie(default=None, alias=_ADMIN_COOKIE),
+) -> CurrentAdmin:
+    """Admin auth via Bearer header or HttpOnly cookie (preferred)."""
+    token = ""
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+    elif admin_cookie:
+        token = str(admin_cookie).strip()
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hiányzik a belépési azonosító.")
     if "|" in token and token.count(".") != 2:
@@ -52,11 +61,14 @@ http_bearer_user = HTTPBearer(auto_error=False)
 def get_current_app_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_user),
     db: Session = Depends(get_db),
+    user_cookie: str | None = Cookie(default=None, alias=_USER_COOKIE),
 ) -> AppUser:
-    """JWT Bearer vásárlói fiók (3 JWT szegmens). Az admin token (``user|role``) itt nem érvényes."""
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hiányzik a belépési token.")
-    token = credentials.credentials.strip()
+    """Shop user auth via Bearer header or HttpOnly cookie (preferred)."""
+    token = ""
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials.strip()
+    elif user_cookie:
+        token = str(user_cookie).strip()
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hiányzik a belépési token.")
     if token.count(".") != 2:

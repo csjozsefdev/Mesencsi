@@ -5,17 +5,17 @@ import os
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app_logging import get_request_id, log_event
-from auth import admin_shell_usernames, authenticate_admin, create_admin_token
+from auth import admin_shell_usernames
 from database import get_db, storybook_tables_exist
 from coupon_service import ensure_user_exists, normalize_coupon_code
 from auth_limits import limiter
 from image_upload import delete_uploaded_file_by_url, save_uploaded_image
+from order_guards import assert_order_line_deletable
 from db_models import (
     AppUser,
     Coupon,
@@ -24,6 +24,7 @@ from db_models import (
     Incident,
     NewsComment,
     NewsPost,
+    PaymentAttempt,
     Product as ProductRow,
     ShopOrder,
     Story,
@@ -52,6 +53,7 @@ from models import (
 )
 from services import find_gallery_row, find_order, find_product, find_story
 from user_email_verify import assign_verification_to_user, issue_verification_token
+from routers.admin_auth import router as admin_auth_router
 from routers.bundle_discounts_admin import router as bundle_discounts_admin_router
 from routers.news_admin import router as news_admin_router
 from routers.storybooks_admin import router as storybooks_admin_router
@@ -59,6 +61,7 @@ from routers.storybooks_admin import router as storybooks_admin_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 _admin_log = logging.getLogger("mesencsi.admin")
+router.include_router(admin_auth_router)
 router.include_router(news_admin_router)
 router.include_router(storybooks_admin_router)
 router.include_router(bundle_discounts_admin_router)
@@ -99,30 +102,6 @@ def _assert_shop_user_destructive_allowed(user: AppUser, admin: CurrentAdmin) ->
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Nem végezhetsz törlést vagy tiltást ezen a fiókon (admin azonosító egyezik az e-maillel).",
         )
-
-
-class AdminLoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class AdminLoginResponse(BaseModel):
-    token: str
-    username: str
-    role: str
-
-
-@router.post("/login", response_model=AdminLoginResponse)
-@limiter.limit("12/minute")
-def admin_login(request: Request, payload: AdminLoginRequest):
-    username, role = authenticate_admin(payload.username, payload.password)
-    token = create_admin_token(username=username, role=role)
-    return {"token": token, "username": username, "role": role}
-
-
-@router.get("/me")
-def admin_me(admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"]))):
-    return {"username": admin.username, "role": admin.role}
 
 
 @router.get("/orders", response_model=list[OrderResponse])
@@ -177,6 +156,7 @@ def admin_delete_order_line(
 ):
     """Egy rendelési sor törlése (egy checkout több sorból állhat — mindegyik külön törölhető)."""
     row = find_order(db, order_id)
+    assert_order_line_deletable(db, row)
     db.delete(row)
     db.commit()
     return None
