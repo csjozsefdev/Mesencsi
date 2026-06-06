@@ -1,6 +1,6 @@
 """CORS configuration — delegates to grafi_core with Mesencsi production flag."""
 
-from adapters.grafi_settings import mesencsi_core_settings
+from mesencsi_settings import mesencsi_core_settings
 from grafi_core.security.cors import (
     cors_origins_raw_env,
     parse_cors_origins_list,

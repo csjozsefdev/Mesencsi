@@ -1,8 +1,10 @@
+
+
 """CSRF middleware — delegates to grafi_core with Mesencsi cookie names."""
 
 from __future__ import annotations
 
-from adapters.grafi_settings import mesencsi_cookie_names
+from mesencsi_settings import mesencsi_cookie_names
 from grafi_core.security.csrf import CSRF_HEADER, CsrfConfig, issue_csrf_token
 from grafi_core.security.csrf import CsrfMiddleware as _CsrfMiddleware
 from grafi_core.security.csrf import set_csrf_cookie as _set_csrf_cookie

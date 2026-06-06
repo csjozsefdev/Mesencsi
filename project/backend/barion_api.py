@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapters.grafi_settings import mesencsi_core_settings
+from mesencsi_settings import mesencsi_core_settings
 from grafi_core.payments import barion_client as _core
 
 _barion_errors = _core._barion_errors  # used by payments_barion router

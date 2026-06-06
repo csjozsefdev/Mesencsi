@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app_logging import get_request_id, log_event
-from adapters.grafi_settings import mesencsi_core_settings
+from mesencsi_settings import mesencsi_core_settings
 from barion_api import (
     _barion_errors,
     attach_barion_ipn_query,

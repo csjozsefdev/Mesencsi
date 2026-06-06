@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from adapters.grafi_settings import mesencsi_config_dir, mesencsi_core_settings
+from mesencsi_settings import mesencsi_config_dir, mesencsi_core_settings
 from grafi_core.email.config import (
     can_send_via_smtp as _can_send_via_smtp,
     deployment_label,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from adapters.grafi_settings import mesencsi_core_settings, mesencsi_shop_jwt_settings
+from mesencsi_settings import mesencsi_core_settings, mesencsi_shop_jwt_settings
 from grafi_core.auth.user_jwt import (
     issue_user_access_token as _issue_user_access_token,
     log_user_jwt_startup as _log_user_jwt_startup,

@@ -101,7 +101,7 @@ def test_raise_test_hidden_outside_pytest(client: TestClient, monkeypatch: pytes
 _MESENCSI_MARKERS = (
     "mesencsi",
     "db_models",
-    "adapters.grafi_settings",
+    "mesencsi_settings",
     "adapters.login_throttle",
     "adapters.user_auth",
     "adapters.incidents",

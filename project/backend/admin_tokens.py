@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from auth import AdminRole
-from adapters.grafi_settings import mesencsi_admin_jwt_settings, mesencsi_core_settings
+from mesencsi_settings import mesencsi_admin_jwt_settings, mesencsi_core_settings
 from grafi_core.auth.admin_jwt import (
     issue_admin_access_token as _issue_admin_access_token,
     log_admin_jwt_startup as _log_admin_jwt_startup,
