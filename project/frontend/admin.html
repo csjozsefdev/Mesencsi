@@ -4267,19 +4267,7 @@
                 const id = parseInt(btn.getAttribute("data-del-product"), 10);
                 if (!confirm("Biztosan törlöd ezt a terméket? Ha van hozzá rendelés, a törlés nem fog sikerülni.")) return;
                 try {
-                  const res = await fetch("/admin/products/" + id, {
-                    method: "DELETE",
-                    // Admin auth uses HttpOnly cookies (credentials: include is set in auth.api)
-                  });
-                  if (!res.ok) {
-                    const text = await res.text();
-                    let msg = "Nem sikerült törölni.";
-                    try {
-                      const j = JSON.parse(text);
-                      if (j.detail) msg = typeof j.detail === "string" ? j.detail : msg;
-                    } catch (_) {}
-                    throw new Error(msg);
-                  }
+                  await auth.api("/admin/products/" + id, { method: "DELETE" });
                   showToast("A termék törölve.", "ok");
                   loadProducts();
                 } catch (e) {
