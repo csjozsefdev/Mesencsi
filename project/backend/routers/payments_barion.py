@@ -423,13 +423,47 @@ def sync_orders_payment_status_from_barion_isolated(payment_id: str) -> tuple[st
 
 
 def _load_orders_for_start(db: Session, user: AppUser, order_ids: list[int]) -> list[ShopOrder]:
-    ids = list(dict.fromkeys(order_ids))
-    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.id.in_(ids))).all())
-    if len(rows) != len(ids):
+    """Betölti a teljes checkout csoportot; a beküldött ID-halmaznak pontosan egyeznie kell vele."""
+    submitted_ids = set(order_ids)
+    if not submitted_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Legalább egy rendelési sort meg kell adni.",
+        )
+    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.id.in_(submitted_ids))).all())
+    if len(rows) != len(submitted_ids):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Egy vagy több rendelési sor nem található.")
     for r in rows:
         if r.user_id != user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a rendelés nem a te fiókodhoz tartozik.")
+    group_ids = {(r.checkout_group_id or "").strip() for r in rows}
+    group_ids.discard("")
+    if len(group_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A megadott sorok nem ugyanahhoz a kosár-checkout csoporthoz tartoznak.",
+        )
+    if not group_ids:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A rendelési sorokhoz nem tartozik checkout csoport.",
+        )
+    checkout_gid = next(iter(group_ids))
+    all_rows = list(
+        db.scalars(
+            select(ShopOrder).where(
+                ShopOrder.user_id == user.id,
+                ShopOrder.checkout_group_id == checkout_gid,
+            )
+        ).all()
+    )
+    all_ids = {r.id for r in all_rows}
+    if submitted_ids != all_ids:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A fizetéshez a checkout összes rendelési sorát meg kell adni — részleges fizetés nem engedélyezett.",
+        )
+    for r in all_rows:
         if _normalize_shop_payment_status(r.payment_status) == "paid":
             log_event(
                 _log,
@@ -443,13 +477,7 @@ def _load_orders_for_start(db: Session, user: AppUser, order_ids: list[int]) -> 
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Ez a rendelés már fizetettnek van jelölve.",
             )
-    group_ids = {r.checkout_group_id for r in rows if r.checkout_group_id}
-    if len(group_ids) > 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A megadott sorok nem ugyanahhoz a kosár-checkout csoporthoz tartoznak.",
-        )
-    return rows
+    return all_rows
 
 
 def _collect_barion_payment_ids(rows: list[ShopOrder]) -> set[str]:

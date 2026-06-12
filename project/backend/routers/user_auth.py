@@ -7,7 +7,7 @@ import re
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,8 @@ from models import (
 )
 from password_utils import hash_password, verify_password
 from user_email_verify import assign_verification_to_user, can_resend_verification, issue_verification_token, verify_user_by_token
+from adapters.user_auth_repository import find_by_email
+from shop_email import normalize_shop_email
 from user_password_reset import (
     assign_reset_to_user,
     find_active_shop_user_by_email,
@@ -126,7 +128,7 @@ def _register_email_fail_message(*, verification_sent: bool, smtp_error: str | N
 @router_auth.post("/register", response_model=UserRegisterResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("8/minute")
 def register_user(request: Request, payload: UserCreate, db: Session = Depends(get_db)):
-    email = str(payload.email).strip()
+    email = normalize_shop_email(payload.email)
     username = _allocate_username(db, email)
 
     row = AppUser(
@@ -325,6 +327,7 @@ def change_password(
     row.password_reset_token_hash = None
     row.password_reset_sent_at = None
     row.password_reset_used_at = None
+    row.token_version = int(row.token_version or 0) + 1
     db.commit()
     clear_login_throttle(db, row.email)
     log_event(
@@ -367,6 +370,7 @@ def reset_password(request: Request, payload: ResetPasswordRequest, db: Session 
     user.password_reset_used_at = datetime.now(UTC)
     user.password_reset_token_hash = None
     user.password_reset_sent_at = None
+    user.token_version = int(user.token_version or 0) + 1
     db.commit()
     clear_login_throttle(db, user.email)
     log_event(
@@ -466,11 +470,11 @@ def login_user(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    email = str(payload.email).strip()
+    email = normalize_shop_email(payload.email)
     assert_login_allowed(db, email)
     projected = False
     try:
-        row = db.scalar(select(AppUser).where(AppUser.email == email))
+        row = find_by_email(db, email)
     except ProgrammingError as e:
         # Local DB can be behind migrations; avoid loading full AppUser row (selects all columns).
         projected = True
@@ -499,7 +503,7 @@ def login_user(
                 AppUser.email_verified_at,
                 AppUser.created_at,
                 AppUser.updated_at,
-            ).where(AppUser.email == email)
+            ).where(func.lower(AppUser.email) == email)
         ).first()
     if row is None:
         record_login_failure(db, email)
@@ -567,10 +571,10 @@ def login_user(
         ) from None
     if not projected:
         db.refresh(row)
-        token = issue_user_access_token(row.id)
+        token = issue_user_access_token(row.id, token_version=int(row.token_version or 0))
         user_out = UserRead.model_validate(row)
     else:
-        token = issue_user_access_token(int(user_id))
+        token = issue_user_access_token(int(user_id), token_version=0)
         user_out = UserRead.model_validate(
             {
                 "id": int(user_id),

@@ -76,10 +76,15 @@ def get_current_app_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Érvénytelen vásárlói token. Az admin belépéshez az /admin/login és a megfelelő token szükséges.",
         )
-    user_id = parse_user_access_token(token)
+    user_id, token_version = parse_user_access_token(token)
     row = db.get(AppUser, user_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="A felhasználó nem található.")
+    if int(row.token_version or 0) != int(token_version):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="A belépési azonosító érvénytelen. Jelentkezz be újra.",
+        )
     if row.is_deleted:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ez a fiók nem elérhető.")
     if row.is_banned:

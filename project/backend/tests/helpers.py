@@ -20,7 +20,13 @@ MINIMAL_PNG_BYTES = base64.b64decode(
 
 
 def auth_headers(user_id: int) -> dict[str, str]:
-    return {"Authorization": "Bearer " + issue_user_access_token(user_id)}
+    db = SessionLocal()
+    try:
+        row = db.get(AppUser, user_id)
+        tv = int(row.token_version or 0) if row is not None else 0
+    finally:
+        db.close()
+    return {"Authorization": "Bearer " + issue_user_access_token(user_id, token_version=tv)}
 
 
 def admin_headers(*, role: str = "owner") -> dict[str, str]:

@@ -1,14 +1,16 @@
-"""Fizetés-visszaigazoló e-mail — csak Barion GetPaymentState verify + pending→paid átmenet után."""
+"""Fizetés-visszaigazoló e-mail — DB outbox; csak pending→paid átmenet után."""
 
 from __future__ import annotations
 
 import logging
-import threading
 from dataclasses import dataclass
 
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from app_logging import get_request_id, log_event
-from db_models import ShopOrder
-from email_outbound import send_order_payment_confirmation
+from db_models import EmailOutbox, ShopOrder
+from email_outbox_worker import process_email_outbox_batch
 
 _log = logging.getLogger("mesencsi.payment_email")
 
@@ -52,58 +54,8 @@ def _snapshot_from_orders(payment_id: str, rows: list[ShopOrder]) -> PaymentConf
     )
 
 
-def _send_from_snapshot(snapshot: PaymentConfirmationSnapshot) -> None:
-    """Háttérszálon vagy szinkronban — nem dob kivételt a hívó felé."""
-    rid = get_request_id()
-    try:
-        sent = send_order_payment_confirmation(
-            to_email=snapshot.to_email,
-            customer_name=snapshot.customer_name,
-            order_reference=snapshot.order_reference,
-            lines=list(snapshot.lines),
-            grand_total_huf=snapshot.grand_total_huf,
-            payment_id=snapshot.payment_id,
-        )
-        if sent:
-            log_event(
-                _log,
-                logging.INFO,
-                "payment_confirmation_email_sent",
-                request_id=rid,
-                payment_id=snapshot.payment_id[:16],
-                order_reference=snapshot.order_reference,
-                to_domain=snapshot.to_email.split("@")[-1] if "@" in snapshot.to_email else "?",
-            )
-        else:
-            log_event(
-                _log,
-                logging.INFO,
-                "payment_confirmation_email_skipped_no_smtp",
-                request_id=rid,
-                payment_id=snapshot.payment_id[:16],
-                order_reference=snapshot.order_reference,
-            )
-    except Exception:
-        _log.exception(
-            "payment_confirmation_email_failed payment_id=%s order_ref=%s",
-            snapshot.payment_id[:16],
-            snapshot.order_reference,
-        )
-        log_event(
-            _log,
-            logging.ERROR,
-            "payment_confirmation_email_failed",
-            request_id=rid,
-            payment_id=snapshot.payment_id[:16],
-            order_reference=snapshot.order_reference,
-        )
-
-
-def schedule_payment_confirmation_after_paid_sync(payment_id: str, rows: list[ShopOrder]) -> None:
-    """
-    Csak akkor hívandó, ha a sync **most** állította paid-re a sorokat (rows_updated > 0).
-    Duplikált IPN/return nem küld újra levelet. A küldés daemon szálon fut — nem blokkolja az IPN választ.
-    """
+def enqueue_payment_confirmation_outbox(db: Session, payment_id: str, rows: list[ShopOrder]) -> bool:
+    """Insert outbox row in the current transaction. Returns True if a new row was queued."""
     snapshot = _snapshot_from_orders(payment_id, rows)
     if snapshot is None:
         log_event(
@@ -113,10 +65,61 @@ def schedule_payment_confirmation_after_paid_sync(payment_id: str, rows: list[Sh
             request_id=get_request_id(),
             payment_id=payment_id[:16],
         )
-        return
-    threading.Thread(
-        target=_send_from_snapshot,
-        args=(snapshot,),
-        name=f"payment-confirm-email-{payment_id[:12]}",
-        daemon=True,
-    ).start()
+        return False
+    dedupe_key = f"payment_confirmation:{payment_id}"
+    payload = {
+        "to_email": snapshot.to_email,
+        "customer_name": snapshot.customer_name,
+        "order_reference": snapshot.order_reference,
+        "lines": [list(line) for line in snapshot.lines],
+        "grand_total_huf": snapshot.grand_total_huf,
+        "payment_id": snapshot.payment_id,
+    }
+    db.add(
+        EmailOutbox(
+            dedupe_key=dedupe_key,
+            kind="payment_confirmation",
+            payload_json=payload,
+            status="pending",
+        )
+    )
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        log_event(
+            _log,
+            logging.INFO,
+            "payment_confirmation_email_duplicate_skipped",
+            request_id=get_request_id(),
+            payment_id=payment_id[:16],
+        )
+        return False
+    return True
+
+
+def schedule_payment_confirmation_after_paid_sync(payment_id: str, rows: list[ShopOrder]) -> None:
+    """
+    Csak akkor hívandó, ha a sync **most** állította paid-re a sorokat.
+    Outbox rekordot ír, majd megpróbálja azonnal feldolgozni (SMTP hiba nem állítja vissza a paid státuszt).
+    """
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        if not enqueue_payment_confirmation_outbox(db, payment_id, rows):
+            return
+        db.commit()
+        result = process_email_outbox_batch(db, limit=1)
+        if result.had_errors:
+            _log.warning(
+                "payment_confirmation_outbox_batch_errors sent=%s failed=%s dead=%s",
+                result.sent,
+                result.failed,
+                result.dead,
+            )
+    except Exception:
+        db.rollback()
+        _log.exception("payment_confirmation_outbox_enqueue_failed payment_id=%s", payment_id[:16])
+    finally:
+        db.close()

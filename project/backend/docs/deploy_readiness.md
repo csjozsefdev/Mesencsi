@@ -1,6 +1,9 @@
 # Mesencsi — deploy readiness (praktikus checklist)
 
-Utolsó séma: **Alembic `024_password_reset_tokens`** (`alembic upgrade head`).  
+Utolsó séma: **Alembic `028_integrity_constraints`** (`alembic upgrade head`).  
+**007 figyelmeztetés:** lásd [migration_007_warning.md](./migration_007_warning.md) — a 007 migráció törli a meglévő `orders` sorokat.  
+**Production pip:** `pip install -r requirements-prod.txt` (pinelt lock a zöld környezetből).  
+**Jogi dokumentumok:** [production_legal_todo.md](./production_legal_todo.md) — ügyfél/jogász jóváhagyás szükséges.  
 Éles viselkedés: **`MESENCSI_PRODUCTION=true`** → startup validator + Barion/CORS/SMTP kötelező mezők.
 
 **Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md)

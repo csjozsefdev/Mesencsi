@@ -4,7 +4,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi.responses import FileResponse
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 try:
@@ -12,6 +12,7 @@ try:
 except Exception:  # pragma: no cover
     ProxyHeadersMiddleware = None  # type: ignore[assignment]
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -34,6 +35,8 @@ from models import (
     Product,
     StoryRead,
 )
+from idempotency_key import IdempotencyKeyError, parse_idempotency_key_header
+from order_idempotency import lookup_idempotent_orders, store_idempotent_orders
 from routers.cart import router as cart_router
 from routers.gallery import router as gallery_router
 from routers.health import router as health_router
@@ -338,8 +341,27 @@ def create_order(
     order: Order,
     db: Session = Depends(get_db),
     user: AppUser = Depends(require_email_verified_to_place_order),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     """Kosár checkout: JWT + megerősített e-mail; a user a tokenből jön. Inaktív fiók: 401."""
+    try:
+        normalized_idem_key = parse_idempotency_key_header(idempotency_key)
+    except IdempotencyKeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if normalized_idem_key:
+        existing, conflict = lookup_idempotent_orders(
+            db,
+            user_id=user.id,
+            idempotency_key=normalized_idem_key,
+            order=order,
+        )
+        if conflict:
+            raise HTTPException(
+                status_code=409,
+                detail="Az idempotency kulcs már más checkout tartalommal lett használva.",
+            )
+        if existing is not None:
+            return existing
     buyer_email = (user.email or "").strip()
     if not buyer_email:
         raise HTTPException(
@@ -374,7 +396,34 @@ def create_order(
         )
         db.add(row)
         rows.append(row)
-    db.commit()
+    db.flush()
+    if normalized_idem_key:
+        store_idempotent_orders(
+            db,
+            user_id=user.id,
+            idempotency_key=normalized_idem_key,
+            order=order,
+            order_ids=[int(r.id) for r in rows],
+        )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if normalized_idem_key:
+            raced, conflict = lookup_idempotent_orders(
+                db,
+                user_id=user.id,
+                idempotency_key=normalized_idem_key,
+                order=order,
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Az idempotency kulcs már más checkout tartalommal lett használva.",
+                ) from exc
+            if raced is not None:
+                return raced
+        raise
     for r in rows:
         db.refresh(r)
     return rows

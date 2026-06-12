@@ -34,6 +34,7 @@ class AppUser(Base):
     password_reset_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     password_reset_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_reset_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    token_version: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -377,6 +378,53 @@ class DigitalStorybookPage(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class EmailOutbox(Base):
+    """Minimal durable outbox for payment confirmation and other transactional mail."""
+
+    __tablename__ = "email_outbox"
+    __table_args__ = (UniqueConstraint("dedupe_key", name="uq_email_outbox_dedupe_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), server_default="pending", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class OrderIdempotency(Base):
+    """Per-user checkout idempotency — repeated POST /orders with same key returns same rows."""
+
+    __tablename__ = "order_idempotency"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_order_idempotency_user_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    order_ids_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
     )
 

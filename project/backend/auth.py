@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import HTTPException, status
 
 from env_loader import BACKEND_DIR as _BACKEND_DIR
+from bcrypt_validation import is_valid_bcrypt_hash
 from password_utils import verify_password
 
 _log = logging.getLogger("mesencsi.admin_auth")
@@ -35,9 +36,9 @@ def _require_env_var(name: str) -> str:
 
 def _require_bcrypt_hash(name: str) -> str:
     raw = _require_env_var(name)
-    if not raw.startswith("$2"):
+    if not is_valid_bcrypt_hash(raw):
         raise ValueError(
-            f"{name} must be a bcrypt hash (ascii string starting with $2a$, $2b$, or $2y$). "
+            f"{name} must be a valid bcrypt hash. "
             'Generate one with: python -c "from password_utils import hash_password; '
             "print(hash_password('YOUR_PASSWORD'))\""
         )
