@@ -8,8 +8,9 @@ A **backend pytest** (`backend/tests/`) és az **E2E** (`e2e/`) külön futnak. 
 |-------|--------|--------|
 | **1** | Minden commit előtt | `backend\scripts\gate_pytest.ps1` |
 | **2** | E2E első lokális validálás | Node + npm telepítve, backend fut, storefront + admin elérhető → `cd e2e` → `npm test` |
-| **3** | Release / pre-production előtt | `backend\scripts\gate_full.ps1` (pytest, majd E2E) |
-| **4** | Manuális QA (kötelező) | Barion sandbox, SMTP/email, admin rendelés státusz, storybook upload/preview, mobil gyors ellenőrzés |
+| **3** | Deploy előtt (DB) | `python scripts/predeploy_alembic_check.py` → `alembic upgrade head` (head: **029**) |
+| **4** | Release / pre-production előtt | `backend\scripts\gate_full.ps1` (pytest, majd E2E) |
+| **5** | Manuális QA (kötelező) | Barion sandbox, SMTP + email outbox, admin rendelés, storybook, mobil |
 
 **E2E infrastruktúra: GO** — az E2E eredmény csak akkor érvényes, ha Node/npm telepítve van, a backend fut, és a megfelelő dev test env aktív (nem production DB).
 
@@ -25,7 +26,7 @@ Az E2E **nem** fut automatikusan a pytest mellett (lassú, böngésző + szerver
 ### Manuális QA (4. lépés) — „kész” jelentése
 
 - **Barion sandbox:** pending → fizetés → `paid`; max. egy visszaigazoló e-mail — [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md)
-- **SMTP:** regisztrációs verify + fizetés utáni levél (Mailpit vagy dev SMTP)
+- **SMTP + outbox:** regisztrációs verify + `process_email_outbox.py` → fizetés utáni levél
 - **Admin:** rendeléslista; `completed` csak `paid` mellett
 - **Storybook:** admin szerkesztés + publikus olvasó / preview
 - **Mobil (~768px):** menü, kosár FAB, háttérkép, nincs kritikus layout törés

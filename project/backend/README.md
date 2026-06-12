@@ -43,4 +43,27 @@ Ugyanebből a mappából, **ugyanazzal a `python.exe`-vel** minden parancs:
 
 ## CORS / frontend más porton
 
-A fejlesztői CORS beállítások a `mesencsi.py`-ban vannak (pl. Vite `5173`, Live Server `5500`). Éles környezetben szűkítsd az `allow_origins` listát.
+A fejlesztői CORS beállítások a `cors_config.py`-ban vannak (pl. Vite `5173`, Live Server `5500`). Élesben: `CORS_ALLOWED_ORIGINS` env (lásd `.env.example`).
+
+## Éles / production
+
+| Dokumentum | Tartalom |
+|------------|----------|
+| [docs/deploy_readiness.md](docs/deploy_readiness.md) | Env checklist, Barion, SMTP, smoke |
+| [docs/pre_production_qa.md](docs/pre_production_qa.md) | Owner QA lista |
+| [docs/ops_runbook.md](docs/ops_runbook.md) | Outbox cron, incidents, recovery |
+| [docs/migration_007_warning.md](docs/migration_007_warning.md) | Destruktív 007 migráció figyelmeztetés |
+| [docs/production_legal_todo.md](docs/production_legal_todo.md) | Jogi oldalak (ügyfél feladata) |
+
+Gyors éles parancsok:
+
+```bat
+pip install -r requirements-prod.txt
+python scripts\predeploy_alembic_check.py
+.venv\Scripts\python.exe -m alembic upgrade head
+.venv\Scripts\python.exe -m pytest -q
+```
+
+Email outbox cron: `python scripts\process_email_outbox.py` (lásd ops runbook).
+
+Angol handover: [HANDOVER.md](../HANDOVER.md) · [REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md)

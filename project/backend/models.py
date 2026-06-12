@@ -48,6 +48,13 @@ class ProductUpdate(BaseModel):
     description: str | None = Field(None, max_length=2000)
 
 
+class ShopPublicConfig(BaseModel):
+    """Publikus bolt UX — nincs benne titok."""
+
+    products_coming_soon: bool = False
+    products_coming_soon_message: str | None = None
+
+
 # --- Shop: cart & orders ---
 
 

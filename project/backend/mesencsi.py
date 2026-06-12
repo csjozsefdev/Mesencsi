@@ -46,6 +46,7 @@ from routers.storybooks_public import router as storybooks_public_router
 from routers.user_auth import router_auth as user_auth_router
 from routers.user_mvp import router_users
 from routers.payments_barion import router as payments_barion_router
+from routers.shop_public import router as shop_public_router
 from dependencies import (
     get_current_app_user,
     require_email_verified_shop_user,
@@ -178,6 +179,7 @@ app.include_router(cart_router)
 app.include_router(payments_barion_router)
 app.include_router(news_public_router)
 app.include_router(storybooks_public_router)
+app.include_router(shop_public_router)
 
 app.add_middleware(MetricsMiddleware)
 

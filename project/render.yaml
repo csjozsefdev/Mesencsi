@@ -77,6 +77,9 @@ services:
       # --- Barion (staging usually sandbox; production mode requires BARION_ENV=production) ---
       - key: BARION_ENV
         value: sandbox
+      # Storefront: „Hamarosan” placeholder instead of product grid (disable when shop opens).
+      - key: SHOP_PRODUCTS_COMING_SOON
+        value: "true"
       - key: BARION_POS_KEY
         sync: false
       - key: BARION_PAYEE_EMAIL

@@ -1,12 +1,25 @@
 # Mesencsi — deploy readiness (praktikus checklist)
 
-Utolsó séma: **Alembic `028_integrity_constraints`** (`alembic upgrade head`).  
+Utolsó séma: **Alembic `029_email_outbox_claim_retry`** (`alembic upgrade head`).  
 **007 figyelmeztetés:** lásd [migration_007_warning.md](./migration_007_warning.md) — a 007 migráció törli a meglévő `orders` sorokat.  
-**Production pip:** `pip install -r requirements-prod.txt` (pinelt lock a zöld környezetből).  
+**Pre-deploy:** `python scripts/predeploy_alembic_check.py` — legacy DB + orders adat ellenőrzés (exit `2` = veszélyes).  
+**Production pip:** `pip install -r requirements-prod.txt` (pinelt lock a zöld környezetből; PyJWT ≥ 2.13).  
 **Jogi dokumentumok:** [production_legal_todo.md](./production_legal_todo.md) — ügyfél/jogász jóváhagyás szükséges.  
 Éles viselkedés: **`MESENCSI_PRODUCTION=true`** → startup validator + Barion/CORS/SMTP kötelező mezők.
 
-**Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md)
+**Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md) · **Ops:** [ops_runbook.md](./ops_runbook.md)
+
+---
+
+## Séma (025–029, production hardening)
+
+| Rev | Tartalom |
+|-----|----------|
+| `025` | Email lowercase, `users.token_version`, unique `lower(email)` |
+| `026` | `email_outbox` tábla |
+| `027` | `order_idempotency` tábla |
+| `028` | CHECK constraints (products, orders, payment_attempts) |
+| `029` | Outbox `claimed_at`, `next_retry_at` (atomic worker) |
 
 ---
 
@@ -40,7 +53,20 @@ Utolsó séma: **Alembic `028_integrity_constraints`** (`alembic upgrade head`).
 
 **Indítás:** hiányzó/hibás éles env → `StartupConfigError` a logban, az app nem indul (`startup_config.py`).
 
+Éles startup ellenőrzések (automatikus):
+
+- `USER_JWT_SECRET` és `ADMIN_JWT_SECRET` **különböző**, min. 32 karakter, nem placeholder
+- JWT algoritmus whitelist: `HS256` / `HS384` / `HS512`
+- `OWNER_PASSWORD` / `MAINTENANCE_PASSWORD` — **valódi bcrypt hash**, nem az `.env.example` ismert placeholder
+- `QA_SHOP_*` env **tiltva** élesben
+- `PUBLIC_SITE_URL`, `BACKEND_PUBLIC_URL`, `FRONTEND_BASE_URL` — HTTPS
+- SMTP teljes konfiguráció kötelező
+
 **Shop CSRF:** A böngésző `POST`/`PATCH`/`DELETE` hívásokhoz `mesencsi_csrf` cookie + `X-CSRF-Token` fejléc kell (pl. fizetés újrapróbálás a Rendeléseim menüben). A frontend `GET /auth/csrf`-et hív induláskor és mentés előtt.
+
+**JWT `token_version`:** Shop JWT tartalmaz `tv` claimet; jelszócsere / ban / verify bump → régi tokenek 401. Migráció: `025_user_email_token_version`.
+
+**Order idempotency:** `POST /orders` opcionális `Idempotency-Key` fejléc (8–128 karakter, `[A-Za-z0-9_-]`). Ugyanazzal a kulccsal és tartalommal → ugyanaz a rendelés-csoport; más tartalommal → 409.
 
 **Preset profilképek:** `/images/avatars/presets/preset-1.svg` … `preset-4.svg` — engedélyezett URL a szerver validációban (`image_upload.py`).
 
@@ -64,8 +90,10 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 **Fontos viselkedés (implementálva):**
 - `paid` csak return / IPN / `GetPaymentState` után
 - Duplicate `POST /payments/barion/start` pendingre → meglévő `payment_id` (nem ír felül)
+- `POST /payments/barion/start` csak **teljes checkout csoportra** (minden sor ugyanabból a `checkout_group_id`-ból) — részleges csoport → **409**
 - `POST /orders` csak **email-verified** userrel; sikeres rendelés után **szerver oldali kosár ürítés**
 - Admin: `completed` csak ha `payment_status=paid`
+- Email címek **lowercase** tárolás + case-insensitive login (migráció `025`)
 
 **Nyilvános staging:** Ha `MESENCSI_PRODUCTION=false` és nincs `BARION_IPN_SECRET`, az IPN **nem hitelesített** — állíts be titkot vagy ne tedd nyilvánosra a staging URL-t.
 
@@ -85,6 +113,16 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 |------|--------|-------------|
 | Regisztráció verify | `POST /auth/register` | **Hosted:** startup blocker vagy **503**; **dev:** link a logban |
 | **Fizetés visszaigazolás** | Barion verify → `paid` (IPN/return) | Nincs levél, rendelés `paid` marad |
+
+**Email outbox (éles ajánlott):** A fizetés-visszaigazoló levél nem daemon threadben megy, hanem `email_outbox` táblába kerül (`026`, `029`). Cron / Render job:
+
+```bash
+python scripts/process_email_outbox.py [limit]
+# exit 0 = ok, 1 = retriable fail, 2 = dead-letter, 3 = exception
+# dead-letter újrapróbálás: python scripts/process_email_outbox.py --requeue-dead
+```
+
+Ajánlott: 1–5 percenként futtatni élesben. Részletek: [ops_runbook.md](./ops_runbook.md).
 
 Helyi auth e-mail QA: [local_auth_email_qa.md](./local_auth_email_qa.md).
 
@@ -115,7 +153,13 @@ Helyi auth e-mail QA: [local_auth_email_qa.md](./local_auth_email_qa.md).
 - Szerepkörök: `owner` (teljes), `maintenance` (korlátozott írás)
 - Jelszavak: bcrypt hash az `.env`-ben (`scripts/setup_admin_credentials.py`)
 
-**Vásárlói fiókok:** `GET /admin/shop-users`, soft delete, verify/ban, személyes kupon.
+**Owner-only műveletek** (maintenance → 403):
+
+- Shop user verify / ban / unban / delete
+- Rendelés sor törlése
+- `payment_status` módosítás
+
+**Vásárlói fiókok:** `GET /admin/shop-users`, soft delete, verify/ban, személyes kupon (owner).
 
 ---
 
@@ -133,31 +177,42 @@ Helyi auth e-mail QA: [local_auth_email_qa.md](./local_auth_email_qa.md).
 ```bash
 cd backend
 python -m pip install -r requirements.txt -r requirements-dev.txt
+python scripts/predeploy_alembic_check.py
 python -m alembic upgrade head
 python -m pytest -q
 ```
 
-Opcionális: `scripts/gate_pytest.ps1`, `e2e` Playwright (`npm test`).
+Várható: **~300 passed**, néhány skip (pl. Postgres smoke ha nincs DB).
+
+Opcionális:
+
+- `scripts/gate_pytest.ps1`
+- `pip-audit` (requirements-prod lock ellenőrzés)
+- Postgres: `python scripts/postgres_smoke.py` vagy `pytest tests/test_postgres_alembic_smoke.py`
+- E2E Playwright (`npm test` az `e2e/` mappában)
 
 ---
 
-## 9. Manuális smoke — ajánlott sorrend (~25 perc)
+## 9. Manuális smoke — ajánlott sorrend (~30 perc)
 
-1. [ ] `alembic upgrade head` → head = **`024`**
-2. [ ] Szerver indul éles envvel (nincs `StartupConfigError`)
-3. [ ] `GET /health` → 200
-4. [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`
-5. [ ] `GET /` — storefront
-6. [ ] `GET /payments/barion/status`
-7. [ ] Regisztráció → verify → login
-8. [ ] Kosár → checkout → `POST /orders` → kosár üres a szerveren
-9. [ ] `POST /payments/barion/start` → Barion
-10. [ ] Fizetés → `payment_status=paid`
-11. [ ] IPN log: `barion_orders_synced`
-12. [ ] Visszaigazoló e-mail (ha SMTP)
-13. [ ] Rendeléseim: szállítás + megjegyzés látszik; fizetés újrapróbálás
-14. [ ] Admin: rendeléslista; `completed` csak paid mellett
-15. [ ] CORS / auth smoke (lásd [pre_production_qa.md](./pre_production_qa.md))
+1. [ ] `python scripts/predeploy_alembic_check.py` → ok
+2. [ ] `alembic upgrade head` → head = **`029`**
+3. [ ] Szerver indul éles envvel (nincs `StartupConfigError`)
+4. [ ] `GET /health` → 200
+5. [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`
+6. [ ] `GET /` — storefront
+7. [ ] `GET /payments/barion/status`
+8. [ ] Regisztráció → verify → login (email case-insensitive)
+9. [ ] Kosár → checkout → `POST /orders` → kosár üres a szerveren
+10. [ ] Dupla `POST /orders` ugyanazzal `Idempotency-Key`-vel → nem duplikál
+11. [ ] `POST /payments/barion/start` → Barion (teljes checkout csoport)
+12. [ ] Fizetés → `payment_status=paid`
+13. [ ] IPN log: `barion_orders_synced`
+14. [ ] `email_outbox` sor + `process_email_outbox.py` → visszaigazoló levél
+15. [ ] Rendeléseim: szállítás + megjegyzés; fizetés újrapróbálás (CSRF)
+16. [ ] Admin owner: rendeléslista; `completed` csak paid mellett; maintenance nem módosíthat `payment_status`-t
+17. [ ] Jelszócsere után régi shop JWT 401
+18. [ ] CORS / auth smoke (lásd [pre_production_qa.md](./pre_production_qa.md))
 
 ---
 
@@ -169,7 +224,17 @@ copy .env.example .env
 run.bat
 ```
 
-Éles: `MESENCSI_PRODUCTION=true`; HTTPS reverse proxy; `TRUSTED_PROXY_HOSTS` = proxy IP; több worker → `REDIS_URL`.
+Éles:
+
+```bash
+pip install -r requirements-prod.txt
+python scripts/predeploy_alembic_check.py
+alembic upgrade head
+# uvicorn / gunicorn — app indul
+# cron: python scripts/process_email_outbox.py
+```
+
+`MESENCSI_PRODUCTION=true`; HTTPS reverse proxy; `TRUSTED_PROXY_HOSTS` = proxy IP; több worker → `REDIS_URL`.
 
 ---
 
