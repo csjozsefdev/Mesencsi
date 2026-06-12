@@ -3182,11 +3182,11 @@
               (cx / w) * 100,
               (cy / h) * 100
             );
-            wrap.style.left = clamped.xp + "%";
-            wrap.style.top = clamped.yp + "%";
-            wrap.style.transform = "translate(-50%, -50%)";
-            wrap.dataset.sbXp = String(clamped.xp);
-            wrap.dataset.sbYp = String(clamped.yp);
+            drag.wrap.style.left = clamped.xp + "%";
+            drag.wrap.style.top = clamped.yp + "%";
+            drag.wrap.style.transform = "translate(-50%, -50%)";
+            drag.wrap.dataset.sbXp = String(clamped.xp);
+            drag.wrap.dataset.sbYp = String(clamped.yp);
           };
           const endDrag = (e) => {
             if (!drag || e.pointerId !== drag.pid) return;
