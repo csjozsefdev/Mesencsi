@@ -317,6 +317,16 @@
                     opacity: 0;
                   "
                 />
+                <div class="legal-acknowledgements">
+                  <label>
+                    <input id="regTermsAccepted" type="checkbox" required />
+                    <span>Elfogadom az <a href="/aszf" target="_blank" rel="noopener">ÁSZF-et</a>.</span>
+                  </label>
+                  <label>
+                    <input id="regPrivacyAcknowledged" type="checkbox" required />
+                    <span>Megismertem az <a href="/adatkezeles" target="_blank" rel="noopener">adatkezelési tájékoztatót</a>.</span>
+                  </label>
+                </div>
                 <button
                   type="submit"
                   class="auth-btn-submit"
@@ -1370,8 +1380,27 @@
                     placeholder="Pl. dedikálás, ajándékba…"
                   ></textarea>
                 </label>
+                <div class="legal-acknowledgements legal-acknowledgements--checkout">
+                  <label>
+                    <input id="checkoutTermsAccepted" type="checkbox" required />
+                    <span>Elfogadom az <a href="/aszf" target="_blank" rel="noopener">ÁSZF-et</a>.</span>
+                  </label>
+                  <label>
+                    <input id="checkoutPrivacyAcknowledged" type="checkbox" required />
+                    <span>Megismertem az <a href="/adatkezeles" target="_blank" rel="noopener">adatkezelési tájékoztatót</a>.</span>
+                  </label>
+                </div>
+                <p class="checkout-legal-links">
+                  <a href="/aszf" target="_blank" rel="noopener">ÁSZF</a>
+                  <a href="/adatkezeles" target="_blank" rel="noopener">Adatkezelés</a>
+                  <a href="/elallas" target="_blank" rel="noopener">Elállás</a>
+                  <a href="/fizetes" target="_blank" rel="noopener">Fizetési tájékoztató</a>
+                </p>
+                <p class="checkout-payment-disclosure">
+                  A fizetési folyamatot a Barion kezeli.
+                </p>
                 <button type="submit" class="btn-submit">
-                  Megrendelés és fizetés indítása
+                  Megrendelés fizetési kötelezettséggel
                 </button>
               </form>
             </div>
@@ -1482,6 +1511,76 @@
             <p>
               E-mail: <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
             </p>
+            <div class="legal-meta">Utolsó frissítés: 2026.06.14.</div>
+          </div>
+        </section>
+
+        <section id="view-elallas" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
+            <h2>Elállási tájékoztató</h2>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): az elállási jog, kivételek, határidők, visszaküldés és nyilatkozatminta végleges tartalma.</p>
+            <h3>Elállási nyilatkozatminta</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): jóváhagyott nyilatkozatminta.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
+          </div>
+        </section>
+
+        <section id="view-szallitas" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
+            <h2>Szállítási tájékoztató</h2>
+            <h3>Szállítási módok és területek</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó és üzemeltető): végleges tartalom.</p>
+            <h3>Díjak és teljesítési határidők</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó és üzemeltető): végleges tartalom.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
+          </div>
+        </section>
+
+        <section id="view-fizetes" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
+            <h2>Fizetési tájékoztató</h2>
+            <p><strong>A fizetési folyamatot a Barion kezeli.</strong></p>
+            <h3>Fizetési mód és folyamat</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó és üzemeltető): a Barion-folyamat és szolgáltatói adatok jóváhagyott leírása.</p>
+            <h3>Adattovábbítás</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): végleges adatkezelési és adattovábbítási tartalom.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
+          </div>
+        </section>
+
+        <section id="view-panaszkezeles" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
+            <h2>Panaszkezelési tájékoztató</h2>
+            <h3>Kapcsolat és benyújtás</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): a panaszkezelési csatornák és határidők végleges tartalma.</p>
+            <h3>Jogorvoslati lehetőségek</h3>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): végleges tartalom.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
+          </div>
+        </section>
+
+        <section id="view-sutik" class="view" hidden>
+          <div class="glass-card view-inner legal-prose">
+            <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
+            <h2>Süti tájékoztató</h2>
+            <p class="legal-placeholder">TODO (jogi tanácsadó): a teljes tájékoztató végleges szövege.</p>
+            <h3>Szükséges sütik</h3>
+            <p class="legal-placeholder">TODO: autentikációs és CSRF sütik célja, élettartama és jogalapja.</p>
+            <h3>Funkcionális tárolás</h3>
+            <p class="legal-placeholder">TODO: kosár-, profil- és kuponbeállítások leírása.</p>
+            <h3>Authentication cookies</h3>
+            <p class="legal-placeholder">TODO: `mesencsi_user_token` és admin munkamenet részletei.</p>
+            <h3>CSRF protection cookie</h3>
+            <p class="legal-placeholder">TODO: `mesencsi_csrf` részletei.</p>
+            <h3>Local storage usage</h3>
+            <p class="legal-placeholder">TODO: a helyi tároló tényleges kulcslistája és megőrzése.</p>
+            <h3>Session storage usage</h3>
+            <p class="legal-placeholder">TODO: a fizetési visszatéréshez használt munkamenet-kulcs részletei.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
           </div>
         </section>
       </main>
@@ -1497,9 +1596,45 @@
             <a href="/aszf" data-route="/aszf">ÁSZF</a>
             <a href="/adatkezeles" data-route="/adatkezeles">Adatkezelés</a>
             <a href="/impresszum" data-route="/impresszum">Impresszum</a>
+            <a href="/elallas" data-route="/elallas">Elállás</a>
+            <a href="/szallitas" data-route="/szallitas">Szállítás</a>
+            <a href="/fizetes" data-route="/fizetes">Fizetés</a>
+            <a href="/panaszkezeles" data-route="/panaszkezeles">Panaszkezelés</a>
+            <a href="/sutik" data-route="/sutik">Sütik</a>
+            <button type="button" class="footer-link-button" id="cookieSettingsOpen">Süti beállítások</button>
           </nav>
         </div>
       </footer>
+    </div>
+
+    <aside id="cookieBanner" class="cookie-banner" hidden aria-labelledby="cookieBannerTitle">
+      <h2 id="cookieBannerTitle">Süti beállítások</h2>
+      <p>A szükséges tárolók a webshop működéséhez kellenek. A funkcionális tárolást külön engedélyezheted.</p>
+      <div class="cookie-actions">
+        <button type="button" id="cookieAcceptAll">Összes elfogadása</button>
+        <button type="button" id="cookieNecessaryOnly">Csak a szükségesek</button>
+        <button type="button" id="cookiePreferencesOpen">Süti beállítások</button>
+      </div>
+    </aside>
+
+    <div id="cookiePreferences" class="cookie-preferences" hidden role="dialog" aria-modal="true" aria-labelledby="cookiePreferencesTitle">
+      <div class="cookie-preferences__panel">
+        <h2 id="cookiePreferencesTitle">Süti beállítások</h2>
+        <label class="cookie-choice">
+          <input type="checkbox" checked disabled />
+          <span><strong>Szükséges</strong><br />Bejelentkezés, biztonság és fizetési visszatérés.</span>
+        </label>
+        <label class="cookie-choice">
+          <input type="checkbox" id="cookieFunctionalConsent" />
+          <span><strong>Funkcionális</strong><br />Kosár, profil és kuponbeállítások helyi megőrzése.</span>
+        </label>
+        <div class="cookie-actions">
+          <button type="button" id="cookiePreferencesSave">Beállítások mentése</button>
+          <button type="button" id="cookieWithdraw">Hozzájárulás visszavonása</button>
+          <button type="button" id="cookiePreferencesClose">Mégse</button>
+        </div>
+        <p><a href="/sutik" data-route="/sutik">Süti tájékoztató</a></p>
+      </div>
     </div>
 
     <!-- Modals -->
@@ -1616,6 +1751,7 @@
     <script src="/js/ns.js"></script>
     <script src="/js/boot.js"></script>
     <script src="/js/storage.js"></script>
+    <script src="/js/cookie-consent.js"></script>
     <script src="/js/dom-utils.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/notify.js"></script>

@@ -13,17 +13,22 @@ from env_loader import BACKEND_DIR, backend_env_files_loaded, load_backend_env
 SMTP_KEYS = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_USE_TLS")
 
 
+def mask_smtp_identity(value: str) -> str | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if "@" in raw:
+        local, domain = raw.rsplit("@", 1)
+        return f"{local[:1] or '*'}***@{domain.lower()}"
+    return f"{raw[:2]}***" if len(raw) > 2 else "***"
+
+
 def password_preview(password: str) -> dict[str, Any]:
     pw = password or ""
     n = len(pw)
-    if n == 0:
-        return {"password_length": 0, "password_preview": "(empty)"}
-    if n <= 4:
-        return {"password_length": n, "password_preview": "*" * n}
-    middle = max(n - 4, 0)
     return {
         "password_length": n,
-        "password_preview": f"{pw[:2]}{'*' * middle}{pw[-2:]}",
+        "password_preview": "[REDACTED]" if n else "(empty)",
     }
 
 
@@ -74,7 +79,7 @@ def smtp_credential_proof_report() -> dict[str, Any]:
         "env_files_loaded": backend_env_files_loaded(),
         "dotenv_override": False,
         "env_file_path": str((BACKEND_DIR / ".env").resolve()) if (BACKEND_DIR / ".env").is_file() else None,
-        "smtp_user_runtime_exact": runtime_vals.get("SMTP_USER") or None,
+        "smtp_user_runtime_masked": mask_smtp_identity(runtime_vals.get("SMTP_USER", "")),
         "smtp_host_runtime": runtime_vals.get("SMTP_HOST") or None,
         "smtp_from_runtime": runtime_vals.get("SMTP_FROM") or None,
         "smtp_port_runtime": runtime_vals.get("SMTP_PORT") or None,

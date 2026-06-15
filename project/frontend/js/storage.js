@@ -2,6 +2,13 @@
   const ns = (window.Mesencsi = window.Mesencsi || {});
 
   function _get(storage, key) {
+    if (
+      window.Mesencsi &&
+      window.Mesencsi.cookieConsent &&
+      !window.Mesencsi.cookieConsent.storageAllowed(key)
+    ) {
+      return null;
+    }
     try {
       return storage.getItem(key);
     } catch {
@@ -10,6 +17,13 @@
   }
 
   function _set(storage, key, value) {
+    if (
+      window.Mesencsi &&
+      window.Mesencsi.cookieConsent &&
+      !window.Mesencsi.cookieConsent.storageAllowed(key)
+    ) {
+      return false;
+    }
     try {
       storage.setItem(key, String(value));
       return true;

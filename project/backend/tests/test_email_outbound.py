@@ -198,3 +198,21 @@ def test_smtp_port_465_uses_ssl(monkeypatch: pytest.MonkeyPatch) -> None:
     ssl_ctor.assert_called_once()
     plain_ctor.assert_not_called()
     mock_smtp.login.assert_called_once()
+
+
+def test_transactional_email_footer_uses_public_site_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PUBLIC_SITE_URL", "https://mesencsi.example")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USE_TLS", "1")
+    monkeypatch.setenv("SMTP_USER", "u")
+    monkeypatch.setenv("SMTP_PASSWORD", "p")
+    monkeypatch.setenv("SMTP_FROM", "noreply@mesencsi.example")
+    mock_smtp = MagicMock()
+    with patch("email_outbound.smtplib.SMTP", return_value=mock_smtp):
+        assert send_plain_email(to_email="a@b.com", subject="Sub", body="Body") is True
+    sent_message = mock_smtp.send_message.call_args.args[0]
+    content = sent_message.get_content()
+    assert "Mesencsi" in content
+    assert "https://mesencsi.example/impresszum" in content
+    assert "https://mesencsi.example/adatkezeles" in content

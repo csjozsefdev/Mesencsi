@@ -73,8 +73,10 @@ def test_create_order_requires_valid_shipping(client: TestClient) -> None:
         json={
             "customer_name": "Teszt Vásárló",
             "items": [{"product_id": pa, "quantity": 1}],
-            "shipping_address": sample_valid_shipping_json(),
-            "company_website": "",
+                "shipping_address": sample_valid_shipping_json(),
+                "terms_accepted": True,
+                "privacy_acknowledged": True,
+                "company_website": "",
         },
         headers=_auth_headers(uid),
     )

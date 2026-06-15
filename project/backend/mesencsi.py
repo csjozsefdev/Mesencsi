@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from fastapi.responses import FileResponse
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -25,6 +26,7 @@ from metrics_support import MetricsMiddleware, metrics_endpoint
 from security_headers import register_security_headers
 from admin_routes import router as admin_router
 from bundle_discount_service import compute_checkout_pricing
+from policy_versions import PRIVACY_POLICY_VERSION, TERMS_VERSION
 from models import (
     Order,
     OrderEstimateLine,
@@ -103,6 +105,7 @@ def _priced_line_to_shop_order(
     shipping_normalized: str,
     notes: str | None,
     checkout_group_id: str,
+    accepted_at: datetime,
 ) -> ShopOrder:
     return ShopOrder(
         user_id=user_id,
@@ -124,6 +127,10 @@ def _priced_line_to_shop_order(
         bundle_rule_id=pl.bundle_rule_id,
         bundle_rule_name=pl.bundle_rule_name,
         bundle_discount_amount=pl.bundle_discount_amount,
+        terms_accepted_at=accepted_at,
+        terms_version=TERMS_VERSION,
+        privacy_acknowledged_at=accepted_at,
+        privacy_version=PRIVACY_POLICY_VERSION,
     )
 
 
@@ -252,6 +259,31 @@ def read_impresszum_page():
     return _serve_storefront_shell()
 
 
+@app.get("/elallas")
+def read_elallas_page():
+    return _serve_storefront_shell()
+
+
+@app.get("/szallitas")
+def read_szallitas_page():
+    return _serve_storefront_shell()
+
+
+@app.get("/fizetes")
+def read_fizetes_page():
+    return _serve_storefront_shell()
+
+
+@app.get("/panaszkezeles")
+def read_panaszkezeles_page():
+    return _serve_storefront_shell()
+
+
+@app.get("/sutik")
+def read_sutik_page():
+    return _serve_storefront_shell()
+
+
 @app.get("/site.webmanifest", include_in_schema=False)
 def site_web_manifest():
     """PWA manifest; explicit route so MIME is ``application/manifest+json`` on all hosts."""
@@ -359,6 +391,7 @@ def create_order(
     priced = compute_checkout_pricing(db, user_id=user.id, items=order.items, coupon_code=order.coupon_code)
 
     checkout_group_id = str(uuid.uuid4())
+    accepted_at = datetime.now(UTC)
     customer_name = order.customer_name.strip()
     order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
@@ -371,6 +404,7 @@ def create_order(
             shipping_normalized=shipping_normalized,
             notes=order_notes,
             checkout_group_id=checkout_group_id,
+            accepted_at=accepted_at,
         )
         db.add(row)
         rows.append(row)

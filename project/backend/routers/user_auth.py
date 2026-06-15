@@ -16,7 +16,7 @@ from database import get_db
 from db_models import AppUser
 from dependencies import get_current_app_user
 from email_errors import EmailNotConfiguredError, EmailSendError
-from email_outbound import send_email_verification, send_password_reset_email
+from email_outbound import _email_log_id, send_email_verification, send_password_reset_email
 from login_throttle import assert_login_allowed, clear_login_throttle, record_login_failure
 from models import (
     ChangePasswordRequest,
@@ -32,6 +32,7 @@ from models import (
     UserRegisterResponse,
 )
 from password_utils import hash_password, verify_password
+from policy_versions import PRIVACY_POLICY_VERSION, TERMS_VERSION
 from user_email_verify import assign_verification_to_user, can_resend_verification, issue_verification_token, verify_user_by_token
 from user_password_reset import (
     assign_reset_to_user,
@@ -128,6 +129,7 @@ def _register_email_fail_message(*, verification_sent: bool, smtp_error: str | N
 def register_user(request: Request, payload: UserCreate, db: Session = Depends(get_db)):
     email = str(payload.email).strip()
     username = _allocate_username(db, email)
+    accepted_at = datetime.now(UTC)
 
     row = AppUser(
         username=username,
@@ -141,9 +143,13 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
         family_note=None,
         profile_image_url=None,
         is_active=True,
+        terms_accepted_at=accepted_at,
+        terms_version=TERMS_VERSION,
+        privacy_acknowledged_at=accepted_at,
+        privacy_version=PRIVACY_POLICY_VERSION,
     )
     token = issue_verification_token()
-    _log.info("Verification token generated for new user email=%s", email)
+    _log.info("Verification token generated for new user recipient=%s", _email_log_id(email))
     assign_verification_to_user(db, row, token)
     db.add(row)
     try:
@@ -179,7 +185,7 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
             detail="Adatbázis hiba — próbáld újra egy kicsit később.",
         ) from None
     db.refresh(row)
-    _log.info("Register successful — user id=%s email=%s", row.id, row.email)
+    _log.info("Register successful — user id=%s recipient=%s", row.id, _email_log_id(row.email))
 
     verification_sent = False
     smtp_error_type: str | None = None
@@ -188,9 +194,9 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
     except (EmailNotConfiguredError, EmailSendError) as e:
         smtp_error_type = type(e).__name__
         _log.error(
-            "Verification email failed after register — user id=%s email=%s error_type=%s error=%s",
+            "Verification email failed after register — user id=%s recipient=%s error_type=%s error=%s",
             row.id,
-            row.email,
+            _email_log_id(row.email),
             type(e).__name__,
             e,
         )
@@ -201,9 +207,9 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
             ) from e
     except Exception as e:
         _log.error(
-            "Verification email unexpected failure after register — user id=%s email=%s error_type=%s error=%s",
+            "Verification email unexpected failure after register — user id=%s recipient=%s error_type=%s error=%s",
             row.id,
-            row.email,
+            _email_log_id(row.email),
             type(e).__name__,
             e,
             exc_info=True,
@@ -225,7 +231,7 @@ def register_user(request: Request, payload: UserCreate, db: Session = Depends(g
             "register_verification_email_not_sent",
             request_id=get_request_id(),
             user_id=row.id,
-            email=row.email,
+            recipient=_email_log_id(row.email),
         )
         if auth_email_requires_working_smtp():
             raise HTTPException(

@@ -9,6 +9,8 @@ export async function ensureVerifiedShopUser(request: APIRequestContext): Promis
       email: E2E_USER_EMAIL,
       password: E2E_USER_PASSWORD,
       password_confirm: E2E_USER_PASSWORD,
+      terms_accepted: true,
+      privacy_acknowledged: true,
     },
   });
   if (reg.status() !== 201 && reg.status() !== 409) {

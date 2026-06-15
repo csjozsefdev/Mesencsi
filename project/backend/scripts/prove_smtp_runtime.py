@@ -18,7 +18,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from email_outbound import _smtp_session, _smtp_settings
-from smtp_credential_proof import password_preview, smtp_credential_proof_report
+from smtp_credential_proof import mask_smtp_identity, password_preview, smtp_credential_proof_report
 
 
 def main() -> int:
@@ -48,7 +48,7 @@ def main() -> int:
         "runtime_at_login": {
             "host": host,
             "port": port,
-            "smtp_user_exact": user,
+            "smtp_user_masked": mask_smtp_identity(user),
             "smtp_from": mail_from,
             "password": password_preview(password),
         },

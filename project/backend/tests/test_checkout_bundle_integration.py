@@ -21,6 +21,8 @@ def _checkout_order_body(customer_name: str, items: list[dict], **extra: object)
         "customer_name": customer_name,
         "items": items,
         "shipping_address": sample_valid_shipping_json(),
+        "terms_accepted": True,
+        "privacy_acknowledged": True,
         "company_website": "",
     }
     body.update(extra)

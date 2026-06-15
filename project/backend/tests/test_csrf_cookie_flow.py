@@ -54,8 +54,10 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
         json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-            "shipping_address": sample_valid_shipping_json(),
-            "items": [{"product_id": product_id, "quantity": 1}],
+                "shipping_address": sample_valid_shipping_json(),
+                "items": [{"product_id": product_id, "quantity": 1}],
+                "terms_accepted": True,
+                "privacy_acknowledged": True,
         },
     )
     assert r0.status_code == 403, r0.text
@@ -67,8 +69,10 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
         json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-            "shipping_address": sample_valid_shipping_json(),
-            "items": [{"product_id": product_id, "quantity": 1}],
+                "shipping_address": sample_valid_shipping_json(),
+                "items": [{"product_id": product_id, "quantity": 1}],
+                "terms_accepted": True,
+                "privacy_acknowledged": True,
         },
     )
     assert r1.status_code == 201, r1.text

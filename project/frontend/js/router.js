@@ -14,6 +14,11 @@
     "aszf",
     "adatkezeles",
     "impresszum",
+    "elallas",
+    "szallitas",
+    "fizetes",
+    "panaszkezeles",
+    "sutik",
   ];
 
   /** @type {Record<string, Function>} */
@@ -137,6 +142,11 @@
     if (pathname === "/aszf") return "aszf";
     if (pathname === "/adatkezeles") return "adatkezeles";
     if (pathname === "/impresszum") return "impresszum";
+    if (pathname === "/elallas") return "elallas";
+    if (pathname === "/szallitas") return "szallitas";
+    if (pathname === "/fizetes") return "fizetes";
+    if (pathname === "/panaszkezeles") return "panaszkezeles";
+    if (pathname === "/sutik") return "sutik";
     return "home";
   }
 
