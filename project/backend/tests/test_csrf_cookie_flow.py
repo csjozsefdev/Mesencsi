@@ -54,7 +54,7 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
         json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-            "shipping_address": sample_valid_shipping_json(),
+            "shipping_method": "personal_pickup",
             "items": [{"product_id": product_id, "quantity": 1}],
         },
     )
@@ -67,7 +67,7 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
         json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-            "shipping_address": sample_valid_shipping_json(),
+            "shipping_method": "personal_pickup",
             "items": [{"product_id": product_id, "quantity": 1}],
         },
     )

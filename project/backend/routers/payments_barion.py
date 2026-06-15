@@ -48,6 +48,7 @@ from db_models import AppUser, PaymentAttempt, ShopOrder
 from dependencies import get_current_app_user, get_optional_app_user
 from guest_checkout_tokens import guest_checkout_token_header_name, parse_guest_checkout_token
 from payment_confirmation_email import schedule_payment_confirmation_after_paid_sync
+from shipping_methods import checkout_group_grand_total_huf
 from routers.cart import clear_user_cart
 from runtime_flags import internal_barion_debug_authorized, mesencsi_production
 
@@ -698,7 +699,7 @@ def barion_start_payment(
         )
 
     ids = [r.id for r in rows]
-    total_huf = sum(int(r.total_price) for r in rows)
+    total_huf = checkout_group_grand_total_huf(rows)
 
     if use_barion_rest_api():
         locked = _get_active_pending_attempt(db, checkout_gid, for_update=True)

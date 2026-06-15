@@ -1,17 +1,17 @@
 # Mesencsi — deploy readiness (praktikus checklist)
 
-Utolsó séma: **Alembic `029_email_outbox_claim_retry`** (`alembic upgrade head`).  
+Utolsó séma: **Alembic `032_storybook_page_image_layout`** (`alembic upgrade head`).  
 **007 figyelmeztetés:** lásd [migration_007_warning.md](./migration_007_warning.md) — a 007 migráció törli a meglévő `orders` sorokat.  
 **Pre-deploy:** `python scripts/predeploy_alembic_check.py` — legacy DB + orders adat ellenőrzés (exit `2` = veszélyes).  
 **Production pip:** `pip install -r requirements-prod.txt` (pinelt lock a zöld környezetből; PyJWT ≥ 2.13).  
 **Jogi dokumentumok:** [production_legal_todo.md](./production_legal_todo.md) — ügyfél/jogász jóváhagyás szükséges.  
 Éles viselkedés: **`MESENCSI_PRODUCTION=true`** → startup validator + Barion/CORS/SMTP kötelező mezők.
 
-**Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md) · **Ops:** [ops_runbook.md](./ops_runbook.md)
+**Owner QA:** [pre_production_qa.md](./pre_production_qa.md) · [checkout_shipping_guest_qa.md](./checkout_shipping_guest_qa.md) · **Review:** [REVIEW_CHECKLIST.md](../../REVIEW_CHECKLIST.md) · **Ops:** [ops_runbook.md](./ops_runbook.md)
 
 ---
 
-## Séma (025–029, production hardening)
+## Séma (025–032)
 
 | Rev | Tartalom |
 |-----|----------|
@@ -20,6 +20,16 @@ Utolsó séma: **Alembic `029_email_outbox_claim_retry`** (`alembic upgrade head
 | `027` | `order_idempotency` tábla |
 | `028` | CHECK constraints (products, orders, payment_attempts) |
 | `029` | Outbox `claimed_at`, `next_retry_at` (atomic worker) |
+| `030` | Guest checkout (`orders.user_id` nullable, guest idempotency) |
+| `031` | `shipping_method`, `shipping_price`, `shipping_metadata_json` |
+| `032` | Storybook page image layout |
+
+## Szállítás (storefront)
+
+- **Aktív:** személyes átvétel (0 Ft), GLS házhozszállítás (automatikus csomagméret / 2190–3290 Ft).
+- **Foxpost:** jelenleg **nem aktív** — szerver 422, nincs a `/shop/config` listában.
+- A szállítási díjat a backend számolja újra rendeléskor; a Barion összeg tartalmazza.
+- Részletes QA: [checkout_shipping_guest_qa.md](./checkout_shipping_guest_qa.md).
 
 ---
 

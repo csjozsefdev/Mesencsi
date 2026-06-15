@@ -9,23 +9,33 @@ Use this with [deploy_readiness.md](./deploy_readiness.md) §9, [BARION_SANDBOX_
 ## Before you start
 
 - [ ] `python scripts/predeploy_alembic_check.py` → ok (exit 0)
-- [ ] `alembic upgrade head` — head revision **`029_email_outbox_claim_retry`**
+- [ ] `alembic upgrade head` — head revision **`032_storybook_page_image_layout`**
 - [ ] `payment_attempts` and `email_outbox` tables exist
 - [ ] Production-like env: `MESENCSI_PRODUCTION=true`, distinct JWT secrets, `BARION_IPN_SECRET`, SMTP, CORS
 - [ ] Admin passwords are **not** the `.env.example` placeholder bcrypt hashes
 - [ ] `GET /health` → 200
 - [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`
-- [ ] Automated gate: `pytest -q` → ~300 passed (skips OK)
+- [ ] Automated gate: `pytest -q` → ~344 passed (skips OK)
 
 ---
 
-## Shop (verified user)
+## Shop — guest (no account)
+
+- [ ] Browse webshop and add to cart without login
+- [ ] Checkout: name, email, phone, shipping method, GLS address if needed
+- [ ] Barion sandbox payment → return → order `payment_status=paid`
+- [ ] Optional post-purchase account offer (dismiss OK)
+- [ ] Confirmation email shows shipping method, fee, delivery address (GLS)
+
+## Shop — verified user
 
 - [ ] Register → verify email (SMTP or dev log) → login
 - [ ] Login works with different email casing (e.g. `User@Mail.com` vs stored lowercase)
 - [ ] Profile: save shipping address, pick preset avatar, upload avatar
 - [ ] Webshop: add to cart, change quantity, apply coupon (if any)
-- [ ] Checkout: full address, notes, confirm → order created
+- [ ] Checkout: linear flow, bottom order summary, **Rendelés elküldése**
+- [ ] Personal pickup 0 Ft; GLS tiers 2190 / 2790 / 3290 Ft by quantity
+- [ ] GLS: optional recipient name; simplified address (no country field)
 - [ ] Repeat checkout with same `Idempotency-Key` header → same order group (no duplicate charge path)
 - [ ] Barion payment (sandbox or live) → return URL → `payment_status=paid`
 - [ ] `email_outbox` row created; cron/script sends payment confirmation email
@@ -50,7 +60,7 @@ Use this with [deploy_readiness.md](./deploy_readiness.md) §9, [BARION_SANDBOX_
 ## Security smoke
 
 - [ ] `GET /admin/shop-users` without token → 401
-- [ ] Unverified user cannot `POST /orders` or post news comment
+- [ ] Unverified logged-in user cannot `POST /orders` or post news comment
 - [ ] Shop JWT with stale `token_version` → 401
 - [ ] `POST /payments/barion/start` with incomplete checkout group → 409
 - [ ] Public staging (if any): `BARION_IPN_SECRET` set or IPN blocked — never open IPN on internet without secret

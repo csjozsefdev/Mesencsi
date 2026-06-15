@@ -85,7 +85,7 @@ def test_unverified_user_cannot_list_orders_but_estimate_may_work(client: TestCl
 
     est_r = client.post(
         "/orders/estimate",
-        json={"items": [{"product_id": pa, "quantity": 1}]},
+        json={"items": [{"product_id": pa, "quantity": 1}], "shipping_method": "personal_pickup"},
         headers=_auth_headers(uid),
     )
     assert est_r.status_code == 200

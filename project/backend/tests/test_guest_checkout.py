@@ -64,7 +64,7 @@ def test_guest_can_estimate_without_auth(client: TestClient) -> None:
     pa = _seed_product()
     r = client.post(
         "/orders/estimate",
-        json={"items": [{"product_id": pa, "quantity": 2}]},
+        json={"items": [{"product_id": pa, "quantity": 2}], "shipping_method": "personal_pickup"},
         headers=_guest_csrf_headers(client),
     )
     assert r.status_code == 200, r.text
@@ -76,7 +76,11 @@ def test_guest_cannot_use_coupon_on_estimate(client: TestClient) -> None:
     pa = _seed_product()
     r = client.post(
         "/orders/estimate",
-        json={"items": [{"product_id": pa, "quantity": 1}], "coupon_code": "SAVE10"},
+        json={
+            "items": [{"product_id": pa, "quantity": 1}],
+            "shipping_method": "personal_pickup",
+            "coupon_code": "SAVE10",
+        },
         headers=_guest_csrf_headers(client),
     )
     assert r.status_code == 403

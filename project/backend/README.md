@@ -49,6 +49,7 @@ A fejlesztői CORS beállítások a `cors_config.py`-ban vannak (pl. Vite `5173`
 
 | Dokumentum | Tartalom |
 |------------|----------|
+| [docs/checkout_shipping_guest_qa.md](docs/checkout_shipping_guest_qa.md) | Guest checkout, GLS tiers, checkout UX QA |
 | [docs/deploy_readiness.md](docs/deploy_readiness.md) | Env checklist, Barion, SMTP, smoke |
 | [docs/pre_production_qa.md](docs/pre_production_qa.md) | Owner QA lista |
 | [docs/ops_runbook.md](docs/ops_runbook.md) | Outbox cron, incidents, recovery |
@@ -66,4 +67,4 @@ python scripts\predeploy_alembic_check.py
 
 Email outbox cron: `python scripts\process_email_outbox.py` (lásd ops runbook).
 
-Angol handover: [HANDOVER.md](../HANDOVER.md) · [REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md)
+Angol handover: [HANDOVER.md](../HANDOVER.md) · [REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md) · [CHANGELOG.md](../CHANGELOG.md)

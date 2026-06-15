@@ -121,7 +121,11 @@ def test_send_order_payment_confirmation_builds_body() -> None:
             customer_name="Teszt Elek",
             order_reference="cg-xyz",
             lines=[("Könyv A", 2, 3000)],
-            grand_total_huf=3000,
+            products_grand_total_huf=3000,
+            shipping_method_label="GLS házhozszállítás",
+            shipping_package_label_hu="Közepes csomag",
+            shipping_price_huf=2790,
+            grand_total_huf=5790,
             payment_id="barion-pay-99",
         )
         assert ok is True
@@ -132,6 +136,9 @@ def test_send_order_payment_confirmation_builds_body() -> None:
         assert "cg-xyz" in kwargs["body"]
         assert "3 000" in kwargs["body"]
         assert "Könyv A" in kwargs["body"]
+        assert "Közepes csomag" in kwargs["body"]
+        assert "Szállítási díj: 2 790 Ft" in kwargs["body"]
+        assert "Végösszeg: 5 790 Ft" in kwargs["body"]
 
 
 def test_outbox_worker_failure_does_not_raise() -> None:
@@ -149,6 +156,8 @@ def test_outbox_worker_failure_does_not_raise() -> None:
                     "customer_name": "Név",
                     "order_reference": "#1",
                     "lines": [["Termék", 1, 100]],
+                    "products_grand_total_huf": 100,
+                    "shipping_price_huf": 0,
                     "grand_total_huf": 100,
                     "payment_id": "pay-fail-01",
                 },

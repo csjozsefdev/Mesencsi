@@ -11,6 +11,14 @@ from sqlalchemy.orm import Session
 from app_logging import get_request_id, log_event
 from db_models import EmailOutbox, ShopOrder
 from email_outbox_worker import process_email_outbox_batch
+from shipping_methods import (
+    checkout_group_grand_total_huf,
+    checkout_group_products_total_huf,
+    gls_package_label_from_metadata,
+    parse_shipping_metadata_field,
+    shipping_method_label_hu,
+)
+from shipping_address import format_shipping_address_plain
 
 _log = logging.getLogger("mesencsi.payment_email")
 
@@ -22,6 +30,12 @@ class PaymentConfirmationSnapshot:
     customer_name: str
     order_reference: str
     lines: tuple[tuple[str, int, int], ...]
+    products_grand_total_huf: int
+    shipping_method: str | None
+    shipping_method_label: str | None
+    shipping_package_label_hu: str | None
+    shipping_price_huf: int
+    shipping_address_plain: str | None
     grand_total_huf: int
 
 
@@ -43,13 +57,28 @@ def _snapshot_from_orders(payment_id: str, rows: list[ShopOrder]) -> PaymentConf
         return None
     customer_name = (rows[0].customer_name or "Vásárló").strip() or "Vásárló"
     lines = tuple((r.product_name, int(r.quantity), int(r.total_price)) for r in rows)
-    grand = sum(int(r.total_price) for r in rows)
+    products_grand = checkout_group_products_total_huf(rows)
+    shipping_price = max(int(getattr(r, "shipping_price", 0) or 0) for r in rows)
+    method = (rows[0].shipping_method or "").strip() or None
+    method_label = shipping_method_label_hu(method) if method else None
+    metadata = parse_shipping_metadata_field(getattr(rows[0], "shipping_metadata_json", None))
+    package_label = gls_package_label_from_metadata(metadata)
+    address_plain = format_shipping_address_plain(getattr(rows[0], "shipping_address", None))
+    if not address_plain.strip():
+        address_plain = None
+    grand = checkout_group_grand_total_huf(rows)
     return PaymentConfirmationSnapshot(
         payment_id=payment_id,
         to_email=to_email,
         customer_name=customer_name,
         order_reference=_format_order_reference(rows),
         lines=lines,
+        products_grand_total_huf=products_grand,
+        shipping_method=method,
+        shipping_method_label=method_label,
+        shipping_package_label_hu=package_label,
+        shipping_price_huf=shipping_price,
+        shipping_address_plain=address_plain,
         grand_total_huf=grand,
     )
 
@@ -72,6 +101,12 @@ def enqueue_payment_confirmation_outbox(db: Session, payment_id: str, rows: list
         "customer_name": snapshot.customer_name,
         "order_reference": snapshot.order_reference,
         "lines": [list(line) for line in snapshot.lines],
+        "products_grand_total_huf": snapshot.products_grand_total_huf,
+        "shipping_method": snapshot.shipping_method,
+        "shipping_method_label": snapshot.shipping_method_label,
+        "shipping_package_label_hu": snapshot.shipping_package_label_hu,
+        "shipping_price_huf": snapshot.shipping_price_huf,
+        "shipping_address_plain": snapshot.shipping_address_plain,
         "grand_total_huf": snapshot.grand_total_huf,
         "payment_id": snapshot.payment_id,
     }

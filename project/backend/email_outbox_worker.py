@@ -46,6 +46,13 @@ def _send_payment_confirmation(payload: dict) -> bool:
             customer_name=str(payload["customer_name"]),
             order_reference=str(payload["order_reference"]),
             lines=[(str(a), int(b), int(c)) for a, b, c in payload["lines"]],
+            products_grand_total_huf=int(
+                payload.get("products_grand_total_huf") or payload.get("grand_total_huf", 0)
+            ),
+            shipping_method_label=payload.get("shipping_method_label"),
+            shipping_package_label_hu=payload.get("shipping_package_label_hu"),
+            shipping_price_huf=int(payload.get("shipping_price_huf") or 0),
+            shipping_address_plain=payload.get("shipping_address_plain"),
             grand_total_huf=int(payload["grand_total_huf"]),
             payment_id=str(payload["payment_id"]),
         )

@@ -56,7 +56,15 @@ from guest_checkout_tokens import guest_checkout_token_header_name, issue_guest_
 from guest_order_idempotency import lookup_guest_idempotent_orders, store_guest_idempotent_orders
 from shop_email import normalize_shop_email
 from services import find_order_owned, find_product
-from shipping_address import ShippingAddressValidationError, parse_and_validate_shipping_address_raw
+from shipping_methods import (
+    GLS_HOME,
+    count_shippable_item_quantity,
+    normalize_shipping_method,
+    parse_shipping_metadata_field,
+    recommend_gls_shipping,
+    resolve_order_shipping,
+    resolve_shipping_price_huf,
+)
 from auth import log_admin_auth_startup
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
@@ -80,7 +88,16 @@ def _priced_line_to_estimate_line(pl) -> OrderEstimateLine:
     )
 
 
-def _priced_lines_to_estimate_response(priced) -> OrderEstimateResponse:
+def _priced_lines_to_estimate_response(
+    priced,
+    *,
+    shipping_method: str,
+    shipping_price: int,
+    shippable_item_count: int = 0,
+    shipping_package_label_hu: str | None = None,
+    shipping_recommended_package_label_hu: str | None = None,
+) -> OrderEstimateResponse:
+    products_final = priced.grand_final
     return OrderEstimateResponse(
         discount_percent=priced.discount_percent,
         coupon_code=priced.coupon_code,
@@ -90,7 +107,13 @@ def _priced_lines_to_estimate_response(priced) -> OrderEstimateResponse:
         lines=[_priced_line_to_estimate_line(pl) for pl in priced.lines],
         grand_original=priced.grand_original,
         grand_discount=priced.grand_discount,
-        grand_final=priced.grand_final,
+        products_grand_final=products_final,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shipping_package_label_hu=shipping_package_label_hu,
+        shipping_recommended_package_label_hu=shipping_recommended_package_label_hu,
+        shippable_item_count=shippable_item_count,
+        grand_final=products_final + shipping_price,
     )
 
 
@@ -107,7 +130,10 @@ def _priced_line_to_shop_order(
     user_id: int | None,
     customer_name: str,
     buyer_email: str,
-    shipping_normalized: str,
+    shipping_normalized: str | None,
+    shipping_method: str,
+    shipping_price: int,
+    shipping_metadata: dict | None,
     notes: str | None,
     checkout_group_id: str,
 ) -> ShopOrder:
@@ -124,6 +150,9 @@ def _priced_line_to_shop_order(
         customer_name=customer_name,
         customer_email=buyer_email,
         shipping_address=shipping_normalized,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shipping_metadata_json=shipping_metadata,
         notes=notes,
         status="new",
         payment_status="pending",
@@ -136,8 +165,23 @@ def _priced_line_to_shop_order(
 
 def _compute_order_estimate(db: Session, user_id: int | None, payload: OrderEstimateRequest) -> OrderEstimateResponse:
     """Kosár + kombó kedvezmény és/vagy kupon — csak számolás, nincs DB írás (kombó elsőbbsége a kuponnal szemben)."""
+    shipping_method = normalize_shipping_method(payload.shipping_method)
+    shippable_count = count_shippable_item_quantity(payload.items)
+    shipping_price = resolve_shipping_price_huf(
+        shipping_method,
+        shippable_item_count=shippable_count,
+    )
+    package_label: str | None = None
+    if shipping_method == GLS_HOME:
+        _tier, _price, package_label = recommend_gls_shipping(shippable_count)
     priced = compute_checkout_pricing(db, user_id=user_id, items=payload.items, coupon_code=payload.coupon_code)
-    return _priced_lines_to_estimate_response(priced)
+    return _priced_lines_to_estimate_response(
+        priced,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shippable_item_count=shippable_count,
+        shipping_package_label_hu=package_label,
+    )
 
 
 def _resolve_checkout_user(
@@ -435,20 +479,20 @@ def create_order(
             if existing is not None:
                 return existing
 
-    try:
-        shipping_normalized = parse_and_validate_shipping_address_raw(
-            order.shipping_address,
-            required=True,
-        )
-    except ShippingAddressValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    if not shipping_normalized:
-        raise HTTPException(status_code=422, detail="A szállítási cím megadása kötelező.")
+    shipping_metadata = parse_shipping_metadata_field(order.shipping_metadata)
+    shippable_count = count_shippable_item_quantity(order.items)
+    customer_name = order.customer_name.strip()
+    shipping_method, shipping_price, shipping_normalized, shipping_metadata = resolve_order_shipping(
+        method_raw=order.shipping_method,
+        shipping_address_raw=order.shipping_address,
+        shipping_metadata=shipping_metadata,
+        shippable_item_count=shippable_count,
+        customer_name=customer_name,
+    )
 
     priced = compute_checkout_pricing(db, user_id=user_id, items=order.items, coupon_code=order.coupon_code)
 
     checkout_group_id = str(uuid.uuid4())
-    customer_name = order.customer_name.strip()
     order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
     for pl in priced.lines:
@@ -458,6 +502,9 @@ def create_order(
             customer_name=customer_name,
             buyer_email=buyer_email,
             shipping_normalized=shipping_normalized,
+            shipping_method=shipping_method,
+            shipping_price=shipping_price,
+            shipping_metadata=shipping_metadata,
             notes=order_notes,
             checkout_group_id=checkout_group_id,
         )

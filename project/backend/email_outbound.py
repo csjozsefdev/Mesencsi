@@ -560,6 +560,11 @@ def send_order_payment_confirmation(
     customer_name: str,
     order_reference: str,
     lines: list[tuple[str, int, int]],
+    products_grand_total_huf: int,
+    shipping_method_label: str | None,
+    shipping_package_label_hu: str | None = None,
+    shipping_price_huf: int,
+    shipping_address_plain: str | None = None,
     grand_total_huf: int,
     payment_id: str,
 ) -> bool:
@@ -571,7 +576,8 @@ def send_order_payment_confirmation(
     line_blocks = []
     for name, qty, line_total in lines:
         line_blocks.append(f"  • {name} × {qty} — {line_total:,} Ft".replace(",", " "))
-    items_text = "\n".join(line_blocks) if line_blocks else "  • (no items)"
+    items_text = "\n".join(line_blocks) if line_blocks else "  • (nincs tétel)"
+    products_fmt = f"{products_grand_total_huf:,} Ft".replace(",", " ")
     grand_fmt = f"{grand_total_huf:,} Ft".replace(",", " ")
 
     body_parts = [
@@ -585,8 +591,20 @@ def send_order_payment_confirmation(
         "Megrendelt tételek:",
         items_text,
         "",
-        f"Végösszeg: {grand_fmt}",
+        f"Termékek összesen: {products_fmt}",
     ]
+    if shipping_method_label:
+        body_parts.append(f"Szállítás: {shipping_method_label}")
+        if shipping_package_label_hu:
+            body_parts.append(f"Csomagméret: {shipping_package_label_hu}")
+        if shipping_price_huf > 0:
+            ship_fee = f"{shipping_price_huf:,} Ft".replace(",", " ")
+            body_parts.append(f"Szállítási díj: {ship_fee}")
+        elif shipping_method_label:
+            body_parts.append("Szállítási díj: 0 Ft")
+    if shipping_address_plain:
+        body_parts.extend(["", "Szállítási cím:", shipping_address_plain])
+    body_parts.append(f"Végösszeg: {grand_fmt}")
     note = order_confirmation_processing_note()
     if note:
         body_parts.extend(["", note])

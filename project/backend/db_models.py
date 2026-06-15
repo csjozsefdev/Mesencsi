@@ -108,6 +108,9 @@ class ShopOrder(Base):
     customer_name: Mapped[str] = mapped_column(String(255))
     customer_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     shipping_address: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    shipping_method: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    shipping_price: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    shipping_metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     status: Mapped[str] = mapped_column(String(32), server_default="new", nullable=False)
     payment_status: Mapped[str] = mapped_column(String(32), server_default="pending", nullable=False)
@@ -368,6 +371,10 @@ class DigitalStorybookPage(Base):
     text_box_style: Mapped[str] = mapped_column(String(32), nullable=False, server_default="card")
     text_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     text_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_width_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_height_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     extra: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
