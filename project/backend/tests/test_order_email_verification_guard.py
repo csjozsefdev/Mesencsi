@@ -61,7 +61,7 @@ def test_unverified_user_cannot_create_order(client: TestClient) -> None:
 
     r = client.post("/orders", json=_order_body(pa), headers=_auth_headers(uid))
     assert r.status_code == 403
-    assert r.json().get("detail") == "Email verification required before placing an order."
+    assert r.json().get("detail") == "A rendelés leadásához erősítsd meg az e-mail címed."
 
     db = SessionLocal()
     try:

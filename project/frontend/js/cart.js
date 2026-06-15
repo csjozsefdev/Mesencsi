@@ -292,10 +292,6 @@
 
   function loadCartFromStorage() {
     try {
-      if (!isLoggedIn()) {
-        _cart = [];
-        return;
-      }
       const raw =
         storage && typeof storage.getLocal === "function"
           ? storage.getLocal(cartStorageKey())
@@ -363,14 +359,13 @@
   }
 
   function persistCart() {
-    if (!isLoggedIn()) return;
     try {
       const key = cartStorageKey();
       const raw = JSON.stringify(_cart);
       if (storage && typeof storage.setLocal === "function")
         storage.setLocal(key, raw);
       else localStorage.setItem(key, raw);
-      scheduleCartServerSync();
+      if (isLoggedIn()) scheduleCartServerSync();
     } catch (_) {}
   }
 
@@ -523,12 +518,6 @@
   }
 
   function addToCart(product) {
-    if (!isLoggedIn()) {
-      const loginMsg = $("loginMsg");
-      setAuthLine(loginMsg, msgPurchaseAuth(), false);
-      if (notify) notify.warn(msgPurchaseAuth());
-      return;
-    }
     const existing = _cart.find(function (item) {
       return item.id === product.id;
     });
@@ -544,7 +533,7 @@
       });
     }
     updateCartUI();
-    if (isLoggedIn() && _cart.length) scheduleCartPricingEstimate();
+    if (_cart.length) scheduleCartPricingEstimate();
     const hint = $("webshopCartHint");
     if (hint) hint.hidden = false;
     if (notify) {
@@ -679,7 +668,7 @@
     const onCartView = deps.getCurrentView
       ? deps.getCurrentView() === "cart"
       : false;
-    const showFab = isLoggedIn() && !onCartView;
+    const showFab = !onCartView && _cart.length > 0;
     fab.hidden = !showFab;
     fab.setAttribute("aria-hidden", showFab ? "false" : "true");
   }
@@ -689,17 +678,15 @@
     if (cartWithItems && !cartWithItems.dataset.cartUiWired) {
       cartWithItems.dataset.cartUiWired = "1";
       cartWithItems.addEventListener("click", function (e) {
-        if (!isLoggedIn()) return;
         const rm = e.target.closest("[data-cart-remove]");
         if (!rm) return;
         const i = parseInt(rm.getAttribute("data-cart-remove"), 10);
         if (Number.isNaN(i)) return;
         _cart.splice(i, 1);
         updateCartUI();
-        if (isLoggedIn() && _cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) scheduleCartPricingEstimate();
       });
       cartWithItems.addEventListener("change", function (e) {
-        if (!isLoggedIn()) return;
         const t = e.target;
         if (
           !(t instanceof HTMLInputElement) ||

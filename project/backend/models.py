@@ -89,11 +89,16 @@ class CartLineRead(BaseModel):
 
 
 class Order(BaseModel):
-    """Checkout body: JWT-hez kötött vásárló; az e-mail a fiókból kerül a rendelési sorokba (nem küldhető a kliensnek)."""
+    """Checkout body. Authenticated users: email from account. Guests: customer_email required."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     customer_name: str = Field(..., min_length=1, max_length=255, description="Buyer / parent name.")
+    customer_email: str | None = Field(
+        None,
+        max_length=320,
+        description="Guest checkout email. Ignored when authenticated — account email is used.",
+    )
     items: list[OrderLineItem] = Field(..., min_length=1, description="At least one product line.")
     shipping_address: str = Field(
         ...,
@@ -113,6 +118,15 @@ class Order(BaseModel):
             return validate_person_name(v, field="customer_name", label="név")
         except ShippingAddressValidationError as e:
             raise ValueError(str(e)) from e
+
+    @field_validator("customer_email", mode="before")
+    @classmethod
+    def normalize_customer_email(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @field_validator("shipping_address", mode="before")
     @classmethod
@@ -159,6 +173,7 @@ class OrderResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    user_id: int | None = None
     product_id: int
     product_name: str
     quantity: int

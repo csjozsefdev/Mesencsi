@@ -130,10 +130,6 @@
   async function loadProducts() {
     const out = $("productsOut");
     if (!out) return;
-    if (!isLoggedIn()) {
-      out.innerHTML = '<p class="empty">' + escapeHtml(msgWebshopAuth()) + "</p>";
-      return;
-    }
     out.innerHTML = '<p class="empty">Betöltés…</p>';
 
     if (await renderComingSoonIfNeeded(out)) return;

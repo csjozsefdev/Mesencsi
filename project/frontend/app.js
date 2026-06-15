@@ -821,26 +821,24 @@ function syncCartFabVisibility() {
 }
 
 /**
- * Webshop / kosár / Mesekönyvek menü csak bejelentkezett vásárlónak:
- * - fa menü (desktop + mobil hamburger): Webshop + Kosár + Mesekönyvek rejtése kijelentkezve
- * - nézeten belüli CTA-k (.glass-card): „Megnyitom a webshopot” / kosár link szintén
- * - lebegő kosár FAB
- * Kosár ürítése kijelentkezve.
+ * Purchase gates: storybooks require login; webshop/cart are public.
  */
 function applyPurchaseGates() {
   const ok = isShopUserLoggedIn();
   const nav = document.querySelector("nav.side-menu.wood-menu.side-rail-nav");
   if (nav) {
     nav
-      .querySelectorAll(
-        'button[data-view="webshop"], button[data-view="cart"], button[data-view="storybooks"]',
-      )
+      .querySelectorAll('button[data-view="webshop"], button[data-view="cart"]')
+      .forEach(function (btn) {
+        btn.hidden = false;
+        btn.setAttribute("aria-hidden", "false");
+      });
+    nav
+      .querySelectorAll('button[data-view="storybooks"]')
       .forEach(function (btn) {
         btn.hidden = !ok;
         btn.setAttribute("aria-hidden", ok ? "false" : "true");
       });
-    /* Belépett usernél a "Termékek" (stories) gomb felesleges — a Webshop lefedi.
-           Kijelentkezve viszont láthatónak kell maradnia. */
     const storiesBtn = nav.querySelector('button[data-view="stories"]');
     if (storiesBtn) {
       storiesBtn.hidden = ok;
@@ -852,24 +850,26 @@ function applyPurchaseGates() {
       '.glass-card button[data-view="webshop"], .glass-card button[data-view="cart"]',
     )
     .forEach(function (el) {
-      el.hidden = !ok;
-      el.setAttribute("aria-hidden", ok ? "false" : "true");
+      el.hidden = false;
+      el.setAttribute("aria-hidden", "false");
     });
   if (ok) {
     void hydrateCartForLoggedInUser();
     const hint = $("webshopCartHint");
     if (hint) hint.hidden = true;
     syncCartFabVisibility();
+    if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
     return;
   }
-  cartClear();
+  loadCartFromStorage();
   updateCartUI();
   const stack = $("pageStack");
   const cur = stack && stack.getAttribute("data-current-view");
-  if (cur === "webshop" || cur === "cart" || cur === "storybooks") {
+  if (cur === "storybooks") {
     showView("home");
   }
   syncCartFabVisibility();
+  if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
 }
 
 function apiBase() {

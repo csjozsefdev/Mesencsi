@@ -15,6 +15,7 @@ from auth_limits import limiter
 from database import get_db
 from db_models import AppUser
 from dependencies import get_current_app_user
+from guest_order_linking import link_guest_orders_to_verified_user
 from email_errors import EmailNotConfiguredError, EmailSendError
 from email_outbound import send_email_verification, send_password_reset_email
 from login_throttle import assert_login_allowed, clear_login_throttle, record_login_failure
@@ -571,9 +572,15 @@ def login_user(
         ) from None
     if not projected:
         db.refresh(row)
+        if row.email_verified_at is not None:
+            link_guest_orders_to_verified_user(db, row, commit=True)
         token = issue_user_access_token(row.id, token_version=int(row.token_version or 0))
         user_out = UserRead.model_validate(row)
     else:
+        if email_verified_at is not None:
+            full_row = db.get(AppUser, int(user_id))
+            if full_row is not None:
+                link_guest_orders_to_verified_user(db, full_row, commit=True)
         token = issue_user_access_token(int(user_id), token_version=0)
         user_out = UserRead.model_validate(
             {

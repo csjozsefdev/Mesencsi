@@ -109,7 +109,19 @@ def require_email_verified_to_place_order(user: AppUser = Depends(get_current_ap
     if user.email_verified_at is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email verification required before placing an order.",
+            detail="A rendelés leadásához erősítsd meg az e-mail címed.",
         )
     return user
+
+
+def get_optional_app_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer_user),
+    db: Session = Depends(get_db),
+    user_cookie: str | None = Cookie(default=None, alias=_USER_COOKIE),
+) -> AppUser | None:
+    """Optional shop user — returns None when no valid session (guest checkout)."""
+    try:
+        return get_current_app_user(credentials=credentials, db=db, user_cookie=user_cookie)
+    except HTTPException:
+        return None
 

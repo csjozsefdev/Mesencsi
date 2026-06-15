@@ -33,17 +33,8 @@
 
   function showView(name) {
     if (deps.closeUserAccountPanelsOnly) deps.closeUserAccountPanelsOnly();
-    if (
-      (name === "webshop" || name === "cart" || name === "storybooks") &&
-      !isLoggedIn()
-    ) {
-      const msg =
-        name === "webshop"
-          ? deps.MSG_WEBSHOP_AUTH
-          : name === "cart"
-            ? deps.MSG_PURCHASE_AUTH
-            : deps.MSG_STORYBOOKS_AUTH;
-      setAuthLine($("loginMsg"), msg, false);
+    if (name === "storybooks" && !isLoggedIn()) {
+      setAuthLine($("loginMsg"), deps.MSG_STORYBOOKS_AUTH, false);
       showView("home");
       return;
     }
@@ -107,15 +98,14 @@
     if (name === "cart") {
       if (deps.updateCartUI) deps.updateCartUI();
       if (deps.syncCheckoutEmailFromSession) deps.syncCheckoutEmailFromSession();
+      if (deps.syncCheckoutAuthPanel) deps.syncCheckoutAuthPanel();
       if (deps.wireCheckoutAddressConfirmPreview)
         deps.wireCheckoutAddressConfirmPreview();
       if (deps.updateCheckoutCouponDisplay) deps.updateCheckoutCouponDisplay();
-      if (isLoggedIn()) {
-        if (deps.cartItems && deps.cartItems().length && deps.scheduleCartPricingEstimate)
-          deps.scheduleCartPricingEstimate();
-        else if (deps.restoreStoredCheckoutCoupon)
-          void deps.restoreStoredCheckoutCoupon();
-      }
+      if (deps.cartItems && deps.cartItems().length && deps.scheduleCartPricingEstimate)
+        deps.scheduleCartPricingEstimate();
+      else if (isLoggedIn() && deps.restoreStoredCheckoutCoupon)
+        void deps.restoreStoredCheckoutCoupon();
     }
     if (name === "gallery" && prevView !== "gallery" && deps.ensureGallery)
       void deps.ensureGallery();
@@ -147,17 +137,8 @@
       el.addEventListener("click", () => {
         const v = el.getAttribute("data-view");
         if (!v) return;
-        if (
-          (v === "webshop" || v === "cart" || v === "storybooks") &&
-          !isLoggedIn()
-        ) {
-          const msg =
-            v === "webshop"
-              ? deps.MSG_WEBSHOP_AUTH
-              : v === "cart"
-                ? deps.MSG_PURCHASE_AUTH
-                : deps.MSG_STORYBOOKS_AUTH;
-          setAuthLine($("loginMsg"), msg, false);
+        if (v === "storybooks" && !isLoggedIn()) {
+          setAuthLine($("loginMsg"), deps.MSG_STORYBOOKS_AUTH, false);
           try {
             const le = $("loginEmail");
             if (le) le.focus();
@@ -198,10 +179,6 @@
     if (cartFab && !cartFab.dataset.routerFabWired) {
       cartFab.dataset.routerFabWired = "1";
       cartFab.addEventListener("click", () => {
-        if (!isLoggedIn()) {
-          setAuthLine($("loginMsg"), deps.MSG_PURCHASE_AUTH, false);
-          return;
-        }
         try {
           history.pushState({ view: "cart" }, "", "/");
         } catch (_) {}

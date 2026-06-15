@@ -58,7 +58,7 @@ def test_alembic_upgrade_head_clean_postgres() -> None:
         smoke_engine = create_engine(_pg_url(db_name))
         with smoke_engine.connect() as conn:
             rev = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert rev == "029"
+        assert rev == "030"
     finally:
         with admin_engine.connect() as conn:
             conn.execute(text(f'DROP DATABASE "{db_name}" WITH (FORCE)'))

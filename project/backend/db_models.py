@@ -96,7 +96,7 @@ class ShopOrder(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     product_name: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[int] = mapped_column(Integer)
@@ -407,6 +407,26 @@ class EmailOutbox(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class GuestOrderIdempotency(Base):
+    """Guest checkout idempotency — keyed by normalized email + idempotency key."""
+
+    __tablename__ = "guest_order_idempotency"
+    __table_args__ = (
+        UniqueConstraint("guest_email", "idempotency_key", name="uq_guest_order_idempotency_email_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    guest_email: Mapped[str] = mapped_column(String(320), index=True, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    order_ids_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
     )
 

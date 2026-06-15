@@ -49,6 +49,31 @@
         ×
       </button>
     </div>
+    <div
+      id="postPurchaseAccountOffer"
+      class="post-purchase-account-offer glass-card"
+      hidden
+      role="dialog"
+      aria-labelledby="postPurchaseAccountOfferTitle"
+    >
+      <h3 id="postPurchaseAccountOfferTitle">Szeretnél fiókot létrehozni?</h3>
+      <p>
+        Hozz létre fiókot a megvásárolt mesekönyvek online eléréséhez, a
+        rendelési előzmények megtekintéséhez és a tagi kedvezményekhez.
+      </p>
+      <div class="post-purchase-account-offer__actions">
+        <button type="button" class="btn-submit" id="postPurchaseAccountCreate">
+          Fiók létrehozása
+        </button>
+        <button
+          type="button"
+          class="btn-outline-ghost"
+          id="postPurchaseAccountLater"
+        >
+          Később
+        </button>
+      </div>
+    </div>
     <header class="mobile-top-bar" id="mobileTopBar" aria-label="Mobil menüsor">
       <button
         type="button"
@@ -394,7 +419,7 @@
           aria-label="Mesencsi navigáció"
           data-testid="side-nav"
         >
-          <button type="button" class="wood-button" data-view="webshop" hidden>
+          <button type="button" class="wood-button" data-view="webshop">
             Webshop
           </button>
           <button type="button" class="wood-button" data-view="gallery">
@@ -416,7 +441,6 @@
             type="button"
             class="wood-button wood-button--mobile-only"
             data-view="cart"
-            hidden
           >
             Kosár
           </button>
@@ -1152,6 +1176,31 @@
               >
                 Rendelés elküldése
               </h3>
+              <div id="checkoutAuthPanel" class="checkout-auth-panel" hidden>
+                <p class="checkout-auth-panel__lead">
+                  Vendégként is vásárolhatsz, vagy jelentkezz be a tagi
+                  kedvezményekért és a gyorsabb fizetésért.
+                </p>
+                <div class="checkout-auth-panel__actions">
+                  <span class="checkout-auth-panel__guest-label"
+                    >Folytatás vendégként</span
+                  >
+                  <button
+                    type="button"
+                    class="btn-outline-ghost"
+                    data-checkout-auth="login"
+                  >
+                    Belépés
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-outline-ghost"
+                    data-checkout-auth="register"
+                  >
+                    Regisztráció
+                  </button>
+                </div>
+              </div>
               <form id="checkoutForm" class="checkout-form" novalidate>
                 <input
                   type="text"
@@ -1190,7 +1239,6 @@
                       required
                       maxlength="320"
                       autocomplete="email"
-                      readonly
                     />
                   </label>
                   <label for="checkoutPhone">
