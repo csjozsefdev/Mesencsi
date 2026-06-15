@@ -10,7 +10,6 @@ from database import SessionLocal
 from db_models import AppUser, Product
 from mesencsi import app
 from password_utils import hash_password
-from shipping_address import sample_valid_shipping_json
 
 
 def _seed_user_and_product() -> tuple[str, str, int]:
@@ -56,6 +55,8 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
             "customer_email": email,
             "shipping_method": "personal_pickup",
             "items": [{"product_id": product_id, "quantity": 1}],
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
         },
     )
     assert r0.status_code == 403, r0.text
@@ -69,6 +70,8 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
             "customer_email": email,
             "shipping_method": "personal_pickup",
             "items": [{"product_id": product_id, "quantity": 1}],
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
         },
     )
     assert r1.status_code == 201, r1.text

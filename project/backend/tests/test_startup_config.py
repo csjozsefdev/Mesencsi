@@ -27,6 +27,7 @@ def _fill_minimal_production_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BARION_BACKEND_PUBLIC_URL", "https://api.example.com")
     monkeypatch.setenv("BARION_RETURN_URL", "https://api.example.com/payments/barion/return")
     monkeypatch.setenv("BARION_CALLBACK_URL", "https://api.example.com/payments/barion/ipn")
+    monkeypatch.setenv("PUBLIC_SITE_URL", "https://shop.example.com")
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-pass")
@@ -53,6 +54,14 @@ def test_production_missing_admin_secret_raises(monkeypatch: pytest.MonkeyPatch)
 def test_production_valid_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     _fill_minimal_production_env(monkeypatch)
     run_startup_config_validation()
+
+
+def test_production_requires_https_public_site_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    monkeypatch.setenv("PUBLIC_SITE_URL", "http://shop.example.com")
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("PUBLIC_SITE_URL" in issue for issue in exc.value.issues)
 
 
 def test_production_with_test_database_url_raises(monkeypatch: pytest.MonkeyPatch) -> None:

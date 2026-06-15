@@ -10,7 +10,6 @@ from database import SessionLocal
 from db_models import AppUser, Product, UserCartItem
 from mesencsi import app
 from password_utils import hash_password
-from shipping_address import sample_valid_shipping_json
 from user_tokens import issue_user_access_token
 
 
@@ -93,6 +92,8 @@ def test_create_order_does_not_clear_server_cart() -> None:
             "customer_name": "Cart Buyer",
             "items": [{"product_id": product_id, "quantity": 1}],
             "shipping_method": "personal_pickup",
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
             "company_website": "",
         },
     )

@@ -11,7 +11,6 @@ from shipping_address import (
     format_shipping_address_html,
     format_shipping_address_plain,
     sample_checkout_shipping_json,
-    sample_valid_shipping_json,
     validate_address_parts,
     validate_checkout_shipping_address_parts,
     validate_hu_postal_code,

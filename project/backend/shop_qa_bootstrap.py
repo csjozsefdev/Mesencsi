@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from db_models import AppUser
 from email_config import hosted_deployment
+from email_outbound import _email_log_id
 from password_utils import hash_password, verify_password
 
 _log = logging.getLogger("mesencsi.shop_qa_bootstrap")
@@ -73,7 +74,11 @@ def ensure_qa_shop_user() -> None:
             )
             db.add(user)
             db.commit()
-            _log.info("QA shop user created and email-verified — email=%s username=%s", email, username)
+            _log.info(
+                "QA shop user created and email-verified — recipient=%s username=%s",
+                _email_log_id(email),
+                username,
+            )
             return
 
         changed = False
@@ -98,6 +103,14 @@ def ensure_qa_shop_user() -> None:
             changed = True
         if changed:
             db.commit()
-            _log.info("QA shop user updated (verified/active) — email=%s id=%s", email, user.id)
+            _log.info(
+                "QA shop user updated (verified/active) — recipient=%s id=%s",
+                _email_log_id(email),
+                user.id,
+            )
         else:
-            _log.info("QA shop user already ready — email=%s id=%s", email, user.id)
+            _log.info(
+                "QA shop user already ready — recipient=%s id=%s",
+                _email_log_id(email),
+                user.id,
+            )

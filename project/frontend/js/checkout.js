@@ -634,6 +634,21 @@
           );
           return;
         }
+        const termsAccepted = !!(
+          $("checkoutTermsAccepted") && $("checkoutTermsAccepted").checked
+        );
+        const privacyAcknowledged = !!(
+          $("checkoutPrivacyAcknowledged") &&
+          $("checkoutPrivacyAcknowledged").checked
+        );
+        if (!termsAccepted || !privacyAcknowledged) {
+          cartFeedback(
+            msg,
+            "A rendeléshez el kell fogadnod az ÁSZF-et, és meg kell ismerned az adatkezelési tájékoztatót.",
+            false,
+          );
+          return;
+        }
         const body = {
           customer_name,
           items: cartItems().map(function (c) {
@@ -643,6 +658,8 @@
             ($("checkoutCompanyWebsite") && $("checkoutCompanyWebsite").value) ||
             "",
           shipping_address: shipBuilt.json,
+          terms_accepted: termsAccepted,
+          privacy_acknowledged: privacyAcknowledged,
         };
         if (!isLoggedIn()) {
           body.customer_email = (

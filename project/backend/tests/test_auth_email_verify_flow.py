@@ -33,7 +33,7 @@ def test_register_saves_verification_token_when_email_not_sent(
     with patch("routers.user_auth.send_email_verification", return_value=False):
         r = client.post(
             "/auth/register",
-            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!"},
+            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!", "terms_accepted": True, "privacy_acknowledged": True},
         )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -129,7 +129,7 @@ def test_register_local_smtp_failure_returns_201_not_503(
     with patch("email_outbound.send_plain_email", side_effect=EmailSendError("SMTP delivery failed")):
         r = client.post(
             "/auth/register",
-            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!"},
+            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!", "terms_accepted": True, "privacy_acknowledged": True},
         )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -148,7 +148,7 @@ def test_register_production_smtp_failure_returns_503(
     ):
         r = client.post(
             "/auth/register",
-            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!"},
+            json={"email": email, "password": "Test1234!", "password_confirm": "Test1234!", "terms_accepted": True, "privacy_acknowledged": True},
         )
     assert r.status_code == 503, r.text
     with SessionLocal() as db:

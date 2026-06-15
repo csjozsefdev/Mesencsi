@@ -544,6 +544,21 @@
           );
           return;
         }
+        const termsAccepted = !!(
+          $("regTermsAccepted") && $("regTermsAccepted").checked
+        );
+        const privacyAcknowledged = !!(
+          $("regPrivacyAcknowledged") && $("regPrivacyAcknowledged").checked
+        );
+        if (!termsAccepted || !privacyAcknowledged) {
+          authFeedback(
+            $("registerMsg"),
+            "A regisztrációhoz el kell fogadnod az ÁSZF-et, és meg kell ismerned az adatkezelési tájékoztatót.",
+            false,
+            true,
+          );
+          return;
+        }
         const regEmailEl = $("regEmail");
         if (regEmailEl && !regEmailEl.checkValidity()) {
           try {
@@ -555,6 +570,8 @@
           email,
           password,
           password_confirm: password2,
+          terms_accepted: termsAccepted,
+          privacy_acknowledged: privacyAcknowledged,
           company_website:
             ($("regCompanyWebsite") && $("regCompanyWebsite").value) || "",
         };

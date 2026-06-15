@@ -12,7 +12,6 @@ from database import SessionLocal
 from db_models import AppUser, Product, ProductBundleDiscount, ShopOrder
 from mesencsi import app
 from password_utils import hash_password
-from shipping_address import sample_valid_shipping_json
 from user_tokens import issue_user_access_token
 
 
@@ -25,6 +24,8 @@ def _checkout_order_body(customer_name: str, items: list[dict], **extra: object)
         "customer_name": customer_name,
         "items": items,
         "shipping_method": "personal_pickup",
+        "terms_accepted": True,
+        "privacy_acknowledged": True,
         "company_website": "",
     }
     body.update(extra)
@@ -82,11 +83,6 @@ def _add_bundle_rule(name: str, product_ids: list[int], percent: int, *, active:
         return int(rule.id)
     finally:
         db.close()
-
-
-def _auth_headers(user_id: int) -> dict[str, str]:
-    return {"Authorization": "Bearer " + issue_user_access_token(user_id)}
-
 
 def _estimate(
     client: TestClient,

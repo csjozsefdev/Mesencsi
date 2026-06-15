@@ -125,6 +125,8 @@ class Order(BaseModel):
     )
     notes: str | None = Field(None, max_length=2000, description="Message to the author / shop.")
     coupon_code: str | None = Field(None, max_length=64, description="Opcionális kuponkód — a szerver számolja újra az árat.")
+    terms_accepted: bool
+    privacy_acknowledged: bool
     # Honeypot (bot): a kliens hagyja üresen; nem kell kitölteni.
     company_website: str | None = Field(None, max_length=256, description="Honeypot — üresen hagyandó.")
 
@@ -188,6 +190,14 @@ class Order(BaseModel):
         if isinstance(v, str) and v.strip():
             raise ValueError("Érvénytelen kérés.")
         return None
+
+    @model_validator(mode="after")
+    def legal_acknowledgements_required(self) -> Order:
+        if not self.terms_accepted:
+            raise ValueError("Az ÁSZF elfogadása kötelező.")
+        if not self.privacy_acknowledged:
+            raise ValueError("Az adatkezelési tájékoztató megismerése kötelező.")
+        return self
 
 
 class OrderResponse(BaseModel):
@@ -999,6 +1009,8 @@ class UserCreate(BaseModel):
         max_length=128,
         description="Ha kitöltöd, meg kell egyeznie a jelszóval.",
     )
+    terms_accepted: bool
+    privacy_acknowledged: bool
     company_website: str | None = Field(None, max_length=256, description="Honeypot — üresen hagyandó.")
 
     @field_validator("company_website", mode="before")
@@ -1015,6 +1027,10 @@ class UserCreate(BaseModel):
         pc = self.password_confirm
         if pc is not None and str(pc).strip() and self.password != pc:
             raise ValueError("A jelszó és a megerősítés nem egyezik.")
+        if not self.terms_accepted:
+            raise ValueError("Az ÁSZF elfogadása kötelező.")
+        if not self.privacy_acknowledged:
+            raise ValueError("Az adatkezelési tájékoztató megismerése kötelező.")
         return self
 
 

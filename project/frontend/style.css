@@ -5808,3 +5808,93 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
 }
 
+.legal-acknowledgements {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.legal-acknowledgements label,
+.cookie-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.checkout-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.checkout-payment-disclosure,
+.legal-placeholder {
+  padding: 0.75rem;
+  border: 1px solid rgba(92, 65, 45, 0.2);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.footer-link-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cookie-banner {
+  position: fixed;
+  z-index: 1200;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+  border: 1px solid rgba(92, 65, 45, 0.25);
+  border-radius: 1rem;
+  background: #fffaf3;
+  box-shadow: 0 1rem 3rem rgba(35, 24, 17, 0.25);
+}
+
+.cookie-banner h2,
+.cookie-preferences h2 {
+  margin-top: 0;
+}
+
+.cookie-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.cookie-actions button {
+  min-height: 2.75rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.cookie-preferences {
+  position: fixed;
+  z-index: 1250;
+  inset: 0;
+  padding: 1rem;
+  background: rgba(25, 18, 14, 0.55);
+  overflow: auto;
+}
+
+.cookie-preferences__panel {
+  max-width: 620px;
+  margin: 8vh auto;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: #fffaf3;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);
+}
+
+.cookie-choice {
+  margin: 1rem 0;
+}

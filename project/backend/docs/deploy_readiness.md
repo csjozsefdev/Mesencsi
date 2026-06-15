@@ -1,6 +1,6 @@
 # Mesencsi — deploy readiness (praktikus checklist)
 
-Utolsó séma: **Alembic `032_storybook_page_image_layout`** (`alembic upgrade head`).  
+Utolsó séma: **Alembic `033_compliance_acceptances`** (`alembic upgrade head`).  
 **007 figyelmeztetés:** lásd [migration_007_warning.md](./migration_007_warning.md) — a 007 migráció törli a meglévő `orders` sorokat.  
 **Pre-deploy:** `python scripts/predeploy_alembic_check.py` — legacy DB + orders adat ellenőrzés (exit `2` = veszélyes).  
 **Production pip:** `pip install -r requirements-prod.txt` (pinelt lock a zöld környezetből; PyJWT ≥ 2.13).  

@@ -137,6 +137,10 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
             fatal.append("POSTGRES_PASSWORD is not set")
 
     if production:
+        ok, err = _https_public_url("PUBLIC_SITE_URL", _env("PUBLIC_SITE_URL"))
+        if not ok and err:
+            fatal.append(err)
+
         add(bool(_env("BARION_POS_KEY")), "BARION_POS_KEY is not set", prod_fatal=True)
         add(bool(_env("BARION_PAYEE_EMAIL")), "BARION_PAYEE_EMAIL is not set", prod_fatal=True)
         add(bool(_env("BARION_IPN_SECRET")), "BARION_IPN_SECRET is not set", prod_fatal=True)

@@ -50,6 +50,10 @@ export default async function globalSetup(): Promise<void> {
   }
   await healthApi.dispose();
 
+  if ((process.env.E2E_PUBLIC_ONLY || "").toLowerCase() === "true") {
+    return;
+  }
+
   const shopApi = await request.newContext({ baseURL: E2E_API_URL });
   await ensureVerifiedShopUser(shopApi);
   const shop = await shopLogin(shopApi);

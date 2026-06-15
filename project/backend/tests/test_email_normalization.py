@@ -29,6 +29,8 @@ def test_register_stores_lowercase_email(client: TestClient) -> None:
         json={
             "email": email,
             "password": "SecurePass123!",
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
             "company_website": "",
         },
     )
@@ -45,11 +47,23 @@ def test_register_stores_lowercase_email(client: TestClient) -> None:
 def test_duplicate_email_different_case_rejected(client: TestClient) -> None:
     client.post(
         "/auth/register",
-        json={"email": "dup@example.com", "password": "SecurePass123!", "company_website": ""},
+        json={
+            "email": "dup@example.com",
+            "password": "SecurePass123!",
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
+            "company_website": "",
+        },
     )
     r = client.post(
         "/auth/register",
-        json={"email": "DUP@example.com", "password": "SecurePass123!", "company_website": ""},
+        json={
+            "email": "DUP@example.com",
+            "password": "SecurePass123!",
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
+            "company_website": "",
+        },
     )
     assert r.status_code == 409
 

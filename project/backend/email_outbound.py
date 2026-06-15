@@ -24,7 +24,6 @@ from email_config import (
 )
 from env_loader import BACKEND_DIR
 from email_errors import EmailNotConfiguredError, EmailSendError
-from smtp_credential_proof import password_preview
 from runtime_flags import auth_email_requires_working_smtp, dev_log_auth_email_links_always, mesencsi_production
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ def _warn_brevo_smtp_from_not_deliverable(*, mail_from: str, to_email: str, subj
         "sender — message to %s may never arrive. Set SMTP_FROM to a verified sender in Brevo "
         "(Senders, Domains & IPs) and check Brevo → Transactional → Email logs.",
         mail_from,
-        to_email,
+        _email_log_id(to_email),
     )
     if mesencsi_production():
         return
@@ -81,10 +80,35 @@ def _smtp_use_tls() -> bool:
 def public_base_url() -> str:
     """Public site URL used in email links (usually the storefront origin)."""
     return (
-        os.environ.get("FRONTEND_BASE_URL")
-        or os.environ.get("PUBLIC_SITE_URL")
+        os.environ.get("PUBLIC_SITE_URL")
+        or os.environ.get("FRONTEND_BASE_URL")
         or "http://127.0.0.1:8000"
     ).rstrip("/")
+
+
+def _email_log_id(email: str) -> str:
+    value = (email or "").strip()
+    if "@" not in value:
+        return "(invalid)"
+    local, domain = value.rsplit("@", 1)
+    prefix = local[:1] if local else "*"
+    return f"{prefix}***@{domain.lower()}"
+
+
+def _transactional_footer() -> str:
+    base = public_base_url()
+    return (
+        "Mesencsi\n"
+        f"Impresszum: {base}/impresszum\n"
+        f"Adatkezelés: {base}/adatkezeles"
+    )
+
+
+def _with_transactional_footer(body: str) -> str:
+    footer = _transactional_footer()
+    if footer in body:
+        return body
+    return body.rstrip() + "\n\n---\n" + footer + "\n"
 
 
 def api_public_base_url() -> str:
@@ -259,16 +283,13 @@ def _smtp_session(
 
         if user:
             failure_stage = "during_login"
-            pw_proof = password_preview(password)
             if _smtp_dev_debug_enabled():
                 logger.warning(
-                    "SMTP_PROOF before_login host=%s port=%s smtp_user_exact=%r password_length=%s "
-                    "password_preview=%s",
+                    "SMTP_PROOF before_login host=%s port=%s smtp_user_masked=%s password_configured=%s",
                     host,
                     port,
-                    user,
-                    pw_proof["password_length"],
-                    pw_proof["password_preview"],
+                    user_masked,
+                    bool(password),
                 )
             try:
                 smtp.login(user, password)
@@ -317,8 +338,8 @@ def _log_dev_verification_links(*, to_email: str, token: str) -> None:
     link = f"{public_base_url()}/?email_verify_token={token}"
     api_verify = f"{api_public_base_url()}/auth/verify-email?token={token}"
     logger.warning(
-        "LOCAL DEV AUTH EMAIL — verification link (copy for QA) to=%s",
-        to_email,
+        "LOCAL DEV AUTH EMAIL — verification link (copy for QA) recipient=%s",
+        _email_log_id(to_email),
     )
     logger.warning("  storefront: %s", link)
     logger.warning("  api:        %s", api_verify)
@@ -330,8 +351,8 @@ def _log_dev_password_reset_link(*, to_email: str, token: str) -> None:
         return
     link = f"{public_base_url()}/reset-password.html?token={token}"
     logger.warning(
-        "LOCAL DEV AUTH EMAIL — password reset link (copy for QA) to=%s",
-        to_email,
+        "LOCAL DEV AUTH EMAIL — password reset link (copy for QA) recipient=%s",
+        _email_log_id(to_email),
     )
     logger.warning("  reset: %s", link)
 
@@ -376,8 +397,8 @@ def _attempt_outbound_email(
         if auth_email_requires_working_smtp():
             raise
         logger.warning(
-            "LOCAL DEV AUTH EMAIL — SMTP send failed (to=%s error=%s); link logged below",
-            to_email,
+            "LOCAL DEV AUTH EMAIL — SMTP send failed (recipient=%s error=%s); link logged below",
+            _email_log_id(to_email),
             e,
         )
         on_dev_not_sent()
@@ -386,8 +407,8 @@ def _attempt_outbound_email(
         if auth_email_requires_working_smtp():
             raise EmailSendError(f"Outbound email failed: {type(e).__name__}") from e
         logger.warning(
-            "LOCAL DEV AUTH EMAIL — unexpected send error (to=%s error_type=%s)",
-            to_email,
+            "LOCAL DEV AUTH EMAIL — unexpected send error (recipient=%s error_type=%s)",
+            _email_log_id(to_email),
             type(e).__name__,
             exc_info=True,
         )
@@ -420,13 +441,14 @@ def send_plain_email(*, to_email: str, subject: str, body: str) -> bool:
     Raises EmailNotConfiguredError or EmailSendError on hosted deployments.
     """
     to_email = to_email.strip()
+    body = _with_transactional_footer(body)
     smtp_host, smtp_port, smtp_user, smtp_pass, mail_from, use_tls = _smtp_settings()
     transport = smtp_transport_mode(port=smtp_port, use_starttls=use_tls)
 
     _log_smtp_keys_loaded()
     logger.info(
-        "Plain email send started — to=%s subject=%r smtp_configured=%s smtp_required=%s transport=%s host=%s port=%s",
-        to_email,
+        "Plain email send started — recipient=%s subject=%r smtp_configured=%s smtp_required=%s transport=%s host=%s port=%s",
+        _email_log_id(to_email),
         subject[:80],
         is_smtp_configured(),
         smtp_required_for_outbound(),
@@ -438,8 +460,8 @@ def send_plain_email(*, to_email: str, subject: str, body: str) -> bool:
     if not smtp_host:
         _raise_if_smtp_required_but_missing()
         logger.info(
-            "[email] SMTP_HOST not set — message not sent (dev log-only): to=%s subject=%r",
-            to_email,
+            "[email] SMTP_HOST not set — message not sent (dev log-only): recipient=%s subject=%r",
+            _email_log_id(to_email),
             subject[:80],
         )
         logger.debug("[email] body preview:\n%s", body[:1500])
@@ -496,8 +518,8 @@ def send_plain_email(*, to_email: str, subject: str, body: str) -> bool:
         raise
     except Exception as e:
         logger.error(
-            "SMTP send failed — to=%s subject=%r error_type=%s error=%s host=%s port=%s transport=%s",
-            to_email,
+            "SMTP send failed — recipient=%s subject=%r error_type=%s error=%s host=%s port=%s transport=%s",
+            _email_log_id(to_email),
             subject[:80],
             type(e).__name__,
             e,
@@ -510,12 +532,12 @@ def send_plain_email(*, to_email: str, subject: str, body: str) -> bool:
 
     if _smtp_dev_debug_enabled():
         logger.warning(
-            "SMTP_DEV_DEBUG send_ok=true host=%s port=%s to=%s",
+            "SMTP_DEV_DEBUG send_ok=true host=%s port=%s recipient=%s",
             smtp_host,
             smtp_port,
-            to_email,
+            _email_log_id(to_email),
         )
-    logger.info("Plain email sent successfully — to=%s subject=%r", to_email, subject[:80])
+    logger.info("Plain email sent successfully — recipient=%s subject=%r", _email_log_id(to_email), subject[:80])
     _warn_brevo_smtp_from_not_deliverable(mail_from=mail_from, to_email=to_email, subject=subject)
     return True
 
@@ -542,7 +564,7 @@ def send_email_verification(to_email: str, token: str) -> bool:
         on_dev_not_sent=log_links,
     )
     if sent:
-        logger.info("Verification email sent successfully — to=%s", to_email)
+        logger.info("Verification email sent successfully — recipient=%s", _email_log_id(to_email))
         if dev_log_auth_email_links_always():
             log_links()
     return sent
@@ -644,7 +666,7 @@ def send_password_reset_email(to_email: str, token: str) -> bool:
         on_dev_not_sent=log_links,
     )
     if sent:
-        logger.info("Password reset email sent successfully — to=%s", to_email)
+        logger.info("Password reset email sent successfully — recipient=%s", _email_log_id(to_email))
         if dev_log_auth_email_links_always():
             log_links()
     return sent
