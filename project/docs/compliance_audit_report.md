@@ -17,11 +17,11 @@ The developer-side compliance controls requested for this sprint are implemented
 | Email compliance | PASS | Common transactional send path appends Mesencsi, Impresszum and Adatkezelés links generated from `PUBLIC_SITE_URL`. Production requires HTTPS `PUBLIC_SITE_URL`. |
 | Barion disclosure | PASS | Checkout and `/fizetes` state that the payment process is handled by Barion; payment flow code was not changed. |
 | Privacy logging | PASS with documented residual risk | Raw primary-path recipient logs masked; password preview removed; production token logging not found. Dev token-link and infrastructure-log risks are documented separately. |
-| Migration | PASS for revision 025; production execution pending | Alembic has one head (`025`). Isolated `024 -> 025` execution added all four columns to both tables. Full historical SQLite migration is not supported because revision 003 uses PostgreSQL `now()`; production PostgreSQL execution remains a launch gate. |
+| Migration | PASS for revision 033; production execution pending | Alembic has one head (`033`). Isolated migration execution added all four columns to both tables. Full historical SQLite migration is not supported because revision 003 uses PostgreSQL `now()`; production PostgreSQL execution remains a launch gate. |
 
 ## Database evidence
 
-Migration: `backend/alembic/versions/025_compliance_acceptances.py`
+Migration: `backend/alembic/versions/033_compliance_acceptances.py`
 
 Users:
 
@@ -85,8 +85,8 @@ Covered:
 
 ### Migration
 
-- `alembic heads` returned `025 (head)`.
-- Isolated `024 -> 025` upgrade succeeded.
+- `alembic heads` returned `033 (head)`.
+- Compliance migration upgrade succeeded in isolation.
 - Resulting `users` and `orders` tables contained all four compliance columns.
 
 ### Static checks
@@ -98,7 +98,7 @@ Covered:
 
 Backend:
 
-- `backend/alembic/versions/025_compliance_acceptances.py`
+- `backend/alembic/versions/033_compliance_acceptances.py`
 - `backend/db_models.py`
 - `backend/email_outbound.py`
 - `backend/mesencsi.py`

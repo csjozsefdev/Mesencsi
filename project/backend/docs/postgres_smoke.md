@@ -22,8 +22,9 @@ python scripts/postgres_smoke.py
 
 A script:
 
-1. `alembic upgrade head` a megadott URL-en
+1. `alembic upgrade head` a megadott URL-en (head: **`029`**)
 2. `pytest tests/test_postgres_smoke.py -m postgres`
+3. opcionálisan: `pytest tests/test_postgres_alembic_smoke.py` (ha `MESENCSI_POSTGRES_SMOKE_URL` be van állítva)
 
 ## Csak pytest (ha az env már be van állítva)
 
@@ -36,6 +37,9 @@ python -m pytest tests/test_postgres_smoke.py -m postgres -q
 ## Várható eredmény
 
 - `OK: Postgres smoke passed.`
-- 3 teszt zöld (connect, health, users tábla)
+- `test_postgres_smoke.py`: 3 teszt zöld (connect, health, users tábla)
+- `test_postgres_alembic_smoke.py`: alembic head + séma integritás (skip ha nincs elérhető Postgres)
 
-Ha nincs Postgres, **kihagyható** — a SQLite suite továbbra is a fő Gate 1 automata teszt.
+Ha nincs Postgres, **kihagyható** — a SQLite suite (~300 teszt) továbbra is a fő Gate 1 automata teszt.
+
+Deploy előtt ajánlott: `python scripts/predeploy_alembic_check.py` (a production DB URL-lel).

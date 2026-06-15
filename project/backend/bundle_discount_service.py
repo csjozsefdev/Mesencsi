@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from coupon_service import line_amounts_with_discount, resolve_usable_coupon
 from db_models import ProductBundleDiscount
+from fastapi import HTTPException, status
 from services import calculate_total_price, find_product
 
 # Legalább két különböző termék kell — egyféle termék több darabja nem „kombó”.
@@ -99,7 +100,7 @@ def _allocate_bundle_discounts(total_discount: int, originals: list[int]) -> lis
 def compute_checkout_pricing(
     db: Session,
     *,
-    user_id: int,
+    user_id: int | None,
     items: Sequence[object],
     coupon_code: str | None,
 ) -> CheckoutPricingResult:
@@ -170,6 +171,11 @@ def compute_checkout_pricing(
     pct: int | None = None
     code_display: str | None = None
     if coupon_code:
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="A kuponok csak bejelentkezett, e-mailben megerősített fiókkal használhatók.",
+            )
         c = resolve_usable_coupon(db, code=coupon_code, user_id=user_id)
         pct = int(c.percent_discount)
         code_display = c.code

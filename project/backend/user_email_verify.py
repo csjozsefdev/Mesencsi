@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db_models import AppUser
+from guest_order_linking import link_guest_orders_to_verified_user
 from grafi_core.auth.email_verify import (
     DEFAULT_RESEND_COOLDOWN_SEC,
     DEFAULT_VERIFICATION_TOKEN_TTL_HOURS,
@@ -38,6 +39,7 @@ def verify_user_by_token(db: Session, token: str) -> AppUser | None:
     row.email_verified_at = datetime.now(UTC)
     row.email_verification_token = None
     row.email_verification_sent_at = None
+    link_guest_orders_to_verified_user(db, row)
     db.commit()
     db.refresh(row)
     return row

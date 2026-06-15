@@ -6,10 +6,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db_models import AppUser
+from shop_email import normalize_shop_email
 
 
 def find_by_email(db: Session, email: str) -> AppUser | None:
-    normalized = email.strip().lower()
+    normalized = normalize_shop_email(email)
     if not normalized:
         return None
     return db.scalar(select(AppUser).where(func.lower(AppUser.email) == normalized))

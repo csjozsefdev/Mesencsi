@@ -121,7 +121,11 @@ def test_send_order_payment_confirmation_builds_body() -> None:
             customer_name="Teszt Elek",
             order_reference="cg-xyz",
             lines=[("Könyv A", 2, 3000)],
-            grand_total_huf=3000,
+            products_grand_total_huf=3000,
+            shipping_method_label="GLS házhozszállítás",
+            shipping_package_label_hu="Közepes csomag",
+            shipping_price_huf=2790,
+            grand_total_huf=5790,
             payment_id="barion-pay-99",
         )
         assert ok is True
@@ -132,18 +136,44 @@ def test_send_order_payment_confirmation_builds_body() -> None:
         assert "cg-xyz" in kwargs["body"]
         assert "3 000" in kwargs["body"]
         assert "Könyv A" in kwargs["body"]
+        assert "Közepes csomag" in kwargs["body"]
+        assert "Szállítási díj: 2 790 Ft" in kwargs["body"]
+        assert "Végösszeg: 5 790 Ft" in kwargs["body"]
 
 
-def test_snapshot_send_logs_failure_without_raising() -> None:
-    snap = PaymentConfirmationSnapshot(
-        payment_id="p1",
-        to_email="a@b.c",
-        customer_name="Név",
-        order_reference="#1",
-        lines=(("Termék", 1, 100),),
-        grand_total_huf=100,
-    )
-    with patch("payment_confirmation_email.send_order_payment_confirmation", side_effect=OSError("smtp down")):
-        from payment_confirmation_email import _send_from_snapshot
+def test_outbox_worker_failure_does_not_raise() -> None:
+    from db_models import EmailOutbox
+    from email_outbox_worker import process_email_outbox_batch
 
-        _send_from_snapshot(snap)
+    db = SessionLocal()
+    try:
+        db.add(
+            EmailOutbox(
+                dedupe_key="payment_confirmation:pay-fail-01",
+                kind="payment_confirmation",
+                payload_json={
+                    "to_email": "a@b.c",
+                    "customer_name": "Név",
+                    "order_reference": "#1",
+                    "lines": [["Termék", 1, 100]],
+                    "products_grand_total_huf": 100,
+                    "shipping_price_huf": 0,
+                    "grand_total_huf": 100,
+                    "payment_id": "pay-fail-01",
+                },
+                status="pending",
+            )
+        )
+        db.commit()
+        with patch("email_outbox_worker.send_order_payment_confirmation", side_effect=OSError("smtp down")):
+            result = process_email_outbox_batch(db, limit=1)
+        assert result.failed == 1
+        row = db.scalar(
+            __import__("sqlalchemy").select(EmailOutbox).where(
+                EmailOutbox.dedupe_key == "payment_confirmation:pay-fail-01"
+            )
+        )
+        assert row is not None
+        assert row.status == "failed"
+    finally:
+        db.close()

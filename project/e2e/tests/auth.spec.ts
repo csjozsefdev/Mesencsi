@@ -16,7 +16,7 @@ test.describe("Shop auth flow", () => {
     await expect(page.locator(sel.cartFab)).toBeVisible();
   });
 
-  test("logout hides protected elements", async ({ page }) => {
+  test("logout hides member-only elements", async ({ page }) => {
     await page.goto("/");
     await page.locator(sel.loginEmail).fill(E2E_USER_EMAIL);
     await page.locator(sel.loginPassword).fill(E2E_USER_PASSWORD);
@@ -24,8 +24,8 @@ test.describe("Shop auth flow", () => {
     await expect(page.locator(sel.authLoggedIn)).toBeVisible();
     await page.locator(sel.logoutBtn).click();
     await expect(page.locator(sel.authLoggedOut)).toBeVisible();
-    await expect(page.locator(sel.navWebshop)).toBeHidden();
-    await expect(page.locator(sel.cartFab)).toBeHidden();
+    await expect(page.locator(sel.navWebshop)).toBeVisible();
+    await expect(page.locator(sel.navStorybooks)).toBeHidden();
   });
 });
 

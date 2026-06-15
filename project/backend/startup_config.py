@@ -14,11 +14,37 @@ from grafi_core.ops.startup_helpers import (
     https_public_url as _https_public_url,
     secret_ok as _secret_ok,
 )
+from bcrypt_validation import is_valid_bcrypt_hash
 from runtime_flags import mesencsi_production
 
 _log = logging.getLogger("mesencsi.startup_config")
 
 _MIN_SECRET_LEN = 32
+_ALLOWED_JWT_ALGS = frozenset({"HS256", "HS384", "HS512"})
+_KNOWN_PLACEHOLDER_BCRYPT_HASHES = frozenset(
+    {
+        "$2b$12$RODq4o.6S.4O74wOv/X7W.gqFb8wAVlN5cULfb65eyD8fG4K5RBNm",
+        "$2b$12$xDHw3z3hPjTAeFUT/RTi..goxZeQ4PwmIaBHzfrUTS3abkv8S5vG6",
+    }
+)
+
+
+def _bcrypt_hash_ok(name: str) -> tuple[bool, str | None]:
+    value = _env(name)
+    if not value:
+        return False, f"{name} is not set"
+    if value in _KNOWN_PLACEHOLDER_BCRYPT_HASHES:
+        return False, f"{name} uses a known placeholder hash from .env.example"
+    if not is_valid_bcrypt_hash(value):
+        return False, f"{name} is not a valid bcrypt hash"
+    return True, None
+
+
+def _jwt_alg_ok(env_key: str, *, default: str = "HS256") -> tuple[bool, str | None]:
+    alg = (_env(env_key) or default).strip().upper()
+    if alg not in _ALLOWED_JWT_ALGS:
+        return False, f"{env_key} must be one of HS256, HS384, HS512 (got {alg!r})"
+    return True, None
 
 
 def _barion_return_url() -> str:
@@ -60,6 +86,37 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
 
     ok, err = _secret_ok("ADMIN_JWT_SECRET")
     add(ok, err or "", prod_fatal=True)
+
+    if production:
+        user_secret = _env("USER_JWT_SECRET")
+        admin_secret = _env("ADMIN_JWT_SECRET")
+        if user_secret and admin_secret and user_secret == admin_secret:
+            fatal.append("USER_JWT_SECRET and ADMIN_JWT_SECRET must differ in production")
+
+        for alg_key in ("JWT_ALGORITHM", "ADMIN_JWT_ALGORITHM"):
+            ok, err = _jwt_alg_ok(alg_key)
+            if not ok and err:
+                fatal.append(err)
+
+        for admin_key in ("OWNER_USERNAME", "MAINTENANCE_USERNAME"):
+            add(bool(_env(admin_key)), f"{admin_key} is not set", prod_fatal=True)
+        for hash_key in ("OWNER_PASSWORD", "MAINTENANCE_PASSWORD"):
+            ok, err = _bcrypt_hash_ok(hash_key)
+            if not ok and err:
+                fatal.append(err)
+
+        if _env("QA_SHOP_EMAIL") or _env("QA_SHOP_PASSWORD"):
+            fatal.append("QA_SHOP_EMAIL and QA_SHOP_PASSWORD must not be set in production")
+
+        for url_key in ("PUBLIC_SITE_URL", "BACKEND_PUBLIC_URL", "FRONTEND_BASE_URL"):
+            ok, err = _https_public_url(url_key, _env(url_key))
+            if not ok and err:
+                fatal.append(err)
+
+        if not is_smtp_configured():
+            fatal.append(
+                "SMTP is not fully configured — set SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM"
+            )
 
     cors_raw = cors_origins_raw_env()
     cors_list = parse_cors_origins_list(cors_raw) if cors_raw else []

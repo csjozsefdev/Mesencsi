@@ -12,7 +12,7 @@ from grafi_core.settings.jwt_settings import ShopJwtSettings
 
 def test_user_jwt_roundtrip() -> None:
     token = issue_user_access_token(42)
-    assert parse_user_access_token(token) == 42
+    assert parse_user_access_token(token) == (42, 0)
 
 
 def test_user_jwt_wrong_typ_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,4 +74,4 @@ def test_user_jwt_custom_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CUSTOM_USER_JWT_SECRET", "custom-secret-key-for-tests-only-xx")
     settings = ShopJwtSettings(secret_env_key="CUSTOM_USER_JWT_SECRET")
     token = issue_user_access_token(7, jwt_settings=settings)
-    assert parse_user_access_token(token, jwt_settings=settings) == 7
+    assert parse_user_access_token(token, jwt_settings=settings) == (7, 0)

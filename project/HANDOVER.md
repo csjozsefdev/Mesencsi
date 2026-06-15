@@ -47,7 +47,8 @@ Run from `backend/`:
 
 | Check | Command | Expected |
 |-------|---------|----------|
-| Backend tests | `.\scripts\gate_pytest.ps1` | `88+ passed`, few skipped OK |
+| Backend tests | `.\scripts\gate_pytest.ps1` | `~300 passed`, few skipped OK |
+| Pre-deploy DB check | `python scripts/predeploy_alembic_check.py` | exit 0 |
 | Health | `GET /health` | HTTP 200, `status: ok` |
 | Barion config preview | `GET /payments/barion/status` | JSON with `sandbox`, `pos_key_configured` |
 | Frontend assets | `GET /images/mesencsi-bg.jpg` | HTTP 200 (not 404) |
@@ -90,11 +91,16 @@ Production checklist: [backend/docs/deploy_readiness.md](backend/docs/deploy_rea
 
 These are implemented in code; reviewers should confirm behaviour in manual QA:
 
-1. **Orders:** `POST /orders` only for **email-verified** users.
+1. **Orders:** `POST /orders` only for **email-verified** users; optional `Idempotency-Key` prevents duplicate checkout.
 2. **Payment `paid`:** Only after Barion **GetPaymentState** sync (return URL or IPN), not from admin UI.
-3. **Admin:** Order `completed` only when `payment_status = paid`.
-4. **News comments:** Only **verified** users can post (403 otherwise).
-5. **Barion IPN:** Returns HTTP 200; on sync failure includes `sync_failed: true` in JSON (for monitoring).
+3. **Barion start:** Full checkout group required — partial group → 409.
+4. **Admin:** Order `completed` only when `payment_status = paid`; sensitive user/order actions are **owner-only**.
+5. **News comments:** Only **verified** users can post (403 otherwise).
+6. **Shop JWT:** `token_version` claim — invalidated on password reset / ban / verify bump.
+7. **Emails:** Stored lowercase; login is case-insensitive.
+8. **Payment confirmation email:** Queued to `email_outbox`; sent by `scripts/process_email_outbox.py` (cron).
+9. **Barion IPN:** Returns HTTP 200; on sync failure includes `sync_failed: true` in JSON (for monitoring).
+10. **Production startup:** `MESENCSI_PRODUCTION=true` enforces secrets, HTTPS URLs, real bcrypt admin hashes, SMTP (`startup_config.py`).
 
 ---
 
@@ -132,10 +138,12 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 | Level | Ready? |
 |-------|--------|
 | Source code + dev setup | **Yes** |
-| Automated pytest gate | **Yes** |
+| Automated pytest gate (~300 tests) | **Yes** |
+| Production hardening (auth, outbox, idempotency, DB constraints) | **Yes** (code + tests) |
 | E2E infrastructure | **Yes** (must run locally with Node) |
 | Manual QA sign-off | **Receiver must run** |
-| Production go-live | **No** until infra + live Barion + SMTP + HTTPS |
+| Legal pages (ÁSZF, GDPR, etc.) | **Client / counsel** — [production_legal_todo.md](backend/docs/production_legal_todo.md) |
+| Production go-live | **No** until infra + live Barion + SMTP + HTTPS + owner sign-off |
 
 ---
 
@@ -164,3 +172,5 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 | [E2E_TESTING.md](E2E_TESTING.md) | Playwright + gate order |
 | [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md) | Payment testing |
 | [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md) | Production deploy |
+| [backend/docs/ops_runbook.md](backend/docs/ops_runbook.md) | Cron, outbox, incidents |
+| [backend/docs/production_legal_todo.md](backend/docs/production_legal_todo.md) | Legal docs before launch |

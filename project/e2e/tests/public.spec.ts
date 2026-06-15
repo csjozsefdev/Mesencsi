@@ -14,13 +14,17 @@ test.describe("Public storefront smoke", () => {
     assertNoCriticalConsoleErrors(errors, "homepage");
   });
 
-  test("logged-out user does not see shop/cart protected nav", async ({ page }) => {
+  test("logged-out user sees webshop nav and not storybooks", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(sel.authLoggedOut)).toBeVisible();
-    await expect(page.locator(sel.navWebshop)).toBeHidden();
-    await expect(page.locator(sel.navCart)).toBeHidden();
+    await expect(page.locator(sel.navWebshop)).toBeVisible();
     await expect(page.locator(sel.navStorybooks)).toBeHidden();
-    await expect(page.locator(sel.cartFab)).toBeHidden();
+  });
+
+  test("guest can open webshop view", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(sel.navWebshop).click();
+    await expect(page.locator(sel.viewWebshop)).toBeVisible();
   });
 
   test("gallery view loads for anonymous user", async ({ page }) => {

@@ -80,7 +80,18 @@ flowchart LR
 
 - Forgot-password + reset-token flow (migration `024`).
 - **In-profile password change** (`POST /auth/change-password`) behind a collapsible “Jelszó módosítása” panel — no SMTP required for day-to-day password updates.
-- Login by **email** (not username); dev helpers for verify/throttle reset without sending mail.
+- Login by **email** (not username); emails stored **lowercase**, login case-insensitive.
+- JWT **`token_version`** — password reset / ban invalidates existing sessions.
+- Dev helpers for verify/throttle reset without sending mail.
+
+### Production hardening (2026)
+
+- Barion **full checkout group** validation on payment start (409 on partial group).
+- **Email outbox** for payment confirmations + cron worker (`process_email_outbox.py`).
+- **Order idempotency** via `Idempotency-Key` header.
+- Admin **owner-only** sensitive routes (verify/ban/delete users, payment_status).
+- Production **startup validator** (secrets, bcrypt, HTTPS, SMTP).
+- Alembic head **`029`**; `requirements-prod.txt` lock; `predeploy_alembic_check.py`.
 
 ### Admin & readability
 
@@ -92,7 +103,7 @@ flowchart LR
 
 | Layer | Scope |
 |-------|--------|
-| **Pytest** | 36 modules, **265+** tests (SQLite in-memory; optional Postgres smoke) |
+| **Pytest** | **~300** tests (SQLite in-memory; optional Postgres alembic smoke) |
 | **Playwright** | 5 specs — public, auth, shop/cart, content, admin |
 | **Manual QA** | Structured checklists: public, admin, reader, gallery, Barion matrix, production readiness |
 
