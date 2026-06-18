@@ -13,6 +13,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <link rel="stylesheet" href="/style.css" />
+    <!-- BARION_PIXEL_SLOT -->
     <script src="/viewport-units.js"></script>
     <script src="/news-format.js"></script>
     <script src="/password-toggle.js"></script>
@@ -58,8 +59,8 @@
     >
       <h3 id="postPurchaseAccountOfferTitle">Szeretnél fiókot létrehozni?</h3>
       <p>
-        Hozz létre fiókot a megvásárolt mesekönyvek online eléréséhez, a
-        rendelési előzmények megtekintéséhez és a tagi kedvezményekhez.
+        Hozz létre fiókot, hogy később elérd a mesekönyveidet, rendelési
+        előzményeidet és tagi kedvezményeidet.
       </p>
       <div class="post-purchase-account-offer__actions">
         <button type="button" class="btn-submit" id="postPurchaseAccountCreate">
@@ -1142,13 +1143,14 @@
                 Ellenőrizd a tételeket, majd add meg az adataidat a rendeléshez.
               </p>
               <div id="cartLines" class="cart-lines" aria-live="polite"></div>
-              <p class="cart-grand-total">
+              <p class="cart-grand-total" hidden aria-hidden="true">
                 Összesen: <span id="cartGrandTotal">0 Ft</span>
               </p>
               <p
                 id="couponSummaryLine"
                 class="cart-coupon-summary"
                 hidden
+                aria-hidden="true"
                 role="status"
               ></p>
               <div class="cart-coupon-box" id="checkoutCouponPicker">
@@ -1180,37 +1182,6 @@
                 </button>
               </div>
 
-              <h3
-                class="section__title"
-                style="font-size: 1.1rem; margin-top: 0.5rem"
-              >
-                Rendelés elküldése
-              </h3>
-              <div id="checkoutAuthPanel" class="checkout-auth-panel" hidden>
-                <p class="checkout-auth-panel__lead">
-                  Vendégként is vásárolhatsz, vagy jelentkezz be a tagi
-                  kedvezményekért és a gyorsabb fizetésért.
-                </p>
-                <div class="checkout-auth-panel__actions">
-                  <span class="checkout-auth-panel__guest-label"
-                    >Folytatás vendégként</span
-                  >
-                  <button
-                    type="button"
-                    class="btn-outline-ghost"
-                    data-checkout-auth="login"
-                  >
-                    Belépés
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-outline-ghost"
-                    data-checkout-auth="register"
-                  >
-                    Regisztráció
-                  </button>
-                </div>
-              </div>
               <form id="checkoutForm" class="checkout-form" novalidate>
                 <input
                   type="text"
@@ -1227,6 +1198,7 @@
                     opacity: 0;
                   "
                 />
+                <h3 class="checkout-section__title">Kapcsolati adatok</h3>
                 <div class="form-row checkout-form__row">
                   <label for="checkoutName">
                     Neved (megrendelő)
@@ -1266,18 +1238,46 @@
                   </label>
                 </div>
                 <div
+                  class="checkout-shipping-methods"
+                  id="checkoutShippingMethods"
+                >
+                  <label class="checkout-shipping-select-label" for="checkoutShippingMethod">
+                    Szállítási mód
+                    <select
+                      id="checkoutShippingMethod"
+                      name="checkout_shipping_method"
+                      aria-label="Szállítási mód"
+                    ></select>
+                  </label>
+                  <p
+                    id="checkoutPickupHint"
+                    class="checkout-shipping-hint"
+                    hidden
+                  >
+                    Személyes átvétel esetén nincs szállítási díj. Az átvétel
+                    részleteiről e-mailben egyeztetünk.
+                  </p>
+                  <div
+                    id="checkoutGlsShippingInfo"
+                    class="checkout-gls-shipping-info"
+                    hidden
+                  >
+                    <p
+                      id="checkoutGlsPackageInfo"
+                      class="checkout-shipping-hint"
+                      role="note"
+                    ></p>
+                    <p
+                      id="checkoutGlsCalculatedFee"
+                      class="checkout-gls-calculated-fee"
+                      role="status"
+                    ></p>
+                  </div>
+                </div>
+                <div
                   class="checkout-shipping-block profile-address-block checkout-address-block"
                 >
-                  <p class="profile-address-block__title">
-                    Szállítási cím
-                    <span class="checkout-shipping-block__hint-inline"
-                      >(kötelező a rendeléshez)</span
-                    >
-                  </p>
-                  <p class="checkout-shipping-hint">
-                    Más címre is rendelhetsz — a mezőket szabadon
-                    szerkesztheted, vagy betöltheted a profilból.
-                  </p>
+                  <p class="profile-address-block__title">Szállítási cím</p>
                   <p
                     id="checkoutZipCityWarn"
                     class="checkout-zip-city-warn"
@@ -1300,18 +1300,25 @@
                       Cím mezők törlése
                     </button>
                   </div>
-                  <div class="profile-address-grid">
+                  <div class="profile-address-grid checkout-address-grid">
                     <div class="profile-field profile-field--wide">
-                      <label for="checkoutShipName">Átvevő neve</label>
+                      <label for="checkoutShipName">
+                        Átvevő neve
+                        <span class="checkout-shipping-block__hint-inline"
+                          >(opcionális)</span
+                        >
+                      </label>
                       <input
                         id="checkoutShipName"
                         name="shipping_recipient_name"
                         type="text"
-                        required
                         minlength="2"
                         maxlength="128"
                         autocomplete="shipping name"
                       />
+                      <p class="checkout-field-hint">
+                        Csak akkor töltsd ki, ha más veszi át a csomagot.
+                      </p>
                     </div>
                     <div class="profile-field profile-field--zip">
                       <label for="checkoutShipZip">Irányítószám</label>
@@ -1340,11 +1347,11 @@
                         autocomplete="shipping address-level2"
                       />
                     </div>
-                    <div class="profile-field">
-                      <label for="checkoutShipStreet">Utca</label>
+                    <div class="profile-field profile-field--wide">
+                      <label for="checkoutShipStreetLine">Utca, házszám</label>
                       <input
-                        id="checkoutShipStreet"
-                        name="shipping_street"
+                        id="checkoutShipStreetLine"
+                        name="shipping_street_line"
                         type="text"
                         required
                         minlength="2"
@@ -1352,21 +1359,9 @@
                         autocomplete="shipping address-line1"
                       />
                     </div>
-                    <div class="profile-field profile-field--zip">
-                      <label for="checkoutShipHouse">Házszám</label>
-                      <input
-                        id="checkoutShipHouse"
-                        name="shipping_house_number"
-                        type="text"
-                        required
-                        minlength="1"
-                        maxlength="32"
-                        autocomplete="off"
-                      />
-                    </div>
                     <div class="profile-field profile-field--wide">
                       <label for="checkoutShipLine2">
-                        Emelet, ajtó
+                        Emelet, ajtó / Megjegyzés a futárnak
                         <span class="checkout-shipping-block__hint-inline"
                           >(opcionális)</span
                         >
@@ -1379,41 +1374,7 @@
                         autocomplete="shipping address-line2"
                       />
                     </div>
-                    <div class="profile-field profile-field--wide">
-                      <label for="checkoutShipCountry">Ország</label>
-                      <input
-                        id="checkoutShipCountry"
-                        name="shipping_country"
-                        type="text"
-                        required
-                        minlength="2"
-                        maxlength="128"
-                        autocomplete="shipping country-name"
-                        placeholder="Magyarország"
-                        value="Magyarország"
-                      />
-                    </div>
                   </div>
-                </div>
-                <div
-                  id="checkoutAddressConfirm"
-                  class="checkout-address-confirm"
-                >
-                  <p class="checkout-address-confirm__title">
-                    Ellenőrizd a szállítási adatokat fizetés előtt
-                  </p>
-                  <pre
-                    id="checkoutAddressConfirmBody"
-                    class="checkout-address-confirm__body"
-                  ></pre>
-                  <label class="checkout-address-confirm__ack">
-                    <input
-                      id="checkoutAddressConfirmCb"
-                      type="checkbox"
-                      required
-                    />
-                    <span>Megnéztem — a szállítási adatok helyesek.</span>
-                  </label>
                 </div>
                 <label
                   for="checkoutNotes"
@@ -1427,6 +1388,25 @@
                     maxlength="2000"
                     placeholder="Pl. dedikálás, ajándékba…"
                   ></textarea>
+                </label>
+                <div
+                  id="checkoutOrderSummary"
+                  class="checkout-order-summary"
+                  aria-live="polite"
+                  role="region"
+                  aria-label="Rendelés összesítő"
+                ></div>
+                <label
+                  id="checkoutAddressConfirmAck"
+                  class="checkout-address-confirm__ack checkout-address-confirm__ack--compact"
+                  hidden
+                >
+                  <input
+                    id="checkoutAddressConfirmCb"
+                    type="checkbox"
+                    required
+                  />
+                  <span>Megnéztem, a szállítási adatok helyesek.</span>
                 </label>
                 <div class="legal-acknowledgements legal-acknowledgements--checkout">
                   <label>
@@ -1483,10 +1463,11 @@
               <li>
                 Válaszd ki a termék(ek)et a webshopban, majd tedd a kosárba.
               </li>
-              <li>A kosárban add meg a neved és az e-mail címed.</li>
+              <li>A kosárban add meg a neved, e-mail címed és telefonszámod.</li>
               <li>
-                A kosárban a „Megrendelés és fizetés indítása” gombbal a
-                rendelés létrejön, majd a Barion fizetési oldalra irányítunk.
+                A kosárban a „Rendelés elküldése” gombbal a rendelés létrejön,
+                majd a Barion fizetési oldalra irányítunk. Belépés nem kötelező
+                a vásárláshoz.
               </li>
             </ul>
 

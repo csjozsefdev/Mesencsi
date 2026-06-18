@@ -3,7 +3,7 @@
 Short pass/fail list for acceptance or grading reviews.  
 Tick each item; note the date and reviewer name.
 
-**Alembic head:** `029` · **Tests:** ~300 pytest (SQLite); optional Postgres smoke.
+**Alembic head:** `032` · **Tests:** 347 pytest (SQLite); optional Postgres smoke.
 
 ---
 
@@ -12,14 +12,14 @@ Tick each item; note the date and reviewer name.
 - [ ] `backend/.env.example` exists; secrets are not in git
 - [ ] `backend/run.bat` starts server on port 8000
 - [ ] `python scripts/predeploy_alembic_check.py` → ok
-- [ ] `alembic upgrade head` runs without error (head `029`)
+- [ ] `alembic upgrade head` runs without error (head `032`)
 - [ ] `frontend/images/mesencsi-bg.jpg` exists (page background)
 
 ---
 
 ## B. Automated gate
 
-- [ ] `backend\scripts\gate_pytest.ps1` → ~300 tests pass (skips OK)
+- [ ] `backend\scripts\gate_pytest.ps1` → 347 tests pass (skips OK)
 - [ ] `GET http://127.0.0.1:8000/health` → 200
 - [ ] `GET http://127.0.0.1:8000/` → storefront loads
 - [ ] `GET http://127.0.0.1:8000/admin/login` → admin login loads
@@ -28,23 +28,29 @@ Tick each item; note the date and reviewer name.
 
 ## C. Auth & access control
 
-- [ ] Guest cannot see shop/cart nav (logged-out UI)
-- [ ] Verified user can log in and see webshop + cart
+- [ ] Guest can browse webshop and cart without login
+- [ ] Guest can complete checkout (email on order payload)
+- [ ] Verified user can log in and see webshop + cart + order history
 - [ ] Email login is case-insensitive
-- [ ] Unverified user cannot place order (403)
+- [ ] Unverified **logged-in** user cannot place order (403)
 - [ ] Unverified user cannot post news comment (403)
+- [ ] Storybook reader requires login (guest cannot read)
 - [ ] Shop JWT does not work on `/admin/*`
 - [ ] Admin JWT required for `/admin/orders`
 - [ ] Password reset invalidates previous shop JWT (token_version)
 
 ---
 
-## D. Shop & orders
+## D. Shop, checkout & shipping
 
-- [ ] Products load in webshop (logged in)
+- [ ] Products load in webshop (guest and logged in)
 - [ ] Cart accepts items (if products exist in DB)
+- [ ] Checkout: contact → shipping method → GLS address when needed → summary → **Rendelés elküldése**
+- [ ] Personal pickup: 0 Ft, no address fields
+- [ ] GLS: 1–3 / 4–6 / 7+ items → 2190 / 2790 / 3290 Ft (estimate + order agree)
 - [ ] Order created with `payment_status = pending`
 - [ ] Duplicate `POST /orders` with same `Idempotency-Key` does not create duplicate group
+- [ ] Full checklist: [backend/docs/checkout_shipping_guest_qa.md](backend/docs/checkout_shipping_guest_qa.md)
 
 ---
 

@@ -56,6 +56,47 @@
     return parsePercent(p && p.text_x_percent) != null && parsePercent(p && p.text_y_percent) != null;
   }
 
+  function pageHasCustomImageLayout(p) {
+    return (
+      parsePercent(p && p.image_x_percent) != null &&
+      parsePercent(p && p.image_y_percent) != null &&
+      parsePercent(p && p.image_width_percent) != null
+    );
+  }
+
+  function imageLayoutStyle(page) {
+    page = page || {};
+    const x = parsePercent(page.image_x_percent);
+    const y = parsePercent(page.image_y_percent);
+    const w = parsePercent(page.image_width_percent);
+    const h = parsePercent(page.image_height_percent);
+    if (x == null || y == null || w == null) return "";
+    let style = "left:" + x + "%;top:" + y + "%;width:" + w + "%;";
+    if (h != null) style += "height:" + h + "%;";
+    return style;
+  }
+
+  function buildPositionedImageHtml(page, opts, extraClass) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    if (!page.image_url) return "";
+    const u = h.assetUrl(String(page.image_url).trim());
+    if (!u) return "";
+    const style = imageLayoutStyle(page);
+    if (!style) return "";
+    const cls = "sb-read-image-frame" + (extraClass ? " " + extraClass : "");
+    return (
+      '<div class="sb-read-image-canvas">' +
+      '<div class="' +
+      cls +
+      '" style="' +
+      style +
+      '"><img src="' +
+      h.esc(u) +
+      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div></div>'
+    );
+  }
+
   function buildPanelHtml(page, opts) {
     opts = opts || {};
     const esc = typeof opts.escapeHtml === "function" ? opts.escapeHtml : defaultEscape;
@@ -80,12 +121,16 @@
 
     let imageHtml = "";
     if (page.image_url) {
-      const u = assetUrl(String(page.image_url).trim());
-      if (u) {
-        imageHtml =
-          '<div class="sb-read-image-wrap"><img src="' +
-          esc(u) +
-          '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>';
+      if (pageHasCustomImageLayout(page)) {
+        imageHtml = buildPositionedImageHtml(page, opts, "sb-read-image-frame--panel");
+      } else {
+        const u = assetUrl(String(page.image_url).trim());
+        if (u) {
+          imageHtml =
+            '<div class="sb-read-image-wrap"><img src="' +
+            esc(u) +
+            '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>';
+        }
       }
     }
 
@@ -177,6 +222,11 @@
     const h = panelOptsHelpers(opts);
     page = page || {};
     if (!page.image_url) return "";
+    if (pageHasCustomImageLayout(page)) {
+      const extra =
+        role === "hero" ? "sb-read-image-frame--hero" : "sb-read-image-frame--vignette";
+      return buildPositionedImageHtml(page, opts, extra);
+    }
     const u = h.assetUrl(String(page.image_url).trim());
     if (!u) return "";
     const wrapClass =
@@ -234,8 +284,29 @@
    * @param {object} [opts]
    * @param {{ pageNumber?: number, opts?: object }} [context]
    */
+  function buildV2CanvasLayoutPageHtml(page, opts, context, side) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    context = context || {};
+    const inner =
+      buildPanelHtml(page, opts) +
+      buildPageAudioHtml(page, opts) +
+      buildFolioHtml(context.pageNumber);
+    return (
+      '<div class="sbv2-spread-layout sbv2-spread-layout--' +
+      h.esc(side) +
+      ' sbv2-spread-layout--canvas">' +
+      '<div class="sbv2-page-canvas">' +
+      inner +
+      "</div></div>"
+    );
+  }
+
   function buildV2LeftPageHtml(page, optsOrContext, context) {
     const r = resolveV2PageArgs.apply(null, arguments);
+    if (pageHasCustomImageLayout(r.page)) {
+      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "left");
+    }
     const h = panelOptsHelpers(r.opts);
     page = r.page;
     context = r.context;
@@ -275,6 +346,9 @@
    */
   function buildV2RightPageHtml(page, optsOrContext, context) {
     const r = resolveV2PageArgs.apply(null, arguments);
+    if (pageHasCustomImageLayout(r.page)) {
+      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "right");
+    }
     const h = panelOptsHelpers(r.opts);
     page = r.page;
     context = r.context;
@@ -395,6 +469,9 @@
     normPageLayout: normPageLayout,
     parsePercent: parsePercent,
     pageHasCustomDragPos: pageHasCustomDragPos,
+    pageHasCustomImageLayout: pageHasCustomImageLayout,
+    imageLayoutStyle: imageLayoutStyle,
+    buildPositionedImageHtml: buildPositionedImageHtml,
     buildPanelHtml: buildPanelHtml,
     buildV2LeftPageHtml: buildV2LeftPageHtml,
     buildV2RightPageHtml: buildV2RightPageHtml,

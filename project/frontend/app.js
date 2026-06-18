@@ -129,6 +129,22 @@ function validatePersonNameField(value, label, field) {
 function validateEmailField(value) {
   return address.validateEmailField(value);
 }
+function buildValidatedCheckoutShippingJson(parts, customerName) {
+  if (address && address.buildValidatedCheckoutShippingJson) {
+    return address.buildValidatedCheckoutShippingJson(parts, customerName);
+  }
+  return {
+    ok: false,
+    errors: [
+      {
+        field: null,
+        message:
+          "A címellenőrzés nem töltődött be — frissítsd az oldalt (Ctrl+F5).",
+      },
+    ],
+    warnings: [],
+  };
+}
 function buildValidatedShippingJson(parts, phoneOverride) {
   return address.buildValidatedShippingJson(parts, phoneOverride);
 }
@@ -161,23 +177,16 @@ function validatePhoneOnly(raw) {
   return address.validatePhoneOnly(raw);
 }
 function profileAddressPartsFromInputs(prefix) {
+  if (address && address.profileAddressPartsFromInputs) {
+    return address.profileAddressPartsFromInputs(prefix);
+  }
   function gv(id) {
     const el = $(id);
     return el && el.value != null ? String(el.value).trim() : "";
   }
-  let phone = "";
-  if (prefix === "checkoutShip") {
-    const cp = $("checkoutPhone");
-    phone = cp && cp.value != null ? String(cp.value).trim() : "";
-  } else if (prefix === "profShip") {
-    const pp = $("profPhone");
-    phone = pp && pp.value != null ? String(pp.value).trim() : "";
-  } else {
-    phone = gv(prefix + "Phone");
-  }
   return {
     recipient_name: gv(prefix + "Name"),
-    phone: phone,
+    phone: gv(prefix + "Phone"),
     postal_code: gv(prefix + "Zip"),
     city: gv(prefix + "City"),
     street: gv(prefix + "Street"),
@@ -188,6 +197,9 @@ function profileAddressPartsFromInputs(prefix) {
 }
 
 function applyProfileAddressPartsToInputs(prefix, parts) {
+  if (address && address.applyProfileAddressPartsToInputs) {
+    return address.applyProfileAddressPartsToInputs(prefix, parts);
+  }
   const map = {
     recipient_name: prefix + "Name",
     postal_code: prefix + "Zip",
@@ -201,18 +213,6 @@ function applyProfileAddressPartsToInputs(prefix, parts) {
     const el = $(map[k]);
     if (el) el.value = parts[k] != null ? String(parts[k]) : "";
   });
-  if (parts.phone != null) {
-    if (prefix === "checkoutShip") {
-      const cp = $("checkoutPhone");
-      if (cp) cp.value = String(parts.phone);
-    } else if (prefix === "profShip") {
-      const pp = $("profPhone");
-      if (pp && !pp.value.trim()) pp.value = String(parts.phone);
-    } else {
-      const el = $(prefix + "Phone");
-      if (el) el.value = String(parts.phone);
-    }
-  }
 }
 
 function serializeProfileAddressFromParts(parts) {
@@ -242,55 +242,28 @@ function serializeProfileAddressFromParts(parts) {
 
 function clearCheckoutShippingFields() {
   applyProfileAddressPartsToInputs("checkoutShip", emptyProfileAddressParts());
-  const ph = $("checkoutPhone");
-  if (ph) ph.value = "";
   const warn = $("checkoutZipCityWarn");
   if (warn) {
     warn.textContent = "";
     warn.hidden = true;
   }
-  updateCheckoutAddressConfirmPreview();
 }
 
 function checkoutShippingAddressPayload() {
   const parts = profileAddressPartsFromInputs("checkoutShip");
-  const phoneEl = $("checkoutPhone");
-  const phoneOverride = phoneEl && phoneEl.value != null ? phoneEl.value : "";
-  return buildValidatedShippingJson(parts, phoneOverride);
+  const customerName =
+    $("checkoutName") && $("checkoutName").value != null
+      ? String($("checkoutName").value).trim()
+      : "";
+  return buildValidatedCheckoutShippingJson(parts, customerName);
 }
 
-function updateCheckoutAddressConfirmPreview() {
-  const box = $("checkoutAddressConfirmBody");
-  const wrap = $("checkoutAddressConfirm");
-  if (!box || !wrap) return;
-  const parts = profileAddressPartsFromInputs("checkoutShip");
-  const phoneEl = $("checkoutPhone");
-  if (phoneEl) parts.phone = phoneEl.value.trim();
-  const plain = formatShippingAddressPlainFromParts(parts);
-  const name = $("checkoutName") && $("checkoutName").value.trim();
-  const email = $("checkoutEmail") && $("checkoutEmail").value.trim();
-  const lines = [];
-  if (name) lines.push("Megrendelő: " + name);
-  if (email) lines.push("E-mail: " + email);
-  if (plain) lines.push(plain);
-  box.textContent = lines.length
-    ? lines.join("\n")
-    : "Töltsd ki a szállítási mezőket.";
-  wrap.hidden = false;
-}
+function updateCheckoutAddressConfirmPreview() {}
 
 function wireCheckoutAddressConfirmPreview() {
   const ids = [
-    "checkoutName",
-    "checkoutEmail",
-    "checkoutPhone",
-    "checkoutShipName",
     "checkoutShipZip",
     "checkoutShipCity",
-    "checkoutShipStreet",
-    "checkoutShipHouse",
-    "checkoutShipLine2",
-    "checkoutShipCountry",
   ];
   ids.forEach(function (id) {
     const el = $(id);
@@ -310,7 +283,6 @@ function wireCheckoutAddressConfirmPreview() {
           warn.hidden = true;
         }
       }
-      updateCheckoutAddressConfirmPreview();
     });
   });
 }
@@ -343,13 +315,8 @@ async function importCheckoutShippingFromProfile() {
       return;
     }
     applyProfileAddressPartsToInputs("checkoutShip", p);
-    if (me && me.phone) {
-      const cp = $("checkoutPhone");
-      if (cp && !cp.value.trim()) cp.value = String(me.phone).trim();
-    }
     const nm = $("checkoutName");
     if (nm && !nm.value.trim() && p.recipient_name) nm.value = p.recipient_name;
-    updateCheckoutAddressConfirmPreview();
     if (msg) hide(msg);
   } catch (err) {
     if (msg)
@@ -858,7 +825,8 @@ function applyPurchaseGates() {
     const hint = $("webshopCartHint");
     if (hint) hint.hidden = true;
     syncCartFabVisibility();
-    if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
+    if (checkoutMod && checkoutMod.syncCheckoutCouponPanel) checkoutMod.syncCheckoutCouponPanel();
+    else if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
     return;
   }
   loadCartFromStorage();
@@ -869,7 +837,8 @@ function applyPurchaseGates() {
     showView("home");
   }
   syncCartFabVisibility();
-  if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
+  if (checkoutMod && checkoutMod.syncCheckoutCouponPanel) checkoutMod.syncCheckoutCouponPanel();
+  else if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
 }
 
 function apiBase() {
@@ -1705,6 +1674,10 @@ function initShopRouterModule() {
     updateCheckoutCouponDisplay: updateCheckoutCouponDisplay,
     cartItems: cartItems,
     scheduleCartPricingEstimate: scheduleCartPricingEstimate,
+    renderShippingMethodSelector: function () {
+      if (cartMod && cartMod.renderShippingMethodSelector)
+        return cartMod.renderShippingMethodSelector();
+    },
     restoreStoredCheckoutCoupon: restoreStoredCheckoutCoupon,
     ensureGallery: ensureGallery,
     ensureProductsCatalog: ensureProductsCatalog,
@@ -1732,6 +1705,7 @@ function initShopCartModule() {
       const stack = $("pageStack");
       return stack ? stack.getAttribute("data-current-view") : "";
     },
+    updateCheckoutAddressConfirmPreview: updateCheckoutAddressConfirmPreview,
   });
 }
 
@@ -1760,6 +1734,21 @@ function initShopCheckoutModule() {
     setActiveUserSection: setActiveUserSection,
     wireCheckoutAddressConfirmPreview: wireCheckoutAddressConfirmPreview,
     updateCheckoutAddressConfirmPreview: updateCheckoutAddressConfirmPreview,
+    getSelectedShippingMethod: function () {
+      return cartMod && cartMod.getSelectedShippingMethod
+        ? cartMod.getSelectedShippingMethod()
+        : "personal_pickup";
+    },
+    shippingMethodRequiresAddress: function (methodId) {
+      return cartMod && cartMod.shippingMethodRequiresAddress
+        ? cartMod.shippingMethodRequiresAddress(methodId)
+        : methodId !== "personal_pickup";
+    },
+    buildShippingMetadataForRequest: function () {
+      return cartMod && cartMod.buildShippingMetadataForRequest
+        ? cartMod.buildShippingMetadataForRequest()
+        : null;
+    },
   });
 }
 

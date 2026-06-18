@@ -15,7 +15,7 @@ Use this with [deploy_readiness.md](./deploy_readiness.md) §9, [BARION_SANDBOX_
 - [ ] Admin passwords are **not** the `.env.example` placeholder bcrypt hashes
 - [ ] `GET /health` → 200
 - [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`
-- [ ] Automated gate: `pytest -q` → ~344 passed (skips OK)
+- [ ] Automated gate: `pytest -q` → 347 passed (skips OK)
 
 ---
 

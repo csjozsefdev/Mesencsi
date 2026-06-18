@@ -1456,7 +1456,7 @@
         width: 100%;
         height: 100%;
         border-radius: 13px;
-        overflow: auto;
+        overflow: hidden;
         padding: 1rem 1.1rem 1.25rem;
         box-sizing: border-box;
         display: flex;
@@ -1464,21 +1464,19 @@
         gap: 0.75rem;
         transition: background-color 0.3s ease;
       }
-      .sb-canvas-image-slot {
-        flex-shrink: 0;
-        border-radius: 10px;
-        overflow: hidden;
-        max-height: 42%;
-      }
-      .sb-canvas-image-slot.has-image img {
-        width: 100%;
-        height: auto;
-        max-height: 220px;
-        object-fit: contain;
-        display: block;
+      .sb-canvas-image-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
       }
       .sb-canvas-image-placeholder {
-        min-height: 100px;
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        top: 6%;
+        min-height: 88px;
+        max-height: 34%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1486,7 +1484,74 @@
         border: 1px dashed rgba(61, 36, 16, 0.15);
         border-radius: 10px;
         color: rgba(61, 36, 16, 0.35);
-        font-size: 0.82rem;
+        font-size: 0.78rem;
+        text-align: center;
+        padding: 0.5rem;
+        pointer-events: none;
+      }
+      .sb-canvas-image-frame {
+        position: absolute;
+        box-sizing: border-box;
+        touch-action: none;
+        pointer-events: auto;
+        cursor: grab;
+        border-radius: 8px;
+        overflow: visible;
+      }
+      .sb-canvas-image-frame.is-selected {
+        outline: 2px solid rgba(139, 90, 43, 0.82);
+        outline-offset: 2px;
+        cursor: grab;
+      }
+      .sb-canvas-image-frame.is-dragging {
+        cursor: grabbing;
+      }
+      .sb-canvas-image-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        pointer-events: none;
+        user-select: none;
+        border-radius: 8px;
+      }
+      .sb-image-resize-handle {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background: #fff;
+        border: 2px solid #8b5a2b;
+        border-radius: 2px;
+        box-sizing: border-box;
+        pointer-events: auto;
+        display: none;
+        z-index: 3;
+      }
+      .sb-canvas-image-frame.is-selected .sb-image-resize-handle {
+        display: block;
+      }
+      .sb-image-resize-handle--nw {
+        top: -7px;
+        left: -7px;
+        cursor: nwse-resize;
+      }
+      .sb-image-resize-handle--ne {
+        top: -7px;
+        right: -7px;
+        cursor: nesw-resize;
+      }
+      .sb-image-resize-handle--sw {
+        bottom: -7px;
+        left: -7px;
+        cursor: nesw-resize;
+      }
+      .sb-image-resize-handle--se {
+        bottom: -7px;
+        right: -7px;
+        cursor: nwse-resize;
+      }
+      .sb-canvas-image-slot {
+        display: none;
       }
       .sb-canvas-text-stage {
         flex: 1;
@@ -1494,6 +1559,8 @@
         display: flex;
         flex-direction: column;
         width: 100%;
+        position: relative;
+        z-index: 2;
       }
       .sb-canvas-text-stage.sb-text-stage--overlay {
         position: absolute;
@@ -1708,6 +1775,34 @@
           inset 0 0 24px rgba(120, 80, 180, 0.08);
         padding: 0.7rem 0.85rem;
       }
+      /* Editor canvas: transparent text boxes — outline only when interacting */
+      .sb-canvas-page-inner .sb-text-box,
+      .sb-canvas-page-inner .sb-text-box[class*="sb-box-"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        clip-path: none !important;
+        border-radius: 0 !important;
+        min-height: 0 !important;
+        padding: 0.2rem 0.35rem;
+      }
+      .sb-canvas-page-inner .sb-box-star {
+        display: block !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        padding: 0.2rem 0.35rem;
+      }
+      .sb-canvas-page-inner .sb-box-star .sb-canvas-text {
+        max-width: 100%;
+        text-align: inherit;
+      }
+      .sb-canvas-text-box-wrap:hover .sb-text-box,
+      .sb-canvas-text-box-wrap:focus-within .sb-text-box {
+        box-shadow: 0 0 0 2px rgba(165, 90, 60, 0.32);
+        border-radius: 6px;
+      }
       .sb-canvas-text {
         min-height: 3rem;
         font-size: 1.02rem;
@@ -1725,10 +1820,6 @@
       }
       .sb-canvas-text:focus {
         outline: none;
-      }
-      .sb-canvas-page-inner:focus-within .sb-text-box {
-        box-shadow: 0 0 0 2px rgba(165, 90, 60, 0.35);
-        border-radius: 8px;
       }
       .sb-reader-topbar {
         display: flex;
@@ -2451,13 +2542,31 @@
               <div id="sbCanvasWorkspace" class="sb-canvas-workspace" hidden>
                 <p class="sb-canvas-hint">A szöveget közvetlenül a lapon írhatod · kép, hang és háttér a jobb oldali panelben</p>
                 <p class="sb-canvas-drag-hint" id="sbCanvasDragHint">
-                  Húzd ide a szöveget — a <strong>mozgató fogantyúval</strong> helyezheted át a dobozt (asztali nézet).
+                  Kattints a képre a kijelöléshez, majd húzd vagy méretezd a fogantyúkkal. A
+                  <strong>mozgató fogantyúval</strong> a szövegdobozt is áthelyezheted (asztali
+                  nézet).
                 </p>
                 <div class="sb-canvas-viewport">
                   <div id="sbCanvasSpinner" class="sb-canvas-spinner" hidden aria-hidden="true"></div>
                   <div id="sbCanvasPage" class="sb-canvas-page">
                     <div id="sbCanvasPageInner" class="sb-canvas-page-inner">
-                      <div id="sbCanvasImageSlot" class="sb-canvas-image-slot"></div>
+                      <div id="sbCanvasImageLayer" class="sb-canvas-image-layer">
+                        <div
+                          id="sbCanvasImagePlaceholder"
+                          class="sb-canvas-image-placeholder"
+                        >
+                          <span>Illusztráció nélkül — tölts fel a jobb oldalról</span>
+                        </div>
+                        <div
+                          id="sbCanvasImageFrame"
+                          class="sb-canvas-image-frame"
+                          hidden
+                          tabindex="0"
+                          role="button"
+                          aria-label="Oldal illusztrációja — kattints a kijelöléshez, húzd a mozgatáshoz"
+                        ></div>
+                      </div>
+                      <div id="sbCanvasImageSlot" class="sb-canvas-image-slot" hidden></div>
                       <div
                         id="sbCanvasTextStage"
                         class="sb-canvas-text-stage sb-pos-v-center sb-pos-h-center"
@@ -2519,6 +2628,9 @@
                   Szöveg keret stílusa
                   <select id="sbPropsTextBoxStyle" aria-label="Szöveg keret stílusa"></select>
                 </label>
+                <p class="sb-props-note">
+                  Az olvasóban csak a szöveg látszik — a keret stílusa nem jelenik meg a kész oldalon.
+                </p>
                 <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
               </section>
 
@@ -3538,6 +3650,20 @@
           return s.startsWith("/") ? s : "/" + s;
         }
 
+        function shippingMethodLabelForAdmin(method) {
+          const m = {
+            personal_pickup: "Személyes átvétel",
+            gls_home: "GLS házhozszállítás",
+          };
+          return m[method] || method || "—";
+        }
+
+        function glsPackageLabelForAdmin(meta) {
+          if (!meta || typeof meta !== "object") return "";
+          const label = meta.gls_package_label_hu;
+          return label != null ? String(label).trim() : "";
+        }
+
         function groupOrders(rows) {
           const map = new Map();
           for (const r of rows) {
@@ -3557,6 +3683,9 @@
                 lines: [],
                 checkout_group_id: r.checkout_group_id || null,
                 shipping_address: r.shipping_address || "",
+                shipping_method: r.shipping_method || "",
+                shipping_price: Number(r.shipping_price) || 0,
+                shipping_metadata_json: r.shipping_metadata_json || null,
                 notes: r.notes || "",
                 coupon_code: r.coupon_code || "",
                 bundle_rule_name: r.bundle_rule_name || "",
@@ -4101,7 +4230,15 @@
                     .map((g) => {
                       const orderNo = Math.min(...g.ids);
                       const productsCell = g.lines.map((l) => `${escapeHtml(l.product_name)} × ${l.quantity}`).join("<br/>");
-                      const total = g.lines.reduce((s, l) => s + l.total_price, 0);
+                      const productsTotal = g.lines.reduce((s, l) => s + l.total_price, 0);
+                      const shippingPrice = Number(g.shipping_price) || 0;
+                      const total = productsTotal + shippingPrice;
+                      const shipMethodLabel = shippingMethodLabelForAdmin(g.shipping_method);
+                      const pkgLabel = glsPackageLabelForAdmin(g.shipping_metadata_json);
+                      const shipFeeText =
+                        shippingPrice > 0
+                          ? formatMoney(shippingPrice)
+                          : "0 Ft";
                       const detailBlock = `
                     <tr class="order-detail-bg">
                       <td colspan="8">
@@ -4109,7 +4246,10 @@
                           <details>
                             <summary>Részletek (szállítás, megjegyzés, kupon)</summary>
                             <p style="margin:0.5rem 0 0"><strong>Checkout azonosító:</strong> ${escapeHtml(g.checkout_group_id || "—")}</p>
-                            <p style="margin:0.35rem 0 0"><strong>Szállítás:</strong><br/>${formatShippingAddressForAdmin(g.shipping_address)}</p>
+                            <p style="margin:0.35rem 0 0"><strong>Szállítási mód:</strong> ${escapeHtml(shipMethodLabel)}</p>
+                            ${pkgLabel ? `<p style="margin:0.35rem 0 0"><strong>Csomagméret:</strong> ${escapeHtml(pkgLabel)}</p>` : ""}
+                            <p style="margin:0.35rem 0 0"><strong>Szállítási díj:</strong> ${escapeHtml(shipFeeText)}</p>
+                            <p style="margin:0.35rem 0 0"><strong>Szállítási cím:</strong><br/>${formatShippingAddressForAdmin(g.shipping_address)}</p>
                             <p style="margin:0.35rem 0 0"><strong>Megjegyzés:</strong> ${escapeHtml(g.notes || "—")}</p>
                             <p style="margin:0.35rem 0 0"><strong>Kupon:</strong> ${escapeHtml(g.coupon_code || "—")}</p>
                             <p style="margin:0.35rem 0 0"><strong>Kombó kedvezmény:</strong> ${escapeHtml(g.bundle_rule_name || "—")}</p>
@@ -4973,17 +5113,255 @@
           return { ...base, ...patch };
         }
 
-        function sbRenderCanvasImage(slotEl, url) {
-          if (!slotEl) return;
+        function sbDefaultImageLayout() {
+          return { x: 10, y: 6, w: 80, h: 34 };
+        }
+
+        function sbImageLayoutFromPage(p) {
+          if (!p || !SBR || !SBR.pageHasCustomImageLayout(p)) return null;
+          return {
+            x: SBR.parsePercent(p.image_x_percent),
+            y: SBR.parsePercent(p.image_y_percent),
+            w: SBR.parsePercent(p.image_width_percent),
+            h: SBR.parsePercent(p.image_height_percent),
+          };
+        }
+
+        function sbEditorImageLayoutForPage(p) {
+          const saved = sbImageLayoutFromPage(p);
+          if (saved) return saved;
+          if (((p && p.image_url) || "").trim()) return sbDefaultImageLayout();
+          return null;
+        }
+
+        function sbWriteImageLayoutToFrame(frame, layout) {
+          if (!frame || !layout) return;
+          frame.style.left = layout.x + "%";
+          frame.style.top = layout.y + "%";
+          frame.style.width = layout.w + "%";
+          frame.style.height = (layout.h != null ? layout.h : sbDefaultImageLayout().h) + "%";
+          frame.dataset.sbXp = String(layout.x);
+          frame.dataset.sbYp = String(layout.y);
+          frame.dataset.sbWp = String(layout.w);
+          frame.dataset.sbHp = String(layout.h != null ? layout.h : sbDefaultImageLayout().h);
+        }
+
+        function sbUiImageLayoutPair() {
+          const frame = $("sbCanvasImageFrame");
+          if (!frame || frame.hidden || frame.dataset.sbXp == null) return null;
+          const x = parseFloat(frame.dataset.sbXp);
+          const y = parseFloat(frame.dataset.sbYp);
+          const w = parseFloat(frame.dataset.sbWp);
+          const h = parseFloat(frame.dataset.sbHp);
+          if (![x, y, w, h].every(Number.isFinite)) return null;
+          return { x: x, y: y, w: w, h: h };
+        }
+
+        function sbImageLayoutDirtyVsServer() {
+          if (!sbDetail || !sbSelectedPageId) return false;
+          const p = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
+          if (!p || !(p.image_url || "").trim()) return false;
+          const ui = sbUiImageLayoutPair();
+          if (!ui) return false;
+          const saved = sbImageLayoutFromPage(p);
+          if (!saved) return true;
+          const tol = 0.35;
+          return (
+            Math.abs(ui.x - saved.x) > tol ||
+            Math.abs(ui.y - saved.y) > tol ||
+            Math.abs(ui.w - saved.w) > tol ||
+            Math.abs(ui.h - (saved.h != null ? saved.h : sbDefaultImageLayout().h)) > tol
+          );
+        }
+
+        function sbClampImageLayout(inner, layout) {
+          const wPct = Math.min(92, Math.max(8, Number(layout.w) || sbDefaultImageLayout().w));
+          const hPct = Math.min(88, Math.max(8, Number(layout.h) || sbDefaultImageLayout().h));
+          let x = Number(layout.x);
+          let y = Number(layout.y);
+          if (!Number.isFinite(x)) x = sbDefaultImageLayout().x;
+          if (!Number.isFinite(y)) y = sbDefaultImageLayout().y;
+          x = Math.min(100 - wPct, Math.max(0, x));
+          y = Math.min(100 - hPct, Math.max(0, y));
+          return { x: x, y: y, w: wPct, h: hPct };
+        }
+
+        function sbEnsureImageFrameChrome(frame) {
+          if (!frame || frame.dataset.sbFrameWired === "1") return;
+          frame.dataset.sbFrameWired = "1";
+          frame.innerHTML =
+            '<img alt="" draggable="false" />' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--nw" data-sb-resize="nw" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--ne" data-sb-resize="ne" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--sw" data-sb-resize="sw" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--se" data-sb-resize="se" aria-hidden="true"></span>';
+          const img = frame.querySelector("img");
+          if (img) {
+            img.addEventListener("load", function () {
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                frame.dataset.sbAspect = String(img.naturalWidth / img.naturalHeight);
+              }
+            });
+          }
+        }
+
+        function sbSelectCanvasImage(selected) {
+          const frame = $("sbCanvasImageFrame");
+          if (!frame) return;
+          frame.classList.toggle("is-selected", !!selected);
+        }
+
+        function sbRenderCanvasImage(_slotEl, url) {
+          const layer = $("sbCanvasImageLayer");
+          const frame = $("sbCanvasImageFrame");
+          const placeholder = $("sbCanvasImagePlaceholder");
           const s = (url || "").trim();
+          if (!frame || !layer) return;
           if (!s) {
-            slotEl.classList.remove("has-image");
-            slotEl.innerHTML =
-              '<div class="sb-canvas-image-placeholder"><span>Illusztráció nélkül — tölts fel a jobb oldalról</span></div>';
+            frame.hidden = true;
+            frame.classList.remove("is-selected", "is-dragging");
+            frame.innerHTML = "";
+            frame.removeAttribute("data-sb-frame-wired");
+            delete frame.dataset.sbFrameWired;
+            if (placeholder) placeholder.hidden = false;
             return;
           }
-          slotEl.classList.add("has-image");
-          slotEl.innerHTML = '<img src="' + escapeHtml(sbAbsAssetUrl(s)) + '" alt="" />';
+          if (placeholder) placeholder.hidden = true;
+          sbEnsureImageFrameChrome(frame);
+          const img = frame.querySelector("img");
+          const abs = sbAbsAssetUrl(s);
+          if (img) img.src = abs;
+          frame.hidden = false;
+          const p = sbDetail && sbSelectedPageId
+            ? (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId)
+            : null;
+          sbWriteImageLayoutToFrame(frame, sbEditorImageLayoutForPage(p || { image_url: s }));
+          sbSelectCanvasImage(false);
+        }
+
+        function sbWireImageFrameOnce() {
+          const inner = $("sbCanvasPageInner");
+          const frame = $("sbCanvasImageFrame");
+          if (!inner || !frame || frame.dataset.sbInteractWired === "1") return;
+          frame.dataset.sbInteractWired = "1";
+          let drag = null;
+
+          const layoutFromFrameRect = () => {
+            const w = inner.clientWidth || 1;
+            const h = inner.clientHeight || 1;
+            const left = parseFloat(frame.style.left) || sbDefaultImageLayout().x;
+            const top = parseFloat(frame.style.top) || sbDefaultImageLayout().y;
+            const width = parseFloat(frame.style.width) || sbDefaultImageLayout().w;
+            const height = parseFloat(frame.style.height) || sbDefaultImageLayout().h;
+            return sbClampImageLayout(inner, { x: left, y: top, w: width, h: height });
+          };
+
+          const onMove = (e) => {
+            if (!drag || e.pointerId !== drag.pid) return;
+            if (!sbStorybookEditorViewportOk()) return;
+            const ir = inner.getBoundingClientRect();
+            const mx = e.clientX - ir.left;
+            const my = e.clientY - ir.top;
+            if (drag.mode === "move") {
+              const cw = inner.clientWidth || 1;
+              const ch = inner.clientHeight || 1;
+              const layout = sbClampImageLayout(inner, {
+                x: (mx / cw) * 100 - drag.offX,
+                y: (my / ch) * 100 - drag.offY,
+                w: drag.w,
+                h: drag.h,
+              });
+              sbWriteImageLayoutToFrame(frame, layout);
+              return;
+            }
+            const dx = mx - drag.startMx;
+            const dy = my - drag.startMy;
+            const cw = inner.clientWidth || 1;
+            const ch = inner.clientHeight || 1;
+            let wPct = drag.startW + (dx / cw) * 100 * (drag.signX || 1);
+            wPct = Math.min(92, Math.max(8, wPct));
+            let hPct = drag.startH;
+            if (drag.freeResize) {
+              hPct = drag.startH + (dy / ch) * 100 * (drag.signY || 1);
+            } else if (frame.dataset.sbAspect) {
+              const aspect = parseFloat(frame.dataset.sbAspect) || 1;
+              hPct = wPct * (cw / ch) / aspect;
+            } else {
+              hPct = drag.startH + (dy / ch) * 100 * (drag.signY || 1);
+            }
+            const layout = sbClampImageLayout(inner, {
+              x: drag.startX,
+              y: drag.startY,
+              w: wPct,
+              h: hPct,
+            });
+            sbWriteImageLayoutToFrame(frame, layout);
+          };
+
+          const endDrag = (e) => {
+            if (!drag || e.pointerId !== drag.pid) return;
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", endDrag);
+            document.removeEventListener("pointercancel", endDrag);
+            frame.classList.remove("is-dragging");
+            drag = null;
+            sbSchedulePageAutosave();
+          };
+
+          inner.addEventListener("pointerdown", (e) => {
+            if (e.target === inner) sbSelectCanvasImage(false);
+          });
+
+          frame.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            if (!sbStorybookEditorViewportOk()) return;
+            const handle = e.target.closest("[data-sb-resize]");
+            sbSelectCanvasImage(true);
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              (handle || frame).setPointerCapture(e.pointerId);
+            } catch (_) {
+              /* */
+            }
+            const cur = layoutFromFrameRect();
+            const ir = inner.getBoundingClientRect();
+            const mx = e.clientX - ir.left;
+            const my = e.clientY - ir.top;
+            if (handle) {
+              const corner = handle.getAttribute("data-sb-resize") || "se";
+              const signX = corner.indexOf("e") >= 0 ? 1 : -1;
+              const signY = corner.indexOf("s") >= 0 ? 1 : -1;
+              drag = {
+                pid: e.pointerId,
+                mode: "resize",
+                startMx: mx,
+                startMy: my,
+                startX: cur.x,
+                startY: cur.y,
+                startW: cur.w,
+                startH: cur.h,
+                signX: signX,
+                signY: signY,
+                freeResize: !!e.shiftKey,
+              };
+            } else {
+              const cw = inner.clientWidth || 1;
+              const ch = inner.clientHeight || 1;
+              drag = {
+                pid: e.pointerId,
+                mode: "move",
+                w: cur.w,
+                h: cur.h,
+                offX: (mx / cw) * 100 - cur.x,
+                offY: (my / ch) * 100 - cur.y,
+              };
+            }
+            frame.classList.add("is-dragging");
+            document.addEventListener("pointermove", onMove);
+            document.addEventListener("pointerup", endDrag);
+            document.addEventListener("pointercancel", endDrag);
+          });
         }
 
         function sbApplyPageToCanvas(p) {
@@ -6142,13 +6520,16 @@
             body: JSON.stringify(payload),
           });
           const pNew = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
-          if (pNew && (built.tDirty || built.layoutChanged)) {
+          if (pNew && (built.tDirty || built.layoutChanged || built.iDirty)) {
             sbApplyCanvasTextLayoutFromPage(pNew, {
               preserveBody: !!(built.tDirty && !built.bodyChanged),
             });
+            sbRenderCanvasImage(null, pNew.image_url);
           }
           if (built.tDirty && !quiet) {
             showToast("Szöveg pozíció mentve.", "ok");
+          } else if (built.iDirty && !quiet) {
+            showToast("Kép elhelyezése mentve.", "ok");
           }
         }
 
@@ -6164,6 +6545,7 @@
           const extraChanged = bgVal.toLowerCase() !== sbPageCanvasBg(pSaved).toLowerCase();
           const layoutChanged = sbPageLayoutDirtyVsServer();
           const tDirty = sbTextPercentDirtyVsServer();
+          const iDirty = sbImageLayoutDirtyVsServer();
           if (forceFull || bodyChanged) payload.body_text = body_text;
           if (forceFull || extraChanged) {
             payload.extra = sbMergePageExtra(pSaved, { editor_canvas_bg: bgVal });
@@ -6186,7 +6568,21 @@
               payload.text_y_percent = null;
             }
           }
-          return { payload, bodyChanged, extraChanged, layoutChanged, tDirty };
+          if (forceFull || iDirty) {
+            const il = sbUiImageLayoutPair();
+            if (il) {
+              payload.image_x_percent = il.x;
+              payload.image_y_percent = il.y;
+              payload.image_width_percent = il.w;
+              payload.image_height_percent = il.h;
+            } else if (forceFull) {
+              payload.image_x_percent = null;
+              payload.image_y_percent = null;
+              payload.image_width_percent = null;
+              payload.image_height_percent = null;
+            }
+          }
+          return { payload, bodyChanged, extraChanged, layoutChanged, tDirty, iDirty };
         }
 
         $("btnSbSaveBook").addEventListener("click", async () => {
@@ -6469,6 +6865,7 @@
           wireSbReaderAndLayoutControls();
           wireSbCanvasLayoutSelects();
           sbWireTextBoxDragOnce();
+          sbWireImageFrameOnce();
 
           window.addEventListener("resize", () => {
             clearTimeout(sbStorybookViewportTimer);

@@ -158,13 +158,25 @@ Az üzleti állapot: `orders.status` (pl. `new` → admin `completed`).
 
 ## 5. Teszt rendelés indítás (storefront)
 
-**Előfeltétel:** verified shop user, legalább 1 aktív termék.
+**Előfeltétel:** legalább 1 aktív termék. Vendég **vagy** verified shop user.
 
-1. Belépés: `http://127.0.0.1:8000/`
-2. Webshop → kosárba termék
-3. Kosár → űrlap (név, cím) → **Megrendelés és fizetés indítása**
-4. Backend: `POST /orders` → 201, sorok `payment_status=pending`
-5. Frontend: `POST /payments/barion/start` → `redirect_url` → Barion teszt oldal
+### Vendég
+
+1. Nyisd meg: `http://127.0.0.1:8000/` (belépés nélkül)
+2. Webshop → kosárba termék → **Kosár**
+3. Kapcsolati adatok + szállítási mód (+ GLS cím ha kell) → **Rendelés elküldése**
+4. Barion sandbox fizetés
+
+### Belépett vásárló
+
+1. Belépés → webshop → kosár
+2. Ugyanaz a checkout folyamat (tagi kupon opcionális)
+
+Mindkét esetben:
+
+- Backend: `POST /orders` → 201, sorok `payment_status=pending`
+- Frontend: `POST /payments/barion/start` → `redirect_url` → Barion teszt oldal
+- A Barion összeg tartalmazza a szállítási díjat (GLS: 2190 / 2790 / 3290 Ft csomagméret szerint)
 
 **Második start ugyanarra a pending csoportra:** `resumed_existing: true`, ugyanaz a `payment_id` (nem új Payment/Start).
 

@@ -103,7 +103,9 @@
     if (name === "cart") {
       if (deps.updateCartUI) deps.updateCartUI();
       if (deps.syncCheckoutEmailFromSession) deps.syncCheckoutEmailFromSession();
-      if (deps.syncCheckoutAuthPanel) deps.syncCheckoutAuthPanel();
+      if (deps.syncCheckoutCouponPanel) deps.syncCheckoutCouponPanel();
+      else if (deps.syncCheckoutAuthPanel) deps.syncCheckoutAuthPanel();
+      if (deps.renderShippingMethodSelector) void deps.renderShippingMethodSelector();
       if (deps.wireCheckoutAddressConfirmPreview)
         deps.wireCheckoutAddressConfirmPreview();
       if (deps.updateCheckoutCouponDisplay) deps.updateCheckoutCouponDisplay();

@@ -91,7 +91,7 @@ flowchart LR
 - **Order idempotency** via `Idempotency-Key` header.
 - Admin **owner-only** sensitive routes (verify/ban/delete users, payment_status).
 - Production **startup validator** (secrets, bcrypt, HTTPS, SMTP).
-- Alembic head **`029`**; `requirements-prod.txt` lock; `predeploy_alembic_check.py`.
+- Alembic head **`032`**; `requirements-prod.txt` lock; `predeploy_alembic_check.py`.
 
 ### Admin & readability
 
@@ -103,7 +103,7 @@ flowchart LR
 
 | Layer | Scope |
 |-------|--------|
-| **Pytest** | **~300** tests (SQLite in-memory; optional Postgres alembic smoke) |
+| **Pytest** | **347** tests (SQLite in-memory; optional Postgres alembic smoke) |
 | **Playwright** | 5 specs — public, auth, shop/cart, content, admin |
 | **Manual QA** | Structured checklists: public, admin, reader, gallery, Barion matrix, production readiness |
 

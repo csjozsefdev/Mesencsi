@@ -277,6 +277,157 @@
     return null;
   }
 
+  function validateCheckoutShippingAddressParts(parts, customerName) {
+    const errors = [];
+    const warnings = [];
+    const p = normalizeProfileAddressObject(parts);
+    const customer = customerName != null ? String(customerName).trim() : "";
+
+    function pushError(field, message) {
+      errors.push({ field: field, message: message });
+    }
+
+    function optionalName(value) {
+      const s = value != null ? String(value).trim() : "";
+      if (!s) return "";
+      if (s.length < 2 || s.length > 128) {
+        pushError("recipient_name", "Az átvevő neve 2–128 karakter legyen.");
+        return s;
+      }
+      if (containsUnsafeMarkup(s) || !_NAME_RE.test(s)) {
+        pushError(
+          "recipient_name",
+          "Az átvevő neve csak betűket és szóközt tartalmazhat.",
+        );
+      }
+      return s;
+    }
+
+    const recipientInput = optionalName(p.recipient_name);
+    let effectiveRecipient = recipientInput;
+    if (!effectiveRecipient) {
+      if (!customer) {
+        pushError("customer_name", "A név megadása kötelező.");
+      } else if (
+        customer.length < 2 ||
+        customer.length > 128 ||
+        containsUnsafeMarkup(customer) ||
+        !_NAME_RE.test(customer)
+      ) {
+        pushError("customer_name", "A név formátuma érvénytelen.");
+      } else {
+        effectiveRecipient = customer;
+      }
+    }
+
+    const postal_code = (function () {
+      const s = p.postal_code != null ? String(p.postal_code).trim() : "";
+      if (!s) {
+        pushError("postal_code", "Az irányítószám megadása kötelező.");
+        return "";
+      }
+      if (!_HU_ZIP_RE.test(s)) {
+        pushError(
+          "postal_code",
+          "Az irányítószám pontosan 4 számjegy legyen.",
+        );
+      }
+      return s;
+    })();
+
+    const city = (function () {
+      const s = p.city != null ? String(p.city).trim() : "";
+      if (!s) {
+        pushError("city", "A város megadása kötelező.");
+        return "";
+      }
+      if (
+        s.length < 2 ||
+        s.length > 128 ||
+        containsUnsafeMarkup(s) ||
+        !_CITY_RE.test(s)
+      ) {
+        pushError("city", "A város formátuma érvénytelen.");
+      }
+      return s;
+    })();
+
+    const streetLine = (function () {
+      let s = p.street != null ? String(p.street).trim() : "";
+      if (!s && p.house_number) {
+        s = String(p.house_number).trim();
+      }
+      if (!s) {
+        pushError("street", "Az utca, házszám megadása kötelező.");
+        return "";
+      }
+      if (
+        s.length < 2 ||
+        s.length > 256 ||
+        containsUnsafeMarkup(s) ||
+        !_STREET_RE.test(s)
+      ) {
+        pushError("street", "Az utca, házszám formátuma érvénytelen.");
+      }
+      return s;
+    })();
+
+    let line2 = p.line2 != null ? String(p.line2).trim() : "";
+    if (line2) {
+      if (line2.length > 256) {
+        pushError("line2", "Az emelet/ajtó legfeljebb 256 karakter lehet.");
+      } else if (containsUnsafeMarkup(line2) || !_LINE2_RE.test(line2)) {
+        pushError("line2", "Az emelet/ajtó formátuma érvénytelen.");
+      }
+    } else {
+      line2 = "";
+    }
+
+    if (postal_code && city && !errors.length) {
+      const w = zipCityMismatchWarningHu(postal_code, city);
+      if (w) warnings.push({ field: "city", message: w });
+    }
+
+    return {
+      ok: errors.length === 0,
+      errors: errors,
+      warnings: warnings,
+      normalized: {
+        recipient_name: effectiveRecipient,
+        phone: "",
+        postal_code: postal_code,
+        city: city,
+        street: streetLine,
+        house_number: "",
+        line2: line2,
+        country: "Magyarország",
+      },
+    };
+  }
+
+  function buildValidatedCheckoutShippingJson(parts, customerName) {
+    const v = validateCheckoutShippingAddressParts(parts, customerName);
+    if (!v.ok) {
+      return { ok: false, errors: v.errors, warnings: v.warnings };
+    }
+    const json = serializeProfileAddressFromParts(v.normalized);
+    if (!json) {
+      return {
+        ok: false,
+        errors: [
+          { field: null, message: "A szállítási cím megadása kötelező." },
+        ],
+        warnings: [],
+      };
+    }
+    return {
+      ok: true,
+      json: json,
+      warnings: v.warnings,
+      normalized: v.normalized,
+    };
+  }
+
   function buildValidatedShippingJson(parts, phoneOverride) {
     const merged = normalizeProfileAddressObject(parts);
     if (phoneOverride != null) merged.phone = String(phoneOverride).trim();
@@ -326,14 +477,14 @@
 
   function formatShippingAddressPlainFromParts(parts) {
     const p = normalizeProfileAddressObject(parts);
+    const streetLine = [p.street, p.house_number].filter(Boolean).join(" ").trim();
     const lines = [
       p.recipient_name,
-      p.phone,
       [p.postal_code, p.city].filter(Boolean).join(" "),
-      [p.street, p.house_number].filter(Boolean).join(" ").trim(),
+      streetLine,
     ];
     if (p.line2) lines.push(p.line2);
-    if (p.country) lines.push(p.country);
+    if (p.country && p.country !== "Magyarország") lines.push(p.country);
     return lines.filter(Boolean).join("\n");
   }
 
@@ -375,11 +526,20 @@
       const el = $(id);
       return el && el.value != null ? String(el.value).trim() : "";
     }
-    let phone = "";
     if (prefix === "checkoutShip") {
-      const cp = $("checkoutPhone");
-      phone = cp && cp.value != null ? String(cp.value).trim() : "";
-    } else if (prefix === "profShip") {
+      return {
+        recipient_name: gv("checkoutShipName"),
+        phone: "",
+        postal_code: gv("checkoutShipZip"),
+        city: gv("checkoutShipCity"),
+        street: gv("checkoutShipStreetLine"),
+        house_number: "",
+        line2: gv("checkoutShipLine2"),
+        country: "Magyarország",
+      };
+    }
+    let phone = "";
+    if (prefix === "profShip") {
       const pp = $("profPhone");
       phone = pp && pp.value != null ? String(pp.value).trim() : "";
     } else {
@@ -398,6 +558,26 @@
   }
 
   function applyProfileAddressPartsToInputs(prefix, parts) {
+    if (prefix === "checkoutShip") {
+      const map = {
+        recipient_name: "checkoutShipName",
+        postal_code: "checkoutShipZip",
+        city: "checkoutShipCity",
+        line2: "checkoutShipLine2",
+      };
+      Object.keys(map).forEach(function (k) {
+        const el = $(map[k]);
+        if (el) el.value = parts[k] != null ? String(parts[k]) : "";
+      });
+      const lineEl = $("checkoutShipStreetLine");
+      if (lineEl) {
+        const street = parts.street != null ? String(parts.street).trim() : "";
+        const house =
+          parts.house_number != null ? String(parts.house_number).trim() : "";
+        lineEl.value = [street, house].filter(Boolean).join(" ").trim();
+      }
+      return;
+    }
     const map = {
       recipient_name: prefix + "Name",
       postal_code: prefix + "Zip",
@@ -412,10 +592,7 @@
       if (el) el.value = parts[k] != null ? String(parts[k]) : "";
     });
     if (parts.phone != null) {
-      if (prefix === "checkoutShip") {
-        const cp = $("checkoutPhone");
-        if (cp) cp.value = String(parts.phone);
-      } else if (prefix === "profShip") {
+      if (prefix === "profShip") {
         const pp = $("profPhone");
         if (pp && !pp.value.trim()) pp.value = String(parts.phone);
       } else {
@@ -473,10 +650,13 @@
     validatePersonNameField,
     validateEmailField,
     buildValidatedShippingJson,
+    buildValidatedCheckoutShippingJson,
     buildOptionalProfileAddressJson,
     formatShippingAddressPlainFromParts,
     formatShippingAddressPlainFromRaw,
     parseProfileAddressRaw,
+    profileAddressPartsFromInputs,
+    applyProfileAddressPartsToInputs,
     validatePhoneOnly,
     serializeProfileAddressFromParts,
   };

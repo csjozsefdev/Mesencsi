@@ -21,6 +21,11 @@
   let _userDiscountPickerBound = false;
   let cartQtyToastTimer = null;
 
+  /** @type {Array<{id:string,label:string,price_huf:number,requires_address:boolean}>} */
+  let _shippingMethodOptions = [];
+  let _selectedShippingMethod = "personal_pickup";
+  let _shippingMethodsLoaded = false;
+
   /** @type {Record<string, Function>} */
   let deps = {};
 
@@ -137,6 +142,196 @@
       .join("|");
   }
 
+  /** Cart lines + shipping method — estimate must match before display. */
+  function checkoutPricingSignature() {
+    return cartSignature() + "|ship:" + String(_selectedShippingMethod || "");
+  }
+
+  function sumCartShippableQuantity() {
+    return _cart.reduce(function (sum, c) {
+      return sum + Math.max(0, Math.floor(Number(c.quantity)) || 0);
+    }, 0);
+  }
+
+  /** Mirrors backend shipping_methods.calculate_gls_shipping tiers. */
+  function glsTierPreviewFromQty(qty) {
+    const count = Math.max(0, Math.floor(Number(qty)) || 0);
+    if (count <= 3) {
+      return { price: 2190, label: "Kis csomag", tier: "gls_small" };
+    }
+    if (count <= 6) {
+      return { price: 2790, label: "Közepes csomag", tier: "gls_medium" };
+    }
+    return { price: 3290, label: "Nagy csomag", tier: "gls_large" };
+  }
+
+  function glsPackageDescriptionHu(tier, price) {
+    if (tier === "gls_small") {
+      return "Kis csomag: legfeljebb 3 termék — " + formatPrice(price);
+    }
+    if (tier === "gls_medium") {
+      return "Közepes csomag: 4–6 termék — " + formatPrice(price);
+    }
+    return "Nagy csomag: 7 vagy több termék — " + formatPrice(price);
+  }
+
+  function glsPreviewForCheckout() {
+    if (
+      _lastOrderEstimate &&
+      estimateMatchesCheckout(_lastOrderEstimate) &&
+      _lastOrderEstimate.shipping_method === "gls_home"
+    ) {
+      const qty =
+        _lastOrderEstimate.shippable_item_count != null
+          ? _lastOrderEstimate.shippable_item_count
+          : sumCartShippableQuantity();
+      const fallback = glsTierPreviewFromQty(qty);
+      return {
+        tier: fallback.tier,
+        price: _lastOrderEstimate.shipping_price,
+        label:
+          _lastOrderEstimate.shipping_package_label_hu || fallback.label,
+      };
+    }
+    return glsTierPreviewFromQty(sumCartShippableQuantity());
+  }
+
+  function buildShippingMetadataForRequest() {
+    return null;
+  }
+
+  function updateGlsShippingInfoDisplay() {
+    const block = $("checkoutGlsShippingInfo");
+    const info = $("checkoutGlsPackageInfo");
+    const calc = $("checkoutGlsCalculatedFee");
+    if (!block) return;
+    const isGls = _selectedShippingMethod === "gls_home";
+    block.hidden = !isGls;
+    if (!isGls) return;
+    const preview = glsPreviewForCheckout();
+    if (info) {
+      info.textContent = glsPackageDescriptionHu(preview.tier, preview.price);
+    }
+    if (calc) {
+      calc.textContent =
+        "Számított GLS díj: " +
+        preview.label +
+        " — " +
+        formatPrice(preview.price);
+    }
+  }
+
+  function updateCheckoutOrderSummary() {
+    const el = $("checkoutOrderSummary");
+    if (!el) return;
+    if (!_cart.length) {
+      el.innerHTML = "";
+      return;
+    }
+
+    let productsSubtotal = 0;
+    let discountLine = "";
+    let shippingPrice = 0;
+    let shippingMethodLabel = shippingMethodLabelHu(_selectedShippingMethod);
+    let packageLabel = "";
+    let grandTotal = 0;
+
+    if (_lastOrderEstimate && estimateMatchesCheckout(_lastOrderEstimate)) {
+      const est = _lastOrderEstimate;
+      productsSubtotal =
+        est.products_grand_final != null
+          ? est.products_grand_final
+          : est.grand_original;
+      shippingPrice = est.shipping_price || 0;
+      grandTotal = est.grand_final;
+      shippingMethodLabel = shippingMethodLabelHu(est.shipping_method);
+      packageLabel = est.shipping_package_label_hu || "";
+      if (est.grand_discount > 0) {
+        if (est.bundle_rule_name) {
+          discountLine =
+            '<div class="checkout-order-summary__row checkout-order-summary__row--discount">' +
+            "<span>Kombó kedvezmény</span>" +
+            "<span>−" +
+            escapeHtml(formatPrice(est.grand_discount)) +
+            "</span></div>";
+        } else if (est.discount_percent != null) {
+          discountLine =
+            '<div class="checkout-order-summary__row checkout-order-summary__row--discount">' +
+            "<span>Kupon (−" +
+            escapeHtml(String(est.discount_percent)) +
+            "%)</span>" +
+            "<span>−" +
+            escapeHtml(formatPrice(est.grand_discount)) +
+            "</span></div>";
+        } else {
+          discountLine =
+            '<div class="checkout-order-summary__row checkout-order-summary__row--discount">' +
+            "<span>Kedvezmény</span>" +
+            "<span>−" +
+            escapeHtml(formatPrice(est.grand_discount)) +
+            "</span></div>";
+        }
+      }
+    } else {
+      productsSubtotal = _cart.reduce(function (sum, item) {
+        return sum + item.price * item.quantity;
+      }, 0);
+      if (_selectedShippingMethod === "gls_home") {
+        const preview = glsPreviewForCheckout();
+        shippingPrice = preview.price;
+        packageLabel = preview.label;
+      }
+      grandTotal = productsSubtotal + shippingPrice;
+    }
+
+    let packageRow = "";
+    if (_selectedShippingMethod === "gls_home" && packageLabel) {
+      packageRow =
+        '<div class="checkout-order-summary__row">' +
+        "<span>GLS csomagméret</span>" +
+        "<span>" +
+        escapeHtml(packageLabel) +
+        "</span></div>";
+    }
+
+    el.innerHTML =
+      '<h3 class="checkout-order-summary__title">Rendelés összesítő</h3>' +
+      '<div class="checkout-order-summary__rows">' +
+      '<div class="checkout-order-summary__row">' +
+      "<span>Termékek részösszege</span>" +
+      "<span>" +
+      escapeHtml(formatPrice(productsSubtotal)) +
+      "</span></div>" +
+      discountLine +
+      '<div class="checkout-order-summary__row">' +
+      "<span>Szállítási mód</span>" +
+      "<span>" +
+      escapeHtml(shippingMethodLabel) +
+      "</span></div>" +
+      packageRow +
+      '<div class="checkout-order-summary__row">' +
+      "<span>Szállítási díj</span>" +
+      "<span>" +
+      escapeHtml(formatPrice(shippingPrice)) +
+      "</span></div>" +
+      '<div class="checkout-order-summary__row checkout-order-summary__row--total">' +
+      "<span>Végösszeg</span>" +
+      "<strong>" +
+      escapeHtml(formatPrice(grandTotal)) +
+      "</strong></div>" +
+      "</div>";
+  }
+
+  function estimateMatchesCheckout(est) {
+    if (!est) return false;
+    return _checkoutEstimateSig === checkoutPricingSignature();
+  }
+
+  function requestCheckoutPricingEstimate() {
+    if (!_cart.length) return;
+    scheduleCartPricingEstimate();
+  }
+
   function getStoredCheckoutCoupon() {
     try {
       const v =
@@ -240,30 +435,123 @@
     }
   }
 
-  function formatOrderEstimateSummary(est) {
-    if (!est) return "";
-    const parts = [];
-    parts.push("Részösszeg: " + formatPrice(est.grand_original));
-    if (est.bundle_rule_name) {
-      parts.push('Kombó: "' + String(est.bundle_rule_name) + '"');
-      parts.push(
-        "Kedvezmény (−" +
-          String(est.bundle_percent != null ? est.bundle_percent : 0) +
-          "%): −" +
-          formatPrice(est.grand_discount),
-      );
-    } else if (est.grand_discount > 0 && est.discount_percent != null) {
-      parts.push(
-        "Kupon (−" +
-          String(est.discount_percent) +
-          "%): −" +
-          formatPrice(est.grand_discount),
-      );
-    } else if (est.grand_discount > 0) {
-      parts.push("Kedvezmény: −" + formatPrice(est.grand_discount));
+  function formatShippingMethodOptionLabel(m) {
+    if (m.id === "gls_home") {
+      return m.label + " — automatikusan számított díj";
     }
-    parts.push("Fizetendő: " + formatPrice(est.grand_final));
-    return parts.join(" · ");
+    if (m.price_huf != null && m.price_huf !== undefined) {
+      return m.label + " — " + formatPrice(m.price_huf);
+    }
+    return m.label;
+  }
+
+  async function ensureShippingMethodsLoaded() {
+    if (_shippingMethodsLoaded && _shippingMethodOptions.length) return;
+    try {
+      const cfg = await api("/shop/config");
+      const methods = (cfg && cfg.shipping_methods) || [];
+      if (methods.length) {
+        _shippingMethodOptions = methods;
+        const hasSel = methods.some(function (m) {
+          return m.id === _selectedShippingMethod;
+        });
+        if (!hasSel) _selectedShippingMethod = methods[0].id;
+      }
+    } catch (_) {
+      _shippingMethodOptions = [
+        {
+          id: "personal_pickup",
+          label: "Személyes átvétel",
+          price_huf: 0,
+          requires_address: false,
+        },
+        {
+          id: "gls_home",
+          label: "GLS házhozszállítás",
+          price_huf: null,
+          price_from_huf: 2190,
+          requires_address: true,
+        },
+      ];
+    }
+    _shippingMethodsLoaded = true;
+  }
+
+  function getSelectedShippingMethod() {
+    return _selectedShippingMethod;
+  }
+
+  function shippingMethodRequiresAddress(methodId) {
+    const id = methodId || _selectedShippingMethod;
+    const m = _shippingMethodOptions.find(function (x) {
+      return x.id === id;
+    });
+    if (m) return !!m.requires_address;
+    return id !== "personal_pickup";
+  }
+
+  function shippingMethodLabelHu(methodId) {
+    const m = _shippingMethodOptions.find(function (x) {
+      return x.id === methodId;
+    });
+    return m ? m.label : methodId;
+  }
+
+  function buildEstimateRequestBody(couponCode) {
+    const body = {
+      items: _cart.map(function (c) {
+        return { product_id: c.id, quantity: c.quantity };
+      }),
+      shipping_method: _selectedShippingMethod,
+    };
+    if (couponCode && isLoggedIn()) body.coupon_code = couponCode;
+    return body;
+  }
+
+  async function renderShippingMethodSelector() {
+    await ensureShippingMethodsLoaded();
+    const sel = $("checkoutShippingMethod");
+    if (!sel) {
+      syncCheckoutShippingUi();
+      return;
+    }
+    if (sel.dataset.shippingWired !== "1") {
+      sel.dataset.shippingWired = "1";
+      sel.innerHTML = _shippingMethodOptions
+        .map(function (m) {
+          return (
+            '<option value="' +
+            escapeHtml(m.id) +
+            '">' +
+            escapeHtml(formatShippingMethodOptionLabel(m)) +
+            "</option>"
+          );
+        })
+        .join("");
+      sel.addEventListener("change", function () {
+        _selectedShippingMethod = sel.value || "personal_pickup";
+        syncCheckoutShippingUi();
+        updateCheckoutOrderSummary();
+        if (_cart.length) requestCheckoutPricingEstimate();
+      });
+    }
+    sel.value = _selectedShippingMethod;
+    syncCheckoutShippingUi();
+  }
+
+  function syncCheckoutShippingUi() {
+    const requiresAddr = shippingMethodRequiresAddress(_selectedShippingMethod);
+    const addrBlock = document.querySelector(".checkout-address-block");
+    const confirmAck = $("checkoutAddressConfirmAck");
+    const pickupHint = $("checkoutPickupHint");
+    if (addrBlock) addrBlock.hidden = !requiresAddr;
+    if (pickupHint) pickupHint.hidden = requiresAddr;
+    if (confirmAck) confirmAck.hidden = !requiresAddr;
+    if (requiresAddr && deps.updateCheckoutAddressConfirmPreview) {
+      deps.updateCheckoutAddressConfirmPreview();
+    }
+    updateGlsShippingInfoDisplay();
+    updateCheckoutOrderSummary();
   }
 
   function updateCartFabBadge() {
@@ -383,32 +671,31 @@
       loadCartFromStorage();
     }
     updateCartUI();
-    if (_cart.length) scheduleCartPricingEstimate();
+    if (_cart.length) requestCheckoutPricingEstimate();
   }
 
   function scheduleCartPricingEstimate() {
     if (_cartEstimateTimer) clearTimeout(_cartEstimateTimer);
     _cartEstimateTimer = setTimeout(async function () {
       _cartEstimateTimer = null;
-      if (!isLoggedIn() || !_cart.length) return;
+      if (!_cart.length) return;
       try {
-        const sigBefore = cartSignature();
+        const sigBefore = checkoutPricingSignature();
         const est = await api("/orders/estimate", {
           method: "POST",
-          body: JSON.stringify({
-            items: _cart.map(function (c) {
-              return { product_id: c.id, quantity: c.quantity };
-            }),
-            coupon_code: _checkoutCouponCode || null,
-          }),
+          body: JSON.stringify(
+            buildEstimateRequestBody(_checkoutCouponCode || null),
+          ),
         });
-        if (sigBefore !== cartSignature()) return;
+        if (sigBefore !== checkoutPricingSignature()) return;
         _lastOrderEstimate = est;
-        _checkoutEstimateSig = cartSignature();
+        _checkoutEstimateSig = checkoutPricingSignature();
         _checkoutCouponCode = (est && est.coupon_code) || null;
         if (_checkoutCouponCode) setStoredCheckoutCoupon(_checkoutCouponCode);
         updateCartUI();
         updateCheckoutCouponDisplay();
+        updateGlsShippingInfoDisplay();
+        updateCheckoutOrderSummary();
       } catch (e) {
         if (notify) {
           notify.error(
@@ -424,9 +711,7 @@
     const emptyEl = $("cartEmpty");
     const wrap = $("cartWithItems");
     const lines = $("cartLines");
-    const totalEl = $("cartGrandTotal");
-    const coupLine = $("couponSummaryLine");
-    if (!emptyEl || !wrap || !lines || !totalEl) {
+    if (!emptyEl || !wrap || !lines) {
       updateCartFabBadge();
       return;
     }
@@ -437,29 +722,27 @@
         emptyEl.hidden = false;
         wrap.hidden = true;
         lines.innerHTML = "";
-        totalEl.textContent = formatPrice(0);
+        updateCheckoutOrderSummary();
         return;
       }
 
-      const sig = cartSignature();
-      if (_checkoutEstimateSig && sig !== _checkoutEstimateSig) {
+      const pricingSig = checkoutPricingSignature();
+      if (_checkoutEstimateSig && pricingSig !== _checkoutEstimateSig) {
         _lastOrderEstimate = null;
         _checkoutEstimateSig = "";
         const keepCoupon = getStoredCheckoutCoupon() || _checkoutCouponCode;
-        if (keepCoupon) {
-          _checkoutCouponCode = keepCoupon;
-          scheduleCartPricingEstimate();
-        }
+        if (keepCoupon) _checkoutCouponCode = keepCoupon;
+        requestCheckoutPricingEstimate();
+      } else if (!_lastOrderEstimate) {
+        requestCheckoutPricingEstimate();
       }
 
       emptyEl.hidden = true;
       wrap.hidden = false;
 
-      let grand = 0;
       lines.innerHTML = _cart
         .map(function (item, idx) {
           const lineTotal = item.price * item.quantity;
-          grand += lineTotal;
           return (
             '<div class="cart-line">' +
             "<div>" +
@@ -488,20 +771,8 @@
         })
         .join("");
 
-      const sig2 = cartSignature();
-      if (_lastOrderEstimate && _checkoutEstimateSig === sig2) {
-        totalEl.textContent = formatPrice(_lastOrderEstimate.grand_final);
-        if (coupLine) {
-          coupLine.hidden = false;
-          coupLine.textContent = formatOrderEstimateSummary(_lastOrderEstimate);
-        }
-      } else {
-        totalEl.textContent = formatPrice(grand);
-        if (coupLine) {
-          coupLine.hidden = true;
-          coupLine.textContent = "";
-        }
-      }
+      updateGlsShippingInfoDisplay();
+      updateCheckoutOrderSummary();
     } finally {
       persistCart();
       updateCartFabBadge();
@@ -533,7 +804,7 @@
       });
     }
     updateCartUI();
-    if (_cart.length) scheduleCartPricingEstimate();
+    if (_cart.length) requestCheckoutPricingEstimate();
     const hint = $("webshopCartHint");
     if (hint) hint.hidden = false;
     if (notify) {
@@ -549,7 +820,7 @@
     if (!code) {
       clearCheckoutCouponState();
       updateCartUI();
-      if (_cart.length && isLoggedIn()) scheduleCartPricingEstimate();
+      if (_cart.length) requestCheckoutPricingEstimate();
       return false;
     }
     if (!isLoggedIn()) {
@@ -566,15 +837,10 @@
     try {
       const est = await api("/orders/estimate", {
         method: "POST",
-        body: JSON.stringify({
-          items: _cart.map(function (c) {
-            return { product_id: c.id, quantity: c.quantity };
-          }),
-          coupon_code: code,
-        }),
+        body: JSON.stringify(buildEstimateRequestBody(code)),
       });
       _lastOrderEstimate = est;
-      _checkoutEstimateSig = cartSignature();
+      _checkoutEstimateSig = checkoutPricingSignature();
       _checkoutCouponCode = (est && est.coupon_code) || code;
       setStoredCheckoutCoupon(_checkoutCouponCode);
       syncUserDiscountRadios(_checkoutCouponCode);
@@ -644,7 +910,7 @@
       if (!val) {
         clearCheckoutCouponState();
         updateCartUI();
-        if (_cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) requestCheckoutPricingEstimate();
         const cartMsg = $("cartMsg");
         if (cartMsg) hide(cartMsg);
         return;
@@ -684,7 +950,7 @@
         if (Number.isNaN(i)) return;
         _cart.splice(i, 1);
         updateCartUI();
-        if (_cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) requestCheckoutPricingEstimate();
       });
       cartWithItems.addEventListener("change", function (e) {
         const t = e.target;
@@ -699,7 +965,7 @@
         if (!Number.isFinite(q) || q < 1) q = 1;
         _cart[i].quantity = q;
         updateCartUI();
-        if (isLoggedIn() && _cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) requestCheckoutPricingEstimate();
         if (notify) {
           if (!cartQtyToastTimer) {
             cartQtyToastTimer = setTimeout(function () {
@@ -717,7 +983,7 @@
       btnCouponClear.addEventListener("click", function () {
         clearCheckoutCouponState();
         updateCartUI();
-        if (_cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) requestCheckoutPricingEstimate();
         const msg = $("cartMsg");
         if (msg) hide(msg);
         if (notify) notify.info("Kupon eltávolítva.", { durationMs: 2800 });
@@ -740,6 +1006,10 @@
     getLastOrderEstimate,
     getCheckoutEstimateSig,
     cartSignature,
+    checkoutPricingSignature,
+    sumCartShippableQuantity,
+    glsTierPreviewFromQty,
+    requestCheckoutPricingEstimate,
     cartRowsFromPayload,
     loadCartFromStorage,
     flushCartToServer,
@@ -758,6 +1028,12 @@
     finalizeCheckoutCartUi,
     getStoredCheckoutCoupon,
     syncUserDiscountRadios,
+    getSelectedShippingMethod,
+    buildShippingMetadataForRequest,
+    shippingMethodRequiresAddress,
+    shippingMethodLabelHu,
+    renderShippingMethodSelector,
+    syncCheckoutShippingUi,
     init,
   };
 })();

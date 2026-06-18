@@ -1,7 +1,7 @@
 # Checkout, shipping & guest order — QA checklist
 
 Use after changes to cart, checkout, shipping, Barion, or guest flows.  
-Automated gate: `cd backend && python -m pytest -q` (~344 passed, 3 skipped).
+Automated gate: `cd backend && python -m pytest -q` (347 passed, few skipped).
 
 **Language:** customer UI and emails — Hungarian. Code/tests — English.
 

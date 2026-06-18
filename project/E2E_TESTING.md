@@ -8,7 +8,7 @@ A **backend pytest** (`backend/tests/`) és az **E2E** (`e2e/`) külön futnak. 
 |-------|--------|--------|
 | **1** | Minden commit előtt | `backend\scripts\gate_pytest.ps1` |
 | **2** | E2E első lokális validálás | Node + npm telepítve, backend fut, storefront + admin elérhető → `cd e2e` → `npm test` |
-| **3** | Deploy előtt (DB) | `python scripts/predeploy_alembic_check.py` → `alembic upgrade head` (head: **029**) |
+| **3** | Deploy előtt (DB) | `python scripts/predeploy_alembic_check.py` → `alembic upgrade head` (head: **032**) |
 | **4** | Release / pre-production előtt | `backend\scripts\gate_full.ps1` (pytest, majd E2E) |
 | **5** | Manuális QA (kötelező) | Barion sandbox, SMTP + email outbox, admin rendelés, storybook, mobil |
 

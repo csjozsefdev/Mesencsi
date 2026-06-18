@@ -50,6 +50,8 @@ def test_explicit_html_routes_before_static_mounts() -> None:
     assert "/admin/login" in paths
     assert "/admin" in paths
     assert "/" in paths
+    assert "/forgot-password.html" in paths
+    assert "/reset-password.html" in paths
 
 
 def test_router_prefixes_before_static_mounts() -> None:

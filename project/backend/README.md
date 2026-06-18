@@ -1,70 +1,58 @@
 # Mesencsi — backend (FastAPI)
 
-**English handover / review:** see [HANDOVER.md](../HANDOVER.md) and [REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md) in the project root.
+Webshop API: products, cart, guest checkout, Barion payments, admin CMS, email outbox.
 
-## Gyors indítás (ajánlott, Windows)
+**Full documentation:** [docs/README.md](docs/README.md)
 
-1. **Docker Desktop** telepítve legyen (Postgres a `docker-compose` miatt kell).
-2. Másold a **`.env.example`** fájlt **`.env`** névre ugyanebben a mappában, és állíts be jelszót a `POSTGRES_PASSWORD` mezőben (és egyeztess a compose-szal, ha módosítod a felhasználót is).
-3. Indítsd a Postgres konténert:
-   ```bat
-   docker compose up -d
-   ```
-4. A backend mappában futtasd:
-   ```bat
-   .\run.bat
-   ```
+---
 
-A `run.bat` létrehozza a **`.venv`** környezetet (ha kell), telepíti a függőségeket, lefuttatja az **Alembic** migrációkat, majd elindítja az Uvicorn-t **ugyanazzal a Pythonnal** (elkerüli a „ModuleNotFoundError: sqlalchemy” típusú PATH / két Python keveredést).
+## Quick start (Windows)
 
-- Bolt + admin böngészőben: `http://127.0.0.1:8000/` és `http://127.0.0.1:8000/admin`
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Postgres via compose).
+2. Copy `.env.example` → `.env`, set `POSTGRES_PASSWORD` and JWT secrets.
+3. Start Postgres: `docker compose up -d`
+4. Run: `.\run.bat`
 
-## Port 8000 foglalt
+Opens on http://127.0.0.1:8000/ (store) and http://127.0.0.1:8000/admin/login (admin).
 
-A `run.bat` indulás előtt ellenőrzi: ha a **8000-as** portot már egy másik folyamat foglalja, és az **nem** ennek a projektnek a `.venv\Scripts\python.exe` folyamata, **nem** indul el a szerver, és kiírja a foglaló PID-et / elérési utat.
+`run.bat` creates `.venv`, installs deps, runs Alembic migrations, and starts Uvicorn with the project Python.
 
-Tipikus ok: globálisan telepített **`uvicorn`** fut másik Pythonnal. Megoldás: állítsd le azt a folyamatot, vagy használd a projekt wrappert:
+---
 
-```bat
-.\uvicorn.bat mesencsi:app --reload --host 127.0.0.1 --port 8000
+## Documentation
+
+| Topic | Link |
+|-------|------|
+| **Index** | [docs/README.md](docs/README.md) |
+| Local development | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| API reference | [docs/API.md](docs/API.md) |
+| Environment variables | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) |
+| Production deploy | [docs/deploy_readiness.md](docs/deploy_readiness.md) |
+| Operations | [docs/ops_runbook.md](docs/ops_runbook.md) |
+| Handover (English) | [../HANDOVER.md](../HANDOVER.md) |
+| Review checklist | [../REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md) |
+
+---
+
+## Gate commands
+
+```powershell
+.\scripts\gate_pytest.ps1       # 347 backend tests
+.\scripts\gate_full.ps1         # pytest + Playwright E2E
+python scripts\predeploy_alembic_check.py
 ```
 
-Ha a portot a **`.venv` Python** foglalja, valószínűleg már fut egy példány — állítsd le, vagy módosítsd a `run.bat` utolsó sorában a `--port` értékét.
+---
 
-## Manuális lépések (ha nem `run.bat`)
+## Production
 
-Ugyanebből a mappából, **ugyanazzal a `python.exe`-vel** minden parancs:
-
-```bat
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\python.exe -m uvicorn mesencsi:app --host 127.0.0.1 --port 8000 --reload
-```
-
-## CORS / frontend más porton
-
-A fejlesztői CORS beállítások a `cors_config.py`-ban vannak (pl. Vite `5173`, Live Server `5500`). Élesben: `CORS_ALLOWED_ORIGINS` env (lásd `.env.example`).
-
-## Éles / production
-
-| Dokumentum | Tartalom |
-|------------|----------|
-| [docs/checkout_shipping_guest_qa.md](docs/checkout_shipping_guest_qa.md) | Guest checkout, GLS tiers, checkout UX QA |
-| [docs/deploy_readiness.md](docs/deploy_readiness.md) | Env checklist, Barion, SMTP, smoke |
-| [docs/pre_production_qa.md](docs/pre_production_qa.md) | Owner QA lista |
-| [docs/ops_runbook.md](docs/ops_runbook.md) | Outbox cron, incidents, recovery |
-| [docs/migration_007_warning.md](docs/migration_007_warning.md) | Destruktív 007 migráció figyelmeztetés |
-| [docs/production_legal_todo.md](docs/production_legal_todo.md) | Jogi oldalak (ügyfél feladata) |
-
-Gyors éles parancsok:
-
-```bat
+```powershell
 pip install -r requirements-prod.txt
 python scripts\predeploy_alembic_check.py
 .venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\python.exe -m pytest -q
+# uvicorn / gunicorn with MESENCSI_PRODUCTION=true
+# cron: python scripts\process_email_outbox.py
 ```
 
-Email outbox cron: `python scripts\process_email_outbox.py` (lásd ops runbook).
-
-Angol handover: [HANDOVER.md](../HANDOVER.md) · [REVIEW_CHECKLIST.md](../REVIEW_CHECKLIST.md) · [CHANGELOG.md](../CHANGELOG.md)
+Alembic head: **`032_storybook_page_image_layout`**

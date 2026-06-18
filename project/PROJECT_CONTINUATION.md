@@ -1,17 +1,18 @@
 # Mesencsi — Where we left off (continuation guide)
 
 **Read this first** if you continue development or QA on an existing machine.  
-**Last updated:** June 2026 (production hardening complete — code + tests).
+**Last updated:** June 2026 (guest checkout, GLS tiers, checkout UX cleanup).
 
 For a clean reviewer overview, see [HANDOVER.md](HANDOVER.md).  
 For tick-box acceptance, see [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md).  
+For checkout/shipping manual QA, see [backend/docs/checkout_shipping_guest_qa.md](backend/docs/checkout_shipping_guest_qa.md).  
 For production deploy, see [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md).
 
 ---
 
 ## 1. Project state in one sentence
 
-**Backend is production-hardened and pytest-green (~300 tests);** manual sandbox Barion QA, E2E, legal pages, and live infra (HTTPS, SMTP cron, media persistence) are still on the **deploy owner**.
+**Backend is production-hardened and pytest-green (347 tests);** guest checkout, tier-based GLS shipping, and checkout UX cleanup are in place; manual sandbox Barion QA, E2E, legal pages, and live infra remain on the **deploy owner**.
 
 ---
 
@@ -21,8 +22,9 @@ For production deploy, see [backend/docs/deploy_readiness.md](backend/docs/deplo
 
 - FastAPI backend: auth, orders, Barion (REST + IPN + return sync), admin API, news, gallery, storybooks.
 - Static frontend: storefront (`mesencsi.html` + `app.js`), admin (`admin.html`).
-- **~300 pytest tests** passing (SQLite in-memory); optional Postgres alembic smoke.
-- Alembic head: **`029`** (email/token_version, outbox, idempotency, integrity constraints).
+- **347 pytest tests** passing (SQLite in-memory); optional Postgres alembic smoke.
+- Alembic head: **`032`** (guest checkout, shipping fields, storybook layout).
+- Guest checkout, GLS auto tiers, simplified checkout UX — see [CHANGELOG.md](CHANGELOG.md).
 
 ### Production hardening (June 2026)
 
@@ -42,12 +44,18 @@ For production deploy, see [backend/docs/deploy_readiness.md](backend/docs/deplo
 | Item | Location |
 |------|----------|
 | Handover guide | [HANDOVER.md](HANDOVER.md) |
+| Documentation index | [backend/docs/README.md](backend/docs/README.md) |
+| Architecture | [backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md) |
+| API reference | [backend/docs/API.md](backend/docs/API.md) |
+| Environment variables | [backend/docs/ENVIRONMENT.md](backend/docs/ENVIRONMENT.md) |
 | Review checklist | [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md) |
 | Production deploy | [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md) |
 | Ops runbook | [backend/docs/ops_runbook.md](backend/docs/ops_runbook.md) |
 | Gate scripts | `backend/scripts/gate_pytest.ps1`, `gate_e2e.ps1`, `gate_full.ps1` |
 | E2E (Playwright) | `e2e/` + [E2E_TESTING.md](E2E_TESTING.md) |
 | Barion sandbox QA | [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md) |
+| Checkout / shipping QA | [backend/docs/checkout_shipping_guest_qa.md](backend/docs/checkout_shipping_guest_qa.md) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
 
@@ -100,8 +108,8 @@ Check `.env` has at least: `USER_JWT_SECRET`, `ADMIN_JWT_SECRET`, `POSTGRES_*`, 
 
 | Order | Task | Done when |
 |-------|------|-----------|
-| 1 | `gate_pytest.ps1` green | ~300 tests pass |
-| 2 | `predeploy_alembic_check.py` + `alembic upgrade head` | head `029` |
+| 1 | `gate_pytest.ps1` green | 347 tests pass |
+| 2 | `predeploy_alembic_check.py` + `alembic upgrade head` | head `032` |
 | 3 | Manual storefront + admin smoke | [REVIEW_CHECKLIST](REVIEW_CHECKLIST.md) A–G |
 | 4 | Barion sandbox full flow | [BARION_SANDBOX_TESTING](BARION_SANDBOX_TESTING.md) |
 | 5 | SMTP + outbox script | Confirmation email delivered |
@@ -141,9 +149,10 @@ Check `.env` has at least: `USER_JWT_SECRET`, `ADMIN_JWT_SECRET`, `POSTGRES_*`, 
 | Deploy live | [backend/docs/deploy_readiness.md](backend/docs/deploy_readiness.md) |
 | Operate production | [backend/docs/ops_runbook.md](backend/docs/ops_runbook.md) |
 | Start backend only | [backend/README.md](backend/README.md) |
+| Full documentation | [backend/docs/README.md](backend/docs/README.md) |
 
 ---
 
 ## 8. Handoff line
 
-> Code and ~300 automated backend tests are production-hardened. Run manual Barion + SMTP/outbox QA, legal sign-off, then deploy with HTTPS, live Barion, outbox cron, and upload storage — see deploy_readiness and ops_runbook.
+> Code and 347 automated backend tests are production-hardened. Run manual Barion + SMTP/outbox QA, legal sign-off, then deploy with HTTPS, live Barion, outbox cron, and upload storage — see deploy_readiness and ops_runbook.

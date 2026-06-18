@@ -80,11 +80,10 @@
     return h;
   }
 
-  function syncCheckoutAuthPanel() {
-    const panel = $("checkoutAuthPanel");
+  /** Coupon picker visibility + readonly email for logged-in users (no in-checkout login UI). */
+  function syncCheckoutCouponPanel() {
     const couponBox = $("checkoutCouponPicker");
     const loggedIn = isLoggedIn();
-    if (panel) panel.hidden = loggedIn;
     if (couponBox) couponBox.hidden = !loggedIn;
     const emailEl = $("checkoutEmail");
     if (emailEl) {
@@ -107,25 +106,7 @@
     if (regEmail && email && !regEmail.value.trim()) regEmail.value = email;
   }
 
-  function wireCheckoutAuthPanel() {
-    const panel = $("checkoutAuthPanel");
-    if (!panel || panel.dataset.checkoutWired === "1") return;
-    panel.dataset.checkoutWired = "1";
-    panel.querySelectorAll("[data-checkout-auth]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        const action = btn.getAttribute("data-checkout-auth");
-        if (action === "login" || action === "register") {
-          setAuthLine(
-            $("loginMsg"),
-            action === "login"
-              ? "Jelentkezz be a mentett adatok és tagi kedvezmények használatához."
-              : "Regisztrálj a rendelési előzményekhez, mesekönyvekhez és tagi kedvezményekhez.",
-            true,
-          );
-          window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-        }
-      });
-    });
+  function wirePostPurchaseAccountOffer() {
     const laterBtn = $("postPurchaseAccountLater");
     if (laterBtn && !laterBtn.dataset.checkoutWired) {
       laterBtn.dataset.checkoutWired = "1";
@@ -144,7 +125,7 @@
         if (regEmail && email) regEmail.value = email;
         setAuthLine(
           $("loginMsg"),
-          "Hozz létre fiókot a megvásárolt mesekönyvekhez és rendelési előzményekhez.",
+          "Hozz létre fiókot, hogy később elérd a mesekönyveidet, rendelési előzményeidet és tagi kedvezményeidet.",
           true,
         );
         window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
@@ -546,7 +527,7 @@
     if (!btn) return;
     if (!btn.dataset.checkoutLabelDefault) {
       btn.dataset.checkoutLabelDefault = (
-        btn.textContent || "Megrendelés és fizetés indítása"
+        btn.textContent || "Rendelés elküldése"
       ).trim();
     }
     if (busy) {
@@ -613,26 +594,35 @@
           cartFeedback(msg, phoneErr, false);
           return;
         }
-        const shipBuilt = deps.checkoutShippingAddressPayload
-          ? deps.checkoutShippingAddressPayload()
-          : { ok: false, errors: [{ message: "Szállítási cím ellenőrzés hiányzik." }] };
-        if (!shipBuilt.ok) {
-          cartFeedback(
-            msg,
-            (shipBuilt.errors[0] && shipBuilt.errors[0].message) ||
-              "Érvénytelen szállítási cím.",
-            false,
-          );
-          return;
-        }
-        const confirmCb = $("checkoutAddressConfirmCb");
-        if (confirmCb && !confirmCb.checked) {
-          cartFeedback(
-            msg,
-            "Kérjük, erősítsd meg, hogy a szállítási adatok helyesek.",
-            false,
-          );
-          return;
+        const shippingMethod = deps.getSelectedShippingMethod
+          ? deps.getSelectedShippingMethod()
+          : "gls_home";
+        const requiresAddress = deps.shippingMethodRequiresAddress
+          ? deps.shippingMethodRequiresAddress(shippingMethod)
+          : true;
+        let shipBuilt = { ok: true, json: null };
+        if (requiresAddress) {
+          shipBuilt = deps.checkoutShippingAddressPayload
+            ? deps.checkoutShippingAddressPayload()
+            : { ok: false, errors: [{ message: "Szállítási cím ellenőrzés hiányzik." }] };
+          if (!shipBuilt.ok) {
+            cartFeedback(
+              msg,
+              (shipBuilt.errors[0] && shipBuilt.errors[0].message) ||
+                "Érvénytelen szállítási cím.",
+              false,
+            );
+            return;
+          }
+          const confirmCb = $("checkoutAddressConfirmCb");
+          if (confirmCb && !confirmCb.checked) {
+            cartFeedback(
+              msg,
+              "Kérjük, erősítsd meg, hogy a szállítási adatok helyesek.",
+              false,
+            );
+            return;
+          }
         }
         const termsAccepted = !!(
           $("checkoutTermsAccepted") && $("checkoutTermsAccepted").checked
@@ -657,10 +647,15 @@
           company_website:
             ($("checkoutCompanyWebsite") && $("checkoutCompanyWebsite").value) ||
             "",
-          shipping_address: shipBuilt.json,
+          shipping_method: shippingMethod,
+          shipping_address: requiresAddress ? shipBuilt.json : null,
           terms_accepted: termsAccepted,
           privacy_acknowledged: privacyAcknowledged,
         };
+        const shipMeta = deps.buildShippingMetadataForRequest
+          ? deps.buildShippingMetadataForRequest()
+          : null;
+        if (shipMeta) body.shipping_metadata = shipMeta;
         if (!isLoggedIn()) {
           body.customer_email = (
             $("checkoutEmail") && $("checkoutEmail").value
@@ -678,7 +673,7 @@
           }
           body.notes = notes;
         }
-        if (shipBuilt.warnings && shipBuilt.warnings.length) {
+        if (requiresAddress && shipBuilt.warnings && shipBuilt.warnings.length) {
           const warnEl = $("checkoutZipCityWarn");
           if (warnEl) {
             warnEl.textContent = shipBuilt.warnings[0].message;
@@ -954,7 +949,7 @@
   async function syncCheckoutEmailFromSession() {
     const el = $("checkoutEmail");
     const nm = $("checkoutName");
-    syncCheckoutAuthPanel();
+    syncCheckoutCouponPanel();
     if (!isLoggedIn()) {
       if (el) el.removeAttribute("readonly");
       return;
@@ -984,9 +979,9 @@
   function init(injectedDeps) {
     deps = injectedDeps || {};
     wireCheckoutForm();
-    wireCheckoutAuthPanel();
+    wirePostPurchaseAccountOffer();
     initPaymentReturnBanner();
-    syncCheckoutAuthPanel();
+    syncCheckoutCouponPanel();
   }
 
   ns.checkout = {
@@ -1008,7 +1003,8 @@
     initUserOrdersPaymentRetryListener,
     handleBarionUrlParamsOnBoot,
     syncCheckoutEmailFromSession,
-    syncCheckoutAuthPanel,
+    syncCheckoutCouponPanel,
+    syncCheckoutAuthPanel: syncCheckoutCouponPanel,
     showPostPurchaseAccountOffer,
     hidePostPurchaseAccountOffer,
     init,

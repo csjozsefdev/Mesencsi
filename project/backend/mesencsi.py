@@ -68,6 +68,7 @@ from shipping_methods import (
     resolve_shipping_price_huf,
 )
 from auth import log_admin_auth_startup
+from barion_pixel import serve_public_html
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
@@ -291,21 +292,28 @@ FRONTEND_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "frontend"))
 
 @app.get("/")
 def read_index():
-    path = os.path.join(FRONTEND_DIR, "mesencsi.html")
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail="A kezdőlap fájlja nem található a szerveren.")
-    return FileResponse(path)
+    return serve_public_html("mesencsi.html")
 
 
 @app.get("/mesencsi.html")
 def read_mesencsi_alias():
     """Alias for static-server habits; same storefront as ``/``."""
-    return read_index()
+    return serve_public_html("mesencsi.html")
 
 
 def _serve_storefront_shell():
     """Shared handler for legal/hash SPA routes — frontend renders the view."""
-    return read_index()
+    return serve_public_html("mesencsi.html")
+
+
+@app.get("/forgot-password.html")
+def forgot_password_page():
+    return serve_public_html("forgot-password.html")
+
+
+@app.get("/reset-password.html")
+def reset_password_page():
+    return serve_public_html("reset-password.html")
 
 
 @app.get("/aszf")

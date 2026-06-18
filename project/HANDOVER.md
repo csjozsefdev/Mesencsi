@@ -37,7 +37,7 @@ Open:
 
 - Store: http://127.0.0.1:8000/
 - Admin login: http://127.0.0.1:8000/admin/login
-- API docs: http://127.0.0.1:8000/docs
+- API docs: http://127.0.0.1:8000/docs (hidden when `MESENCSI_PRODUCTION=true`)
 
 ---
 
@@ -47,7 +47,7 @@ Run from `backend/`:
 
 | Check | Command | Expected |
 |-------|---------|----------|
-| Backend tests | `.\scripts\gate_pytest.ps1` | `~300 passed`, few skipped OK |
+| Backend tests | `.\scripts\gate_pytest.ps1` | `347 passed`, few skipped OK |
 | Pre-deploy DB check | `python scripts/predeploy_alembic_check.py` | exit 0 |
 | Health | `GET /health` | HTTP 200, `status: ok` |
 | Barion config preview | `GET /payments/barion/status` | JSON with `sandbox`, `pos_key_configured` |
@@ -91,7 +91,7 @@ Production checklist: [backend/docs/deploy_readiness.md](backend/docs/deploy_rea
 
 These are implemented in code; reviewers should confirm behaviour in manual QA:
 
-1. **Orders:** `POST /orders` only for **email-verified** users; optional `Idempotency-Key` prevents duplicate checkout.
+1. **Orders:** `POST /orders` for **guests** (email + name on payload) or **email-verified** logged-in users; optional `Idempotency-Key` prevents duplicate checkout.
 2. **Payment `paid`:** Only after Barion **GetPaymentState** sync (return URL or IPN), not from admin UI.
 3. **Barion start:** Full checkout group required — partial group → 409.
 4. **Admin:** Order `completed` only when `payment_status = paid`; sensitive user/order actions are **owner-only**.
@@ -101,6 +101,8 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 8. **Payment confirmation email:** Queued to `email_outbox`; sent by `scripts/process_email_outbox.py` (cron).
 9. **Barion IPN:** Returns HTTP 200; on sync failure includes `sync_failed: true` in JSON (for monitoring).
 10. **Production startup:** `MESENCSI_PRODUCTION=true` enforces secrets, HTTPS URLs, real bcrypt admin hashes, SMTP (`startup_config.py`).
+11. **Guest checkout:** Webshop and cart are public; purchase without login; storybooks and order history require account.
+12. **Shipping:** Személyes átvétel (0 Ft) + GLS tier pricing (2190 / 2790 / 3290 Ft by item count); backend recalculates fee; Foxpost not active.
 
 ---
 
@@ -125,6 +127,7 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 
 | Topic | Document |
 |-------|----------|
+| Checkout, shipping, guest QA | [backend/docs/checkout_shipping_guest_qa.md](backend/docs/checkout_shipping_guest_qa.md) |
 | Barion sandbox payment | [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md) |
 | Full gate + E2E | [E2E_TESTING.md](E2E_TESTING.md) |
 | Mobile UI quick check | [backend/docs/mobile_storefront_smoke_checklist.md](backend/docs/mobile_storefront_smoke_checklist.md) |
@@ -138,7 +141,7 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 | Level | Ready? |
 |-------|--------|
 | Source code + dev setup | **Yes** |
-| Automated pytest gate (~300 tests) | **Yes** |
+| Automated pytest gate (347 tests) | **Yes** |
 | Production hardening (auth, outbox, idempotency, DB constraints) | **Yes** (code + tests) |
 | E2E infrastructure | **Yes** (must run locally with Node) |
 | Manual QA sign-off | **Receiver must run** |
@@ -168,6 +171,11 @@ These are implemented in code; reviewers should confirm behaviour in manual QA:
 | [HANDOVER.md](HANDOVER.md) | This file |
 | [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md) | Pass/fail acceptance checklist |
 | [backend/README.md](backend/README.md) | Backend quick start |
+| [backend/docs/README.md](backend/docs/README.md) | Full documentation index |
+| [backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md) | App structure & services |
+| [backend/docs/API.md](backend/docs/API.md) | HTTP endpoint reference |
+| [backend/docs/ENVIRONMENT.md](backend/docs/ENVIRONMENT.md) | All environment variables |
+| [backend/docs/DEVELOPMENT.md](backend/docs/DEVELOPMENT.md) | Local dev guide |
 | [backend/docs/gate_commands.md](backend/docs/gate_commands.md) | Gate scripts |
 | [E2E_TESTING.md](E2E_TESTING.md) | Playwright + gate order |
 | [BARION_SANDBOX_TESTING.md](BARION_SANDBOX_TESTING.md) | Payment testing |

@@ -56,7 +56,7 @@ Utolsó séma: **Alembic `033_compliance_acceptances`** (`alembic upgrade head`)
 |----------------------|------------|
 | `REDIS_URL` | Több uvicorn worker / több instance: közös rate limit (`auth_limits.py`) |
 | `TRUSTED_PROXY_HOSTS` | Reverse proxy IP/host (vesszővel). Alap: `127.0.0.1`. **`NE`** legyen nyilvános `*` élesben |
-| `MEDIA_STORAGE_MODE=s3` + `MEDIA_PUBLIC_BASE_URL` | Ha nem persistent disk — lásd §5 |
+| `MEDIA_STORAGE=s3` + `MEDIA_PUBLIC_BASE_URL` | Ha nem persistent disk — lásd §5 |
 | `ORDER_CONFIRMATION_PROCESSING_NOTE` | Feldolgozás / szállítás szöveg a fizetés-visszaigazoló levélben |
 | `ENVIRONMENT=production` | Health válaszban |
 | `INCIDENTS_READ_TOKEN` | Opcionális belső incidents |
@@ -101,7 +101,7 @@ Ellenőrzés deploy előtt: `GET /payments/barion/status` → `sandbox`, `pos_ke
 - `paid` csak return / IPN / `GetPaymentState` után
 - Duplicate `POST /payments/barion/start` pendingre → meglévő `payment_id` (nem ír felül)
 - `POST /payments/barion/start` csak **teljes checkout csoportra** (minden sor ugyanabból a `checkout_group_id`-ból) — részleges csoport → **409**
-- `POST /orders` csak **email-verified** userrel; sikeres rendelés után **szerver oldali kosár ürítés**
+- `POST /orders` **guest** (email a body-ban) vagy **email-verified** userrel; sikeres fizetés után **szerver oldali kosár ürítés** (bejelentkezett usernél)
 - Admin: `completed` csak ha `payment_status=paid`
 - Email címek **lowercase** tárolás + case-insensitive login (migráció `025`)
 
@@ -152,7 +152,7 @@ Helyi auth e-mail QA: [local_auth_email_qa.md](./local_auth_email_qa.md).
 - Statikus bolt dekor: **`frontend/images/`** (pl. preset avatárok) — nem vesznek el restartnál
 - **Render / ephemeral disk:** feltöltött admin képek **elveszhetnek** restart után
   - **Megoldás A:** persistent volume a `media/uploads` útvonalra
-  - **Megoldás B:** `MEDIA_STORAGE_MODE=s3` + `MEDIA_PUBLIC_BASE_URL` (`media_storage.py`)
+  - **Megoldás B:** `MEDIA_STORAGE=s3` + `MEDIA_PUBLIC_BASE_URL` (`media_storage.py`)
 - Deploy előtt: `media/uploads` létezik és **írható** (`GET /health/business` → `media_uploads.ok`)
 
 ---
@@ -192,7 +192,7 @@ python -m alembic upgrade head
 python -m pytest -q
 ```
 
-Várható: **~300 passed**, néhány skip (pl. Postgres smoke ha nincs DB).
+Várható: **347 passed**, néhány skip (pl. Postgres smoke ha nincs DB).
 
 Opcionális:
 
@@ -206,7 +206,7 @@ Opcionális:
 ## 9. Manuális smoke — ajánlott sorrend (~30 perc)
 
 1. [ ] `python scripts/predeploy_alembic_check.py` → ok
-2. [ ] `alembic upgrade head` → head = **`029`**
+2. [ ] `alembic upgrade head` → head = **`032`**
 3. [ ] Szerver indul éles envvel (nincs `StartupConfigError`)
 4. [ ] `GET /health` → 200
 5. [ ] `GET /health/business` (admin JWT) → `static_frontend.ok`, `media_uploads.ok`

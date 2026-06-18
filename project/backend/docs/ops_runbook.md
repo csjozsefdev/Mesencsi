@@ -7,7 +7,7 @@ Minimum operational guide for production. See also [deploy_readiness.md](./deplo
 ## Deploy / migrations
 
 1. `python scripts/predeploy_alembic_check.py` — legacy DB safety (exit `2` = stop)
-2. `alembic upgrade head` — current head: **`029`**
+2. `alembic upgrade head` — current head: **`032`**
 3. Start app with `MESENCSI_PRODUCTION=true` and full env
 4. Verify `GET /health` → 200
 
@@ -86,7 +86,7 @@ Worker features: atomic claim (`FOR UPDATE SKIP LOCKED` on PostgreSQL), exponent
 
 ## Uploads
 
-- If `MEDIA_STORAGE_MODE=s3`: verify `S3_BUCKET`, credentials, `MEDIA_PUBLIC_BASE_URL`.
+- If `MEDIA_STORAGE=s3`: verify `S3_BUCKET`, credentials, `MEDIA_PUBLIC_BASE_URL`.
 - Local/default: `backend/media/uploads/` — ephemeral on Render without persistent disk.
 - Validate delete cleanup via storybook deletes (cover/page image/audio).
 

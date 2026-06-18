@@ -94,33 +94,56 @@
         checkout_group_id: rows[0].checkout_group_id || null,
         barion_payment_id: rows[0].barion_payment_id || null,
         shipping_address: rows[0].shipping_address || "",
+        shipping_method: rows[0].shipping_method || "",
+        shipping_price: Number(rows[0].shipping_price) || 0,
+        shipping_metadata_json: rows[0].shipping_metadata_json || null,
         notes: rows[0].notes || "",
         total: rows.reduce(function (sum, r) {
           return sum + (Number(r.total_price) || 0);
-        }, 0),
+        }, 0) + (Number(rows[0].shipping_price) || 0),
       };
     });
   }
 
-  function formatOrderShippingForDisplay(raw) {
-    if (deps.formatShippingAddressPlainFromRaw)
+  function shippingMethodLabelHu(method) {
+    const m = {
+      personal_pickup: "Személyes átvétel",
+      gls_home: "GLS házhozszállítás",
+    };
+    return m[method] || method || "";
+  }
+
+  function glsPackageLabelFromMetadata(raw) {
+    if (!raw || typeof raw !== "object") return "";
+    const label = raw.gls_package_label_hu;
+    return label != null ? String(label).trim() : "";
+  }
+
+  function formatOrderShippingForDisplay(g) {
+    const method = g && g.shipping_method ? String(g.shipping_method) : "";
+    const price = g && g.shipping_price ? Number(g.shipping_price) : 0;
+    if (method === "personal_pickup") {
+      return "Személyes átvétel (0 Ft)";
+    }
+    if (method) {
+      let line = shippingMethodLabelHu(method);
+      if (price > 0) line += " — " + price.toLocaleString("hu-HU") + " Ft";
+      const pkg = glsPackageLabelFromMetadata(g.shipping_metadata_json);
+      if (pkg) line += " · " + pkg;
+      const raw = g.shipping_address;
+      const addr = formatShippingAddressPlain(raw);
+      if (addr) line += "\n" + addr;
+      return line;
+    }
+    return formatShippingAddressPlain(g && g.shipping_address);
+  }
+
+  function formatShippingAddressPlain(raw) {
+    if (deps.formatShippingAddressPlainFromRaw) {
       return deps.formatShippingAddressPlainFromRaw(raw);
+    }
     const s = raw != null ? String(raw).trim() : "";
-    if (!s) return "";
-    try {
-      const o = JSON.parse(s);
-      if (o && typeof o === "object" && o.v === 2) {
-        const parts = [
-          o.recipient_name,
-          [o.postal_code, o.city].filter(Boolean).join(" "),
-          [o.street, o.house_number].filter(Boolean).join(" "),
-          o.line2,
-          o.country,
-        ].filter(Boolean);
-        return parts.join("\n");
-      }
-    } catch (_) {}
-    return s;
+    return s || "";
   }
 
   function renderUserOrders(groups) {
@@ -166,7 +189,7 @@
       card.appendChild(head);
       card.appendChild(meta);
       card.appendChild(linesEl);
-      const shipText = formatOrderShippingForDisplay(g.shipping_address);
+      const shipText = formatOrderShippingForDisplay(g);
       if (shipText) {
         const shipEl = document.createElement("div");
         shipEl.className = "user-order-card__ship";
