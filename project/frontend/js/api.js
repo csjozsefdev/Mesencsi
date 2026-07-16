@@ -282,12 +282,67 @@
     return data;
   }
 
+  async function apiFetch(path, opts = {}) {
+    const optsSafe = opts || {};
+    const csrfRetry = !!optsSafe._csrfRetry;
+    const fetchOpts = { ...optsSafe };
+    delete fetchOpts._csrfRetry;
+
+    const bases = apiBaseFallbacks();
+    let res = null;
+    for (let i = 0; i < bases.length; i++) {
+      const url = bases[i] + path;
+      try {
+        const method = String(fetchOpts.method || "GET").toUpperCase();
+        const headers = {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          ...(fetchOpts.headers || {}),
+        };
+        if (method !== "GET" && method !== "HEAD") {
+          if (!csrfHeaderValue()) await ensureCsrfToken();
+          const csrf = csrfHeaderValue();
+          if (csrf) headers["X-CSRF-Token"] = csrf;
+        }
+        res = await fetch(url, {
+          ...fetchOpts,
+          credentials: "include",
+          headers,
+        });
+        break;
+      } catch (_) {
+        res = null;
+      }
+    }
+    if (!res) throw new Error(friendlyBackendError());
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (
+      !res.ok &&
+      !csrfRetry &&
+      isCsrfForbidden(res.status, data, text) &&
+      (await syncCsrfToken())
+    ) {
+      return apiFetch(path, { ...optsSafe, _csrfRetry: true });
+    }
+    if (!res.ok) {
+      throw new Error(humanizeServerError(res.status, data, text));
+    }
+    return { data, headers: res.headers };
+  }
+
   ns.api = {
     apiBase,
     apiBaseFallbacks,
     friendlyBackendError,
     humanizeServerError,
     api,
+    apiFetch,
     syncCsrfToken,
     apiMultipart,
   };

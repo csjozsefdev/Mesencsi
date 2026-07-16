@@ -50,6 +50,49 @@
     if (deps.addToCart) return deps.addToCart(product);
   }
 
+  const COMING_SOON_DEFAULT_MSG =
+    "A webshop kínálata hamarosan megjelenik itt. Addig is böngéssz a hírek, a galéria és a mesekönyv részek között — köszönjük a türelmedet!";
+
+  /** @type {Promise<{products_coming_soon?: boolean, products_coming_soon_message?: string | null}> | null} */
+  let shopConfigPromise = null;
+
+  async function fetchShopConfig() {
+    if (!shopConfigPromise) {
+      shopConfigPromise = api("/shop/config")
+        .then(function (cfg) {
+          return cfg && typeof cfg === "object" ? cfg : { products_coming_soon: false };
+        })
+        .catch(function () {
+          return { products_coming_soon: false };
+        });
+    }
+    return shopConfigPromise;
+  }
+
+  function buildComingSoonMarkup(customMessage) {
+    const msg =
+      customMessage && String(customMessage).trim()
+        ? String(customMessage).trim()
+        : COMING_SOON_DEFAULT_MSG;
+    return (
+      '<div class="shop-coming-soon" role="status">' +
+      '<div class="shop-coming-soon__icon" aria-hidden="true">📚</div>' +
+      "<h3 class=\"shop-coming-soon__title\">Hamarosan</h3>" +
+      '<p class="shop-coming-soon__text">' +
+      escapeHtml(msg) +
+      "</p>" +
+      "</div>"
+    );
+  }
+
+  async function renderComingSoonIfNeeded(outEl) {
+    if (!outEl) return false;
+    const cfg = await fetchShopConfig();
+    if (!cfg || !cfg.products_coming_soon) return false;
+    outEl.innerHTML = buildComingSoonMarkup(cfg.products_coming_soon_message);
+    return true;
+  }
+
   function safeProductImageUrl(p) {
     if (p && typeof p.image_url === "string") {
       const t = p.image_url.trim();
@@ -87,11 +130,9 @@
   async function loadProducts() {
     const out = $("productsOut");
     if (!out) return;
-    if (!isLoggedIn()) {
-      out.innerHTML = '<p class="empty">' + escapeHtml(msgWebshopAuth()) + "</p>";
-      return;
-    }
     out.innerHTML = '<p class="empty">Betöltés…</p>';
+
+    if (await renderComingSoonIfNeeded(out)) return;
 
     const list = await api("/products");
     if (!Array.isArray(list)) {
@@ -138,6 +179,7 @@
     const out = $("productsCatalogOut");
     if (!out) return;
     out.innerHTML = '<p class="empty">Betöltés…</p>';
+    if (await renderComingSoonIfNeeded(out)) return;
     const list = await api("/products");
     if (!Array.isArray(list)) {
       throw new Error("Nem sikerült betölteni a termékeket. Próbáld újra.");

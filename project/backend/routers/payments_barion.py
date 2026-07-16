@@ -11,7 +11,7 @@ from typing import Any, Literal
 import anyio
 BarionStartAction = Literal["new", "resume", "retry"]
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -45,8 +45,10 @@ from grafi_core.payments.barion_client import (
 )
 from database import SessionLocal, get_db
 from db_models import AppUser, PaymentAttempt, ShopOrder
-from dependencies import get_current_app_user
+from dependencies import get_current_app_user, get_optional_app_user
+from guest_checkout_tokens import guest_checkout_token_header_name, parse_guest_checkout_token
 from payment_confirmation_email import schedule_payment_confirmation_after_paid_sync
+from shipping_methods import checkout_group_grand_total_huf
 from routers.cart import clear_user_cart
 from runtime_flags import internal_barion_debug_authorized, mesencsi_production
 
@@ -422,14 +424,64 @@ def sync_orders_payment_status_from_barion_isolated(payment_id: str) -> tuple[st
         db.close()
 
 
-def _load_orders_for_start(db: Session, user: AppUser, order_ids: list[int]) -> list[ShopOrder]:
-    ids = list(dict.fromkeys(order_ids))
-    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.id.in_(ids))).all())
-    if len(rows) != len(ids):
+def _load_orders_for_start(
+    db: Session,
+    order_ids: list[int],
+    *,
+    user_id: int | None = None,
+    guest_checkout_group_id: str | None = None,
+) -> list[ShopOrder]:
+    """Load full checkout group; submitted IDs must match exactly."""
+    submitted_ids = set(order_ids)
+    if not submitted_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Legalább egy rendelési sort meg kell adni.",
+        )
+    if user_id is None and not guest_checkout_group_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bejelentkezés vagy vendég fizetési azonosító szükséges.",
+        )
+    rows = list(db.scalars(select(ShopOrder).where(ShopOrder.id.in_(submitted_ids))).all())
+    if len(rows) != len(submitted_ids):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Egy vagy több rendelési sor nem található.")
     for r in rows:
-        if r.user_id != user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a rendelés nem a te fiókodhoz tartozik.")
+        if user_id is not None:
+            if r.user_id != user_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a rendelés nem a te fiókodhoz tartozik.")
+        elif r.user_id is not None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ehhez a rendeléshez be kell jelentkezned.")
+    group_ids = {(r.checkout_group_id or "").strip() for r in rows}
+    group_ids.discard("")
+    if len(group_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A megadott sorok nem ugyanahhoz a kosár-checkout csoporthoz tartoznak.",
+        )
+    if not group_ids:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A rendelési sorokhoz nem tartozik checkout csoport.",
+        )
+    checkout_gid = next(iter(group_ids))
+    if guest_checkout_group_id and checkout_gid != guest_checkout_group_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A vendég fizetési azonosító nem egyezik ezzel a rendeléssel.",
+        )
+    if user_id is not None:
+        group_filter = (ShopOrder.user_id == user_id, ShopOrder.checkout_group_id == checkout_gid)
+    else:
+        group_filter = (ShopOrder.user_id.is_(None), ShopOrder.checkout_group_id == checkout_gid)
+    all_rows = list(db.scalars(select(ShopOrder).where(*group_filter)).all())
+    all_ids = {r.id for r in all_rows}
+    if submitted_ids != all_ids:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A fizetéshez a checkout összes rendelési sorát meg kell adni — részleges fizetés nem engedélyezett.",
+        )
+    for r in all_rows:
         if _normalize_shop_payment_status(r.payment_status) == "paid":
             log_event(
                 _log,
@@ -437,19 +489,13 @@ def _load_orders_for_start(db: Session, user: AppUser, order_ids: list[int]) -> 
                 "barion_payment_start_blocked_paid",
                 request_id=get_request_id(),
                 order_id=r.id,
-                user_id=user.id,
+                user_id=user_id,
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Ez a rendelés már fizetettnek van jelölve.",
             )
-    group_ids = {r.checkout_group_id for r in rows if r.checkout_group_id}
-    if len(group_ids) > 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A megadott sorok nem ugyanahhoz a kosár-checkout csoporthoz tartoznak.",
-        )
-    return rows
+    return all_rows
 
 
 def _collect_barion_payment_ids(rows: list[ShopOrder]) -> set[str]:
@@ -540,10 +586,11 @@ def _barion_start_response_resumed(
     *,
     payment_id: str,
     rows: list[ShopOrder],
-    user: AppUser,
+    owner_user_id: int | None,
     payload: BarionStartRequest,
 ) -> BarionStartResponse:
     ids = [r.id for r in rows]
+    env_user = {"user_id": owner_user_id, "resumed": True}
     if use_barion_rest_api():
         return BarionStartResponse(
             mode="barion_rest",
@@ -552,7 +599,7 @@ def _barion_start_response_resumed(
             message="Meglévő függő Barion fizetés — folytasd a korábban indított fizetési oldalon.",
             order_ids=ids,
             integration="barion",
-            env={"user_id": user.id, "resumed": True},
+            env=env_user,
             resumed_existing=True,
         )
     sandbox = barion_sandbox_mode()
@@ -565,7 +612,7 @@ def _barion_start_response_resumed(
         message="Meglévő függő fizetés (stub) — ugyanaz a payment_id maradt érvényben.",
         order_ids=ids,
         integration="stub",
-        env={"user_id": user.id, "description": payload.description, "resumed": True},
+        env={**env_user, "description": payload.description},
         resumed_existing=True,
     )
 
@@ -589,20 +636,42 @@ def barion_preview_status():
     }
 
 
+def _resolve_barion_start_context(
+    user: AppUser | None,
+    guest_checkout_token: str | None,
+) -> tuple[int | None, str | None]:
+    """Returns (owner_user_id, guest_checkout_group_id)."""
+    if user is not None:
+        return user.id, None
+    if not guest_checkout_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bejelentkezés vagy vendég fizetési azonosító szükséges.",
+        )
+    return None, parse_guest_checkout_token(guest_checkout_token)
+
+
 @router.post("/start", response_model=BarionStartResponse)
 def barion_start_payment(
     payload: BarionStartRequest,
     db: Session = Depends(get_db),
-    user: AppUser = Depends(get_current_app_user),
+    user: AppUser | None = Depends(get_optional_app_user),
+    guest_checkout_token: str | None = Header(default=None, alias=guest_checkout_token_header_name()),
 ):
     """
-    1) Validáljuk a rendelési sorokat (tulaj, egy checkout csoport, nincs már paid).
-    2a) **Barion mód** (van ``BARION_POS_KEY``): összegből Payment/Start, ``PaymentId`` mentése, redirect a Barion gateway-re.
-    2b) **Stub** (nincs POSKey): lokális ``preview-…`` id + visszairányítás a főoldal query stringgel (fejlesztői).
+    1) Validate order rows (owner or guest token, single checkout group, not already paid).
+    2a) **Barion mode** (BARION_POS_KEY set): Payment/Start, store PaymentId, redirect to gateway.
+    2b) **Stub** (no POSKey): local preview id + redirect with query string (development).
     """
-    rows = _load_orders_for_start(db, user, payload.order_ids)
+    owner_user_id, guest_gid = _resolve_barion_start_context(user, guest_checkout_token)
+    rows = _load_orders_for_start(
+        db,
+        payload.order_ids,
+        user_id=owner_user_id,
+        guest_checkout_group_id=guest_gid,
+    )
     checkout_gid = _checkout_group_key(rows)
-    start_action, existing_pid = _classify_barion_start(rows, user_id=user.id)
+    start_action, existing_pid = _classify_barion_start(rows, user_id=owner_user_id or 0)
 
     # Retry after failed/cancelled: retire active attempts before resume/idempotency checks.
     if start_action == "retry":
@@ -617,7 +686,7 @@ def barion_start_payment(
         return _barion_start_response_resumed(
             payment_id=pid,
             rows=rows,
-            user=user,
+            owner_user_id=owner_user_id,
             payload=payload,
         )
 
@@ -625,12 +694,12 @@ def barion_start_payment(
         return _barion_start_response_resumed(
             payment_id=existing_pid,
             rows=rows,
-            user=user,
+            owner_user_id=owner_user_id,
             payload=payload,
         )
 
     ids = [r.id for r in rows]
-    total_huf = sum(int(r.total_price) for r in rows)
+    total_huf = checkout_group_grand_total_huf(rows)
 
     if use_barion_rest_api():
         locked = _get_active_pending_attempt(db, checkout_gid, for_update=True)
@@ -641,7 +710,7 @@ def barion_start_payment(
             return _barion_start_response_resumed(
                 payment_id=pid,
                 rows=rows,
-                user=user,
+                owner_user_id=owner_user_id,
                 payload=payload,
             )
 
@@ -669,7 +738,7 @@ def barion_start_payment(
                     return _barion_start_response_resumed(
                         payment_id=pid,
                         rows=rows,
-                        user=user,
+                        owner_user_id=owner_user_id,
                         payload=payload,
                     )
                 raise HTTPException(
@@ -695,7 +764,7 @@ def barion_start_payment(
                     cancel_url=cancel_url,
                 ),
                 "start_action": start_action,
-                "user_id": user.id,
+                "user_id": owner_user_id,
                 "rest_api_enabled": True,
             },
             hypothesis_id="A",
@@ -711,7 +780,7 @@ def barion_start_payment(
             )
             data = start_payment_request(body)
         except ValueError as e:
-            _log.error("barion_start_config_error user_id=%s err=%s", user.id, e)
+            _log.error("barion_start_config_error user_id=%s err=%s", owner_user_id, e)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=_BARION_UNAVAILABLE_CLIENT_MSG,
@@ -723,7 +792,7 @@ def barion_start_payment(
                 "payments_barion.py:barion_start_payment",
                 "barion_start_http_error",
                 {
-                    "user_id": user.id,
+                    "user_id": owner_user_id,
                     "barion_http_status": e.status_code,
                     "barion_error_codes": barion_codes[:5],
                 },
@@ -733,7 +802,7 @@ def barion_start_payment(
             if "ShopIsInDraftState" in barion_codes:
                 _log.error(
                     "barion_start_shop_draft user_id=%s barion_status=%s",
-                    user.id,
+                    owner_user_id,
                     e.status_code,
                 )
                 raise HTTPException(
@@ -742,7 +811,7 @@ def barion_start_payment(
                 ) from e
             _log.error(
                 "barion_start_http_error user_id=%s status=%s barion_error_codes=%s body_prefix=%s",
-                user.id,
+                owner_user_id,
                 e.status_code,
                 barion_codes[:3],
                 (e.body or "")[:200],
@@ -752,7 +821,7 @@ def barion_start_payment(
                 detail=_BARION_START_CLIENT_MSG,
             ) from e
         except Exception as e:
-            _log.exception("barion_start_failed user_id=%s", user.id)
+            _log.exception("barion_start_failed user_id=%s", owner_user_id)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=_BARION_START_CLIENT_MSG,
@@ -802,9 +871,9 @@ def barion_start_payment(
                 checkout_group_id=checkout_gid[:32],
                 payment_request_id=payment_request_id[:36],
                 barion_payment_id_prefix=payment_id[:16],
-                user_id=user.id,
+                user_id=owner_user_id,
             )
-            _log.exception("barion_start_orders_commit_failed user_id=%s", user.id)
+            _log.exception("barion_start_orders_commit_failed user_id=%s", owner_user_id)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="A fizetés a Barionnál elindult, de a rendelés mentése nem sikerült — próbáld újra ugyanazt a fizetést.",
@@ -818,7 +887,7 @@ def barion_start_payment(
             logging.INFO,
             "barion_payment_started",
             request_id=get_request_id(),
-            user_id=user.id,
+            user_id=owner_user_id,
             payment_id=payment_id[:16],
             total_huf=total_huf,
             retry_after_terminal=start_action == "retry",
@@ -830,7 +899,7 @@ def barion_start_payment(
             message="Átirányítás a Barion fizetési oldalra. Visszatéréskor a /payments/barion/return frissíti a státuszt.",
             order_ids=ids,
             integration="barion",
-            env={"user_id": user.id, "PaymentRequestId": payment_request_id},
+            env={"user_id": owner_user_id, "PaymentRequestId": payment_request_id},
             resumed_existing=False,
         )
 
@@ -870,7 +939,7 @@ def barion_start_payment(
             return _barion_start_response_resumed(
                 payment_id=pid,
                 rows=rows,
-                user=user,
+                owner_user_id=owner_user_id,
                 payload=payload,
             )
         raise HTTPException(
@@ -887,7 +956,7 @@ def barion_start_payment(
         logging.INFO,
         "barion_payment_started",
         request_id=get_request_id(),
-        user_id=user.id,
+        user_id=owner_user_id,
         payment_id=pid[:16],
         total_huf=total_huf,
         integration="stub",
@@ -905,7 +974,7 @@ def barion_start_payment(
         message="Stub: nincs BARION_POS_KEY — valós fizetéshez állítsd be a kulcsot és a BARION_PAYEE_EMAIL-t.",
         order_ids=ids,
         integration="stub",
-        env={"user_id": user.id, "description": payload.description},
+        env={"user_id": owner_user_id, "description": payload.description},
         resumed_existing=False,
     )
 
@@ -1030,14 +1099,21 @@ async def barion_ipn(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/payment/{payment_id}/state", response_model=BarionPaymentStateResponse)
-def barion_get_state_for_logged_in_user(
+def barion_get_payment_state(
     payment_id: str,
     db: Session = Depends(get_db),
-    user: AppUser = Depends(get_current_app_user),
+    user: AppUser | None = Depends(get_optional_app_user),
+    guest_checkout_token: str | None = Header(default=None, alias=guest_checkout_token_header_name()),
 ):
     """
-    Bejelentkezett vásárló: lekéri a Barion aktuális státuszát, **szinkronizálja** a saját rendelési sorait, és visszaadja az összefoglalót.
+    Poll Barion payment state and sync order rows. Authenticated users or guests with checkout token.
     """
+    owner_user_id, guest_gid = _resolve_barion_start_context(user, guest_checkout_token if user is None else None)
+    if user is None and not guest_checkout_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bejelentkezés vagy vendég fizetési azonosító szükséges.",
+        )
     attempt = _payment_attempt_for_barion_id(db, payment_id)
     rows = _resolve_orders_for_barion_payment_id(db, payment_id)
     if not rows and attempt is None:
@@ -1045,8 +1121,23 @@ def barion_get_state_for_logged_in_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="This payment is not registered for this shop.",
         )
-    if rows and any(r.user_id != user.id for r in rows):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a fizetés nem a te fiókodhoz tartozik.")
+    if rows:
+        if owner_user_id is not None:
+            if any(r.user_id != owner_user_id for r in rows):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ez a fizetés nem a te fiókodhoz tartozik.")
+        else:
+            group_ids = {(r.checkout_group_id or "").strip() for r in rows}
+            group_ids.discard("")
+            if guest_gid and group_ids and guest_gid not in group_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="A vendég fizetési azonosító nem egyezik ezzel a fizetéssel.",
+                )
+            if any(r.user_id is not None for r in rows):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Ehhez a fizetéshez be kell jelentkezned.",
+                )
     if not use_barion_rest_api():
         ps = rows[0].payment_status if rows else (attempt.status if attempt else "pending")
         return BarionPaymentStateResponse(payment_id=payment_id, payment_status=ps, barion_status=None)

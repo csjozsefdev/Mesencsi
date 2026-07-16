@@ -347,6 +347,14 @@ def admin_update_storybook_page(
         page.text_x_percent = data["text_x_percent"]
     if "text_y_percent" in data:
         page.text_y_percent = data["text_y_percent"]
+    if "image_x_percent" in data:
+        page.image_x_percent = data["image_x_percent"]
+    if "image_y_percent" in data:
+        page.image_y_percent = data["image_y_percent"]
+    if "image_width_percent" in data:
+        page.image_width_percent = data["image_width_percent"]
+    if "image_height_percent" in data:
+        page.image_height_percent = data["image_height_percent"]
     db.commit()
     book = find_digital_storybook(db, book_id)
     pages = _load_pages(db, book.id)

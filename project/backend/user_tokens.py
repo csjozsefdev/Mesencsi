@@ -21,15 +21,16 @@ def log_user_jwt_startup() -> None:
     )
 
 
-def issue_user_access_token(user_id: int) -> str:
+def issue_user_access_token(user_id: int, *, token_version: int = 0) -> str:
     return _issue_user_access_token(
         user_id,
+        token_version=token_version,
         core_settings=mesencsi_core_settings(),
         jwt_settings=mesencsi_shop_jwt_settings(),
     )
 
 
-def parse_user_access_token(token: str) -> int:
+def parse_user_access_token(token: str) -> tuple[int, int]:
     return _parse_user_access_token(
         token,
         core_settings=mesencsi_core_settings(),

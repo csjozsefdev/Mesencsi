@@ -1691,6 +1691,35 @@ nav.side-menu.wood-menu button.wood-button[hidden],
   gap: 1rem;
 }
 
+.shop-coming-soon {
+  grid-column: 1 / -1;
+  max-width: 36rem;
+  margin: 0.5rem auto 0;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(255, 248, 235, 0.72);
+  border: 1px dashed rgba(122, 74, 40, 0.35);
+  box-shadow: 0 2px 12px rgba(80, 50, 20, 0.06);
+}
+.shop-coming-soon__icon {
+  font-size: 2.25rem;
+  line-height: 1;
+  margin-bottom: 0.65rem;
+}
+.shop-coming-soon__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  color: var(--accent-dark);
+  font-family: var(--font-display, inherit);
+}
+.shop-coming-soon__text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
 /* === Gallery (#view-gallery) === */
 
 /* Publikus galéria (#view-gallery) — nem érinti a product-grid-et */

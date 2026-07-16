@@ -117,9 +117,14 @@ def admin_patch_order_status(
     order_id: int,
     payload: AdminOrderStatusPatch,
     db: Session = Depends(get_db),
-    _admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
 ):
     row = find_order(db, order_id)
+    if payload.payment_status is not None and admin.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A fizetési állapot kézi módosítása csak tulajdonosi jogosultsággal engedélyezett.",
+        )
     if payload.status is not None:
         if payload.status == "completed":
             payment_ps = (row.payment_status or "pending").strip().lower()
@@ -152,7 +157,7 @@ def admin_patch_order_status(
 def admin_delete_order_line(
     order_id: int,
     db: Session = Depends(get_db),
-    _admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    _admin: CurrentAdmin = Depends(require_role(["owner"])),
 ):
     """Egy rendelési sor törlése (egy checkout több sorból állhat — mindegyik külön törölhető)."""
     row = find_order(db, order_id)
@@ -184,7 +189,7 @@ def admin_patch_user_verify(
     user_id: int,
     payload: AdminUserVerifyBody,
     db: Session = Depends(get_db),
-    _admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    _admin: CurrentAdmin = Depends(require_role(["owner"])),
 ):
     user = _get_shop_user_for_admin(db, user_id)
     if payload.email_verified:
@@ -204,7 +209,7 @@ def admin_patch_user_verify(
 def admin_ban_shop_user(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    admin: CurrentAdmin = Depends(require_role(["owner"])),
 ):
     user = _get_shop_user_for_admin(db, user_id)
     _assert_shop_user_destructive_allowed(user, admin)
@@ -219,7 +224,7 @@ def admin_ban_shop_user(
 def admin_unban_shop_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    _admin: CurrentAdmin = Depends(require_role(["owner"])),
 ):
     user = _get_shop_user_for_admin(db, user_id)
     user.is_banned = False
@@ -233,7 +238,7 @@ def admin_unban_shop_user(
 def admin_soft_delete_shop_user(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+    admin: CurrentAdmin = Depends(require_role(["owner"])),
 ):
     user = db.get(AppUser, user_id)
     if user is None:

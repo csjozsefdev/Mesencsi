@@ -48,7 +48,27 @@ class ProductUpdate(BaseModel):
     description: str | None = Field(None, max_length=2000)
 
 
-# --- Shop: cart & orders ---
+class GlsPackagePublicOption(BaseModel):
+    id: str
+    label: str
+    price_huf: int
+
+
+class ShopPublicConfig(BaseModel):
+    """Publikus bolt UX — nincs benne titok."""
+
+    products_coming_soon: bool = False
+    products_coming_soon_message: str | None = None
+    shipping_methods: list["ShippingMethodPublicOption"] = Field(default_factory=list)
+    gls_package_options: list[GlsPackagePublicOption] = Field(default_factory=list)
+
+
+class ShippingMethodPublicOption(BaseModel):
+    id: str
+    label: str
+    price_huf: int | None = None
+    price_from_huf: int | None = None
+    requires_address: bool
 
 
 class OrderLineItem(BaseModel):
@@ -82,17 +102,26 @@ class CartLineRead(BaseModel):
 
 
 class Order(BaseModel):
-    """Checkout body: JWT-hez kötött vásárló; az e-mail a fiókból kerül a rendelési sorokba (nem küldhető a kliensnek)."""
+    """Checkout body. Authenticated users: email from account. Guests: customer_email required."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     customer_name: str = Field(..., min_length=1, max_length=255, description="Buyer / parent name.")
+    customer_email: str | None = Field(
+        None,
+        max_length=320,
+        description="Guest checkout email. Ignored when authenticated — account email is used.",
+    )
     items: list[OrderLineItem] = Field(..., min_length=1, description="At least one product line.")
-    shipping_address: str = Field(
-        ...,
-        min_length=1,
+    shipping_method: str = Field(..., min_length=1, max_length=32, description="Checkout shipping method id.")
+    shipping_address: str | None = Field(
+        None,
         max_length=2000,
-        description="Structured JSON shipping address (validated server-side).",
+        description="Structured JSON shipping address — required for GLS home delivery.",
+    )
+    shipping_metadata: dict[str, object] | None = Field(
+        None,
+        description="Optional provider metadata (locker ids, etc.) — Foxpost not accepted.",
     )
     notes: str | None = Field(None, max_length=2000, description="Message to the author / shop.")
     coupon_code: str | None = Field(None, max_length=64, description="Opcionális kuponkód — a szerver számolja újra az árat.")
@@ -109,18 +138,31 @@ class Order(BaseModel):
         except ShippingAddressValidationError as e:
             raise ValueError(str(e)) from e
 
+    @field_validator("customer_email", mode="before")
+    @classmethod
+    def normalize_customer_email(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
     @field_validator("shipping_address", mode="before")
     @classmethod
-    def validate_order_shipping_address(cls, v: object) -> str:
-        if v is None or (isinstance(v, str) and not str(v).strip()):
-            raise ValueError("A szállítási cím megadása kötelező.")
-        try:
-            normalized = parse_and_validate_shipping_address_raw(str(v), required=True)
-        except ShippingAddressValidationError as e:
-            raise ValueError(str(e)) from e
-        if not normalized:
-            raise ValueError("A szállítási cím megadása kötelező.")
-        return normalized
+    def normalize_optional_shipping_address(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @field_validator("shipping_method", mode="before")
+    @classmethod
+    def normalize_shipping_method_field(cls, v: object) -> str:
+        s = ("" if v is None else str(v)).strip().lower()
+        if not s:
+            raise ValueError("Válassz szállítási módot.")
+        return s
 
     @field_validator("notes", "coupon_code", mode="before")
     @classmethod
@@ -162,6 +204,7 @@ class OrderResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    user_id: int | None = None
     product_id: int
     product_name: str
     quantity: int
@@ -176,6 +219,9 @@ class OrderResponse(BaseModel):
     customer_name: str
     customer_email: str | None = None
     shipping_address: str | None = None
+    shipping_method: str | None = None
+    shipping_price: int = 0
+    shipping_metadata_json: dict | None = None
     notes: str | None = None
     status: str
     payment_status: str
@@ -203,7 +249,20 @@ class OrderEstimateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     items: list[OrderLineItem] = Field(..., min_length=1)
+    shipping_method: str = Field(..., min_length=1, max_length=32)
+    shipping_metadata: dict[str, object] | None = Field(
+        None,
+        description="GLS csomagméret (gls_package_tier) és egyéb szállítási metaadat.",
+    )
     coupon_code: str | None = Field(None, max_length=64)
+
+    @field_validator("shipping_method", mode="before")
+    @classmethod
+    def normalize_estimate_shipping_method(cls, v: object) -> str:
+        s = ("" if v is None else str(v)).strip().lower()
+        if not s:
+            raise ValueError("Válassz szállítási módot.")
+        return s
 
     @field_validator("coupon_code", mode="before")
     @classmethod
@@ -222,6 +281,12 @@ class OrderEstimateResponse(BaseModel):
     lines: list[OrderEstimateLine]
     grand_original: int
     grand_discount: int
+    products_grand_final: int
+    shipping_method: str
+    shipping_price: int
+    shipping_package_label_hu: str | None = None
+    shipping_recommended_package_label_hu: str | None = None
+    shippable_item_count: int = 0
     grand_final: int
 
 
@@ -734,6 +799,10 @@ class StorybookPagePublic(BaseModel):
     text_box_style: StorybookTextBoxStyle = "card"
     text_x_percent: float | None = None
     text_y_percent: float | None = None
+    image_x_percent: float | None = None
+    image_y_percent: float | None = None
+    image_width_percent: float | None = None
+    image_height_percent: float | None = None
 
 
 class StorybookListItemPublic(BaseModel):
@@ -775,6 +844,10 @@ class StorybookAdminPageRead(BaseModel):
     text_box_style: StorybookTextBoxStyle = "card"
     text_x_percent: float | None = None
     text_y_percent: float | None = None
+    image_x_percent: float | None = None
+    image_y_percent: float | None = None
+    image_width_percent: float | None = None
+    image_height_percent: float | None = None
     extra: dict
 
 
@@ -865,19 +938,31 @@ class StorybookPageUpdate(BaseModel):
     text_box_style: StorybookTextBoxStyle | None = None
     text_x_percent: float | None = None
     text_y_percent: float | None = None
+    image_x_percent: float | None = None
+    image_y_percent: float | None = None
+    image_width_percent: float | None = None
+    image_height_percent: float | None = None
     extra: dict | None = None
 
-    @field_validator("text_x_percent", "text_y_percent", mode="before")
+    @field_validator(
+        "text_x_percent",
+        "text_y_percent",
+        "image_x_percent",
+        "image_y_percent",
+        "image_width_percent",
+        "image_height_percent",
+        mode="before",
+    )
     @classmethod
-    def clamp_text_percent(cls, v: object) -> object:
+    def clamp_layout_percent(cls, v: object) -> object:
         if v is None:
             return None
         try:
             x = float(v)
         except (TypeError, ValueError):
-            raise ValueError("A szövegpozíció százalékának számnak kell lennie.") from None
+            raise ValueError("A pozíció százalékának számnak kell lennie.") from None
         if x < 0 or x > 100:
-            raise ValueError("A szövegpozíció százaléka 0 és 100 között lehet.")
+            raise ValueError("A pozíció százaléka 0 és 100 között lehet.")
         return round(x, 4)
 
     @field_validator("title", "audio_url", mode="before")

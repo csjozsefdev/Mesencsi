@@ -38,6 +38,7 @@ class AppUser(Base):
     terms_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     privacy_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     privacy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    token_version: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -99,7 +100,7 @@ class ShopOrder(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     product_name: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[int] = mapped_column(Integer)
@@ -111,6 +112,9 @@ class ShopOrder(Base):
     customer_name: Mapped[str] = mapped_column(String(255))
     customer_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     shipping_address: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    shipping_method: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    shipping_price: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    shipping_metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     status: Mapped[str] = mapped_column(String(32), server_default="new", nullable=False)
     payment_status: Mapped[str] = mapped_column(String(32), server_default="pending", nullable=False)
@@ -375,6 +379,10 @@ class DigitalStorybookPage(Base):
     text_box_style: Mapped[str] = mapped_column(String(32), nullable=False, server_default="card")
     text_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     text_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_width_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    image_height_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     extra: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -385,6 +393,73 @@ class DigitalStorybookPage(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class EmailOutbox(Base):
+    """Minimal durable outbox for payment confirmation and other transactional mail."""
+
+    __tablename__ = "email_outbox"
+    __table_args__ = (UniqueConstraint("dedupe_key", name="uq_email_outbox_dedupe_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), server_default="pending", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class GuestOrderIdempotency(Base):
+    """Guest checkout idempotency — keyed by normalized email + idempotency key."""
+
+    __tablename__ = "guest_order_idempotency"
+    __table_args__ = (
+        UniqueConstraint("guest_email", "idempotency_key", name="uq_guest_order_idempotency_email_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    guest_email: Mapped[str] = mapped_column(String(320), index=True, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    order_ids_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class OrderIdempotency(Base):
+    """Per-user checkout idempotency — repeated POST /orders with same key returns same rows."""
+
+    __tablename__ = "order_idempotency"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_order_idempotency_user_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    order_ids_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
     )
 

@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mesencsi import app
+from password_utils import hash_password
 from startup_config import StartupConfigError, run_startup_config_validation
 
 
@@ -31,6 +32,15 @@ def _fill_minimal_production_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-pass")
     monkeypatch.setenv("SMTP_FROM", "noreply@example.com")
+    monkeypatch.setenv("OWNER_USERNAME", "prod-owner")
+    monkeypatch.setenv("OWNER_PASSWORD", hash_password("owner-prod-test-12"))
+    monkeypatch.setenv("MAINTENANCE_USERNAME", "prod-maint")
+    monkeypatch.setenv("MAINTENANCE_PASSWORD", hash_password("maint-prod-test-12"))
+    monkeypatch.setenv("PUBLIC_SITE_URL", "https://shop.example.com")
+    monkeypatch.setenv("FRONTEND_BASE_URL", "https://shop.example.com")
+    monkeypatch.setenv("BACKEND_PUBLIC_URL", "https://api.example.com")
+    monkeypatch.delenv("QA_SHOP_EMAIL", raising=False)
+    monkeypatch.delenv("QA_SHOP_PASSWORD", raising=False)
 
 
 def test_production_missing_admin_secret_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -90,6 +100,40 @@ def test_app_lifespan_fails_in_production_with_bad_config(monkeypatch: pytest.Mo
     with pytest.raises(StartupConfigError):
         with TestClient(app):
             pass
+
+
+def test_production_equal_jwt_secrets_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    secret = "x" * 40
+    monkeypatch.setenv("USER_JWT_SECRET", secret)
+    monkeypatch.setenv("ADMIN_JWT_SECRET", secret)
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("differ" in i for i in exc.value.issues)
+
+
+def test_production_qa_shop_env_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    monkeypatch.setenv("QA_SHOP_EMAIL", "qa@example.com")
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("QA_SHOP" in i for i in exc.value.issues)
+
+
+def test_production_invalid_bcrypt_hash_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    monkeypatch.setenv("OWNER_PASSWORD", "not-a-valid-bcrypt-hash")
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("OWNER_PASSWORD" in i and "bcrypt" in i for i in exc.value.issues)
+
+
+def test_production_invalid_jwt_algorithm_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fill_minimal_production_env(monkeypatch)
+    monkeypatch.setenv("JWT_ALGORITHM", "none")
+    with pytest.raises(StartupConfigError) as exc:
+        run_startup_config_validation()
+    assert any("JWT_ALGORITHM" in i for i in exc.value.issues)
 
 
 def test_render_hosted_missing_smtp_raises_without_production_flag(monkeypatch: pytest.MonkeyPatch) -> None:

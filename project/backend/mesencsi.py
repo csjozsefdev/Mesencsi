@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from fastapi.responses import FileResponse
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 try:
@@ -13,6 +13,7 @@ try:
 except Exception:  # pragma: no cover
     ProxyHeadersMiddleware = None  # type: ignore[assignment]
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -36,6 +37,8 @@ from models import (
     Product,
     StoryRead,
 )
+from idempotency_key import IdempotencyKeyError, parse_idempotency_key_header
+from order_idempotency import lookup_idempotent_orders, store_idempotent_orders
 from routers.cart import router as cart_router
 from routers.gallery import router as gallery_router
 from routers.health import router as health_router
@@ -45,13 +48,25 @@ from routers.storybooks_public import router as storybooks_public_router
 from routers.user_auth import router_auth as user_auth_router
 from routers.user_mvp import router_users
 from routers.payments_barion import router as payments_barion_router
+from routers.shop_public import router as shop_public_router
 from dependencies import (
     get_current_app_user,
+    get_optional_app_user,
     require_email_verified_shop_user,
-    require_email_verified_to_place_order,
 )
+from guest_checkout_tokens import guest_checkout_token_header_name, issue_guest_checkout_token
+from guest_order_idempotency import lookup_guest_idempotent_orders, store_guest_idempotent_orders
+from shop_email import normalize_shop_email
 from services import find_order_owned, find_product
-from shipping_address import ShippingAddressValidationError, parse_and_validate_shipping_address_raw
+from shipping_methods import (
+    GLS_HOME,
+    count_shippable_item_quantity,
+    normalize_shipping_method,
+    parse_shipping_metadata_field,
+    recommend_gls_shipping,
+    resolve_order_shipping,
+    resolve_shipping_price_huf,
+)
 from auth import log_admin_auth_startup
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
@@ -75,7 +90,16 @@ def _priced_line_to_estimate_line(pl) -> OrderEstimateLine:
     )
 
 
-def _priced_lines_to_estimate_response(priced) -> OrderEstimateResponse:
+def _priced_lines_to_estimate_response(
+    priced,
+    *,
+    shipping_method: str,
+    shipping_price: int,
+    shippable_item_count: int = 0,
+    shipping_package_label_hu: str | None = None,
+    shipping_recommended_package_label_hu: str | None = None,
+) -> OrderEstimateResponse:
+    products_final = priced.grand_final
     return OrderEstimateResponse(
         discount_percent=priced.discount_percent,
         coupon_code=priced.coupon_code,
@@ -85,7 +109,13 @@ def _priced_lines_to_estimate_response(priced) -> OrderEstimateResponse:
         lines=[_priced_line_to_estimate_line(pl) for pl in priced.lines],
         grand_original=priced.grand_original,
         grand_discount=priced.grand_discount,
-        grand_final=priced.grand_final,
+        products_grand_final=products_final,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shipping_package_label_hu=shipping_package_label_hu,
+        shipping_recommended_package_label_hu=shipping_recommended_package_label_hu,
+        shippable_item_count=shippable_item_count,
+        grand_final=products_final + shipping_price,
     )
 
 
@@ -99,10 +129,13 @@ def _persist_discount_amount(pl) -> int | None:
 def _priced_line_to_shop_order(
     pl,
     *,
-    user_id: int,
+    user_id: int | None,
     customer_name: str,
     buyer_email: str,
-    shipping_normalized: str,
+    shipping_normalized: str | None,
+    shipping_method: str,
+    shipping_price: int,
+    shipping_metadata: dict | None,
     notes: str | None,
     checkout_group_id: str,
     accepted_at: datetime,
@@ -120,6 +153,9 @@ def _priced_line_to_shop_order(
         customer_name=customer_name,
         customer_email=buyer_email,
         shipping_address=shipping_normalized,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shipping_metadata_json=shipping_metadata,
         notes=notes,
         status="new",
         payment_status="pending",
@@ -134,10 +170,45 @@ def _priced_line_to_shop_order(
     )
 
 
-def _compute_order_estimate(db: Session, user_id: int, payload: OrderEstimateRequest) -> OrderEstimateResponse:
+def _compute_order_estimate(db: Session, user_id: int | None, payload: OrderEstimateRequest) -> OrderEstimateResponse:
     """Kosár + kombó kedvezmény és/vagy kupon — csak számolás, nincs DB írás (kombó elsőbbsége a kuponnal szemben)."""
+    shipping_method = normalize_shipping_method(payload.shipping_method)
+    shippable_count = count_shippable_item_quantity(payload.items)
+    shipping_price = resolve_shipping_price_huf(
+        shipping_method,
+        shippable_item_count=shippable_count,
+    )
+    package_label: str | None = None
+    if shipping_method == GLS_HOME:
+        _tier, _price, package_label = recommend_gls_shipping(shippable_count)
     priced = compute_checkout_pricing(db, user_id=user_id, items=payload.items, coupon_code=payload.coupon_code)
-    return _priced_lines_to_estimate_response(priced)
+    return _priced_lines_to_estimate_response(
+        priced,
+        shipping_method=shipping_method,
+        shipping_price=shipping_price,
+        shippable_item_count=shippable_count,
+        shipping_package_label_hu=package_label,
+    )
+
+
+def _resolve_checkout_user(
+    user: AppUser | None,
+) -> tuple[int | None, str, bool]:
+    """Returns (user_id, buyer_email, is_guest). Raises HTTPException on invalid guest/auth state."""
+    if user is not None:
+        if user.email_verified_at is None:
+            raise HTTPException(
+                status_code=403,
+                detail="A rendelés leadásához erősítsd meg az e-mail címed.",
+            )
+        buyer_email = (user.email or "").strip()
+        if not buyer_email:
+            raise HTTPException(
+                status_code=422,
+                detail="Hiányzó e-mail a fiókodból — frissítsd a profilodat.",
+            )
+        return user.id, buyer_email, False
+    return None, "", True
 
 
 def _configure_logging() -> None:
@@ -182,6 +253,7 @@ app.include_router(cart_router)
 app.include_router(payments_barion_router)
 app.include_router(news_public_router)
 app.include_router(storybooks_public_router)
+app.include_router(shop_public_router)
 
 app.add_middleware(MetricsMiddleware)
 
@@ -357,60 +429,171 @@ def estimate_order_checkout(
     request: Request,
     payload: OrderEstimateRequest,
     db: Session = Depends(get_db),
-    user: AppUser = Depends(get_current_app_user),
+    user: AppUser | None = Depends(get_optional_app_user),
 ):
-    """Kosár összesítő kuponnal — a szerver számolja az árakat (a kliens árát nem fogadjuk el)."""
-    return _compute_order_estimate(db, user.id, payload)
+    """Cart pricing with bundle/coupon — server-side only. Auth optional (coupons require login)."""
+    user_id = user.id if user is not None else None
+    if payload.coupon_code and user_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="A kuponok csak bejelentkezett, e-mailben megerősített fiókkal használhatók.",
+        )
+    if payload.coupon_code and user is not None and user.email_verified_at is None:
+        raise HTTPException(
+            status_code=403,
+            detail="A kuponok csak megerősített e-mail című fiókkal használhatók. Ellenőrizd a postafiókodat.",
+        )
+    return _compute_order_estimate(db, user_id, payload)
 
 
 @app.post("/orders", response_model=list[OrderResponse], status_code=201)
 @limiter.limit("25/minute")
 def create_order(
     request: Request,
+    response: Response,
     order: Order,
     db: Session = Depends(get_db),
-    user: AppUser = Depends(require_email_verified_to_place_order),
+    user: AppUser | None = Depends(get_optional_app_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Kosár checkout: JWT + megerősített e-mail; a user a tokenből jön. Inaktív fiók: 401."""
-    buyer_email = (user.email or "").strip()
-    if not buyer_email:
-        raise HTTPException(
-            status_code=422,
-            detail="Hiányzó e-mail a fiókodból — frissítsd a profilodat.",
-        )
+    """Checkout: authenticated (verified email) or guest (customer_email in body)."""
     try:
-        shipping_normalized = parse_and_validate_shipping_address_raw(
-            order.shipping_address,
-            required=True,
-        )
-    except ShippingAddressValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    if not shipping_normalized:
-        raise HTTPException(status_code=422, detail="A szállítási cím megadása kötelező.")
+        normalized_idem_key = parse_idempotency_key_header(idempotency_key)
+    except IdempotencyKeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    priced = compute_checkout_pricing(db, user_id=user.id, items=order.items, coupon_code=order.coupon_code)
+    is_guest = user is None
+    buyer_email = ""
+    user_id: int | None = None
+
+    if is_guest:
+        guest_email_raw = (order.customer_email or "").strip()
+        if not guest_email_raw:
+            raise HTTPException(
+                status_code=422,
+                detail="Vendég vásárláshoz az e-mail cím megadása kötelező.",
+            )
+        buyer_email = normalize_shop_email(guest_email_raw)
+        if order.coupon_code:
+            raise HTTPException(
+                status_code=403,
+                detail="A kuponok csak bejelentkezett, e-mailben megerősített fiókkal használhatók.",
+            )
+        if normalized_idem_key:
+            existing, conflict = lookup_guest_idempotent_orders(
+                db,
+                guest_email=buyer_email,
+                idempotency_key=normalized_idem_key,
+                order=order,
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Az idempotency kulcs már más checkout tartalommal lett használva.",
+                )
+            if existing is not None:
+                return existing
+    else:
+        assert user is not None
+        user_id, buyer_email, _ = _resolve_checkout_user(user)
+        if normalized_idem_key:
+            existing, conflict = lookup_idempotent_orders(
+                db,
+                user_id=int(user_id),
+                idempotency_key=normalized_idem_key,
+                order=order,
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Az idempotency kulcs már más checkout tartalommal lett használva.",
+                )
+            if existing is not None:
+                return existing
+
+    shipping_metadata = parse_shipping_metadata_field(order.shipping_metadata)
+    shippable_count = count_shippable_item_quantity(order.items)
+    customer_name = order.customer_name.strip()
+    shipping_method, shipping_price, shipping_normalized, shipping_metadata = resolve_order_shipping(
+        method_raw=order.shipping_method,
+        shipping_address_raw=order.shipping_address,
+        shipping_metadata=shipping_metadata,
+        shippable_item_count=shippable_count,
+        customer_name=customer_name,
+    )
+
+    priced = compute_checkout_pricing(db, user_id=user_id, items=order.items, coupon_code=order.coupon_code)
 
     checkout_group_id = str(uuid.uuid4())
     accepted_at = datetime.now(UTC)
-    customer_name = order.customer_name.strip()
+    origin/main
     order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
     for pl in priced.lines:
         row = _priced_line_to_shop_order(
             pl,
-            user_id=user.id,
+            user_id=user_id,
             customer_name=customer_name,
             buyer_email=buyer_email,
             shipping_normalized=shipping_normalized,
+            shipping_method=shipping_method,
+            shipping_price=shipping_price,
+            shipping_metadata=shipping_metadata,
             notes=order_notes,
             checkout_group_id=checkout_group_id,
             accepted_at=accepted_at,
         )
         db.add(row)
         rows.append(row)
-    db.commit()
+    db.flush()
+    if normalized_idem_key:
+        if is_guest:
+            store_guest_idempotent_orders(
+                db,
+                guest_email=buyer_email,
+                idempotency_key=normalized_idem_key,
+                order=order,
+                order_ids=[int(r.id) for r in rows],
+            )
+        else:
+            store_idempotent_orders(
+                db,
+                user_id=int(user_id),
+                idempotency_key=normalized_idem_key,
+                order=order,
+                order_ids=[int(r.id) for r in rows],
+            )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if normalized_idem_key:
+            if is_guest:
+                raced, conflict = lookup_guest_idempotent_orders(
+                    db,
+                    guest_email=buyer_email,
+                    idempotency_key=normalized_idem_key,
+                    order=order,
+                )
+            else:
+                raced, conflict = lookup_idempotent_orders(
+                    db,
+                    user_id=int(user_id),
+                    idempotency_key=normalized_idem_key,
+                    order=order,
+                )
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Az idempotency kulcs már más checkout tartalommal lett használva.",
+                ) from exc
+            if raced is not None:
+                return raced
+        raise
     for r in rows:
         db.refresh(r)
+    if is_guest:
+        response.headers[guest_checkout_token_header_name()] = issue_guest_checkout_token(checkout_group_id)
     return rows
 
 

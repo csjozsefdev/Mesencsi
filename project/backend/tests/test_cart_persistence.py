@@ -91,11 +91,12 @@ def test_create_order_does_not_clear_server_cart() -> None:
         headers=headers,
         json={
             "customer_name": "Cart Buyer",
-                "items": [{"product_id": product_id, "quantity": 1}],
-                "shipping_address": sample_valid_shipping_json(),
-                "terms_accepted": True,
-                "privacy_acknowledged": True,
-                "company_website": "",
+            "items": [{"product_id": product_id, "quantity": 1}],
+            "shipping_method": "personal_pickup",
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
+            "company_website": "",
+        origin/main
         },
     )
     assert r2.status_code == 201, r2.text

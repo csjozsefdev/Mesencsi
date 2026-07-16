@@ -16,13 +16,18 @@ from shipping_address import sample_valid_shipping_json
 from user_tokens import issue_user_access_token
 
 
+def _auth_headers(user_id: int) -> dict[str, str]:
+    return {"Authorization": "Bearer " + issue_user_access_token(user_id)}
+
+
 def _checkout_order_body(customer_name: str, items: list[dict], **extra: object) -> dict:
     body: dict = {
         "customer_name": customer_name,
         "items": items,
-        "shipping_address": sample_valid_shipping_json(),
+        "shipping_method": "personal_pickup",
         "terms_accepted": True,
         "privacy_acknowledged": True,
+	 origin/main
         "company_website": "",
     }
     body.update(extra)
@@ -86,8 +91,14 @@ def _auth_headers(user_id: int) -> dict[str, str]:
     return {"Authorization": "Bearer " + issue_user_access_token(user_id)}
 
 
-def _estimate(client: TestClient, user_id: int, items: list[dict], coupon: str | None = None) -> dict:
-    body: dict = {"items": items}
+def _estimate(
+    client: TestClient,
+    user_id: int,
+    items: list[dict],
+    coupon: str | None = None,
+    shipping_method: str = "personal_pickup",
+) -> dict:
+    body: dict = {"items": items, "shipping_method": shipping_method}
     if coupon:
         body["coupon_code"] = coupon
     r = client.post("/orders/estimate", json=body, headers=_auth_headers(user_id))

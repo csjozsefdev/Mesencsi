@@ -199,6 +199,63 @@ def validate_country(value: object) -> str:
     return s
 
 
+def validate_street_address_line(value: object) -> str:
+    """Combined utca + házszám (checkout)."""
+    s = _clean_text(value, field="street", label="utca, házszám", min_len=2, max_len=256)
+    if not _STREET_RE.match(s):
+        raise ShippingAddressValidationError(
+            "Az utca, házszám mező formátuma érvénytelen.",
+            "street",
+        )
+    return s
+
+
+def _combine_street_and_house(street: object, house_number: object) -> str:
+    s = "" if street is None else str(street).strip()
+    h = "" if house_number is None else str(house_number).strip()
+    if s and h:
+        return f"{s} {h}"
+    return s or h
+
+
+def validate_optional_recipient_name(value: object) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    return validate_person_name(value, field="recipient_name", label="átvevő neve")
+
+
+def validate_checkout_shipping_address_parts(
+    parts: dict[str, Any],
+    *,
+    customer_name: str,
+) -> dict[str, str | None]:
+    """Checkout GLS address — recipient optional, phone omitted, country defaults to Hungary."""
+    optional_recipient = validate_optional_recipient_name(parts.get("recipient_name"))
+    effective_recipient = optional_recipient or validate_person_name(
+        customer_name,
+        field="customer_name",
+        label="név",
+    )
+    street_raw = parts.get("street_line")
+    if street_raw is None or not str(street_raw).strip():
+        street_raw = _combine_street_and_house(parts.get("street"), parts.get("house_number"))
+    street_line = validate_street_address_line(street_raw)
+    normalized: dict[str, str | None] = {
+        "recipient_name": effective_recipient,
+        "phone": None,
+        "postal_code": validate_hu_postal_code(parts.get("postal_code")),
+        "city": validate_city(parts.get("city")),
+        "street": street_line,
+        "house_number": "",
+        "line2": validate_optional_line2(parts.get("line2")),
+        "country": validate_country(parts.get("country") or "Magyarország"),
+    }
+    return normalized
+
+
 def zip_city_mismatch_warning(postal_code: str, city: str) -> str | None:
     """Optional soft warning — does not block checkout."""
     z = postal_code.strip()
@@ -321,6 +378,7 @@ def parse_and_validate_shipping_address_raw(
     raw: str | None,
     *,
     required: bool = True,
+    customer_name: str | None = None,
 ) -> str | None:
     mode, parts = parse_address_parts(raw)
     if mode == "empty":
@@ -335,7 +393,13 @@ def parse_and_validate_shipping_address_raw(
             "A szállítási cím formátuma elavult. Töltsd ki újra a strukturált mezőket.",
             None,
         )
-    normalized = validate_address_parts(parts, require_all=True)
+    if customer_name is not None:
+        normalized = validate_checkout_shipping_address_parts(
+            parts,
+            customer_name=customer_name.strip(),
+        )
+    else:
+        normalized = validate_address_parts(parts, require_all=True)
     return serialize_address_parts(normalized)
 
 
@@ -359,19 +423,15 @@ def format_shipping_address_plain(raw: str | None) -> str:
         return ""
     if mode == "legacy":
         return parts.get("street") or ""
+    street_line = _combine_street_and_house(parts.get("street"), parts.get("house_number"))
     lines = [
         parts.get("recipient_name") or "",
-        parts.get("phone") or "",
         " ".join(x for x in [parts.get("postal_code"), parts.get("city")] if x),
-        " ".join(
-            x
-            for x in [parts.get("street"), parts.get("house_number")]
-            if x
-        ).strip(),
+        street_line,
     ]
     if parts.get("line2"):
         lines.append(parts["line2"])
-    if parts.get("country"):
+    if parts.get("country") and str(parts.get("country")).strip() != "Magyarország":
         lines.append(parts["country"])
     return "\n".join(x for x in lines if x)
 
@@ -381,6 +441,21 @@ def format_shipping_address_html(raw: str | None) -> str:
     if not text:
         return "—"
     return "<br/>".join(html.escape(line) for line in text.split("\n"))
+
+
+def sample_checkout_shipping_json(*, customer_name: str = "Teszt Vásárló") -> str:
+    """Test helper — simplified checkout GLS payload (no phone in address)."""
+    return serialize_address_parts(
+        validate_checkout_shipping_address_parts(
+            {
+                "postal_code": "1051",
+                "city": "Budapest",
+                "street_line": "Teszt utca 12",
+                "line2": "2. em. 4",
+            },
+            customer_name=customer_name,
+        )
+    )
 
 
 def sample_valid_shipping_json() -> str:

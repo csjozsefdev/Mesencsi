@@ -76,7 +76,7 @@
     if (status === 401) return "Nem sikerült a belépés. Jelentkezz be újra.";
     if (status === 403) {
       if (isCsrfForbidden(status, data, rawText)) {
-        return "CSRF hiba — frissítsd az oldalt, jelentkezz be újra, majd próbáld újra a feltöltést.";
+        return "CSRF hiba — frissítsd az oldalt, jelentkezz be újra, majd próbáld újra.";
       }
       return "Ehhez a művelethez nincs jogosultságod.";
     }

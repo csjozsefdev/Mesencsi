@@ -14,6 +14,10 @@
   let checkoutSubmitting = false;
   let orderPaymentRetryBusy = false;
 
+  const GUEST_CHECKOUT_TOKEN_KEY = "mesencsi_guest_checkout_token";
+  const GUEST_CHECKOUT_EMAIL_KEY = "mesencsi_guest_checkout_email";
+  const GUEST_CHECKOUT_TOKEN_HEADER = "X-Guest-Checkout-Token";
+
   /** @type {null | { kind: "success" | "pending" | "error", short: string, detail: string }} */
   let barionReturnNotice = null;
 
@@ -29,6 +33,123 @@
   async function syncCsrfToken() {
     if (apiClient && apiClient.syncCsrfToken) return apiClient.syncCsrfToken();
     return false;
+  }
+
+  async function apiFetch(path, opts) {
+    if (apiClient && apiClient.apiFetch) return apiClient.apiFetch(path, opts);
+    const data = await api(path, opts);
+    return { data, headers: null };
+  }
+
+  function storeGuestCheckoutToken(token) {
+    const t = (token || "").trim();
+    if (!t) return;
+    try {
+      sessionStorage.setItem(GUEST_CHECKOUT_TOKEN_KEY, t);
+    } catch (_) {}
+  }
+
+  function getGuestCheckoutToken() {
+    try {
+      return (sessionStorage.getItem(GUEST_CHECKOUT_TOKEN_KEY) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function clearGuestCheckoutToken() {
+    try {
+      sessionStorage.removeItem(GUEST_CHECKOUT_TOKEN_KEY);
+    } catch (_) {}
+  }
+
+  function storeGuestCheckoutEmail(email) {
+    const e = (email || "").trim();
+    if (!e) return;
+    try {
+      sessionStorage.setItem(GUEST_CHECKOUT_EMAIL_KEY, e);
+    } catch (_) {}
+  }
+
+  function paymentAuthHeaders() {
+    const h = {};
+    if (!isLoggedIn()) {
+      const tok = getGuestCheckoutToken();
+      if (tok) h[GUEST_CHECKOUT_TOKEN_HEADER] = tok;
+    }
+    return h;
+  }
+
+  function syncCheckoutAuthPanel() {
+    const panel = $("checkoutAuthPanel");
+    const couponBox = $("checkoutCouponPicker");
+    const loggedIn = isLoggedIn();
+    if (panel) panel.hidden = loggedIn;
+    if (couponBox) couponBox.hidden = !loggedIn;
+    const emailEl = $("checkoutEmail");
+    if (emailEl) {
+      if (loggedIn) emailEl.setAttribute("readonly", "readonly");
+      else emailEl.removeAttribute("readonly");
+    }
+  }
+
+  function hidePostPurchaseAccountOffer() {
+    const el = $("postPurchaseAccountOffer");
+    if (el) el.hidden = true;
+  }
+
+  function showPostPurchaseAccountOffer(email) {
+    const el = $("postPurchaseAccountOffer");
+    if (!el) return;
+    el.hidden = false;
+    storeGuestCheckoutEmail(email || "");
+    const regEmail = $("registerEmail");
+    if (regEmail && email && !regEmail.value.trim()) regEmail.value = email;
+  }
+
+  function wireCheckoutAuthPanel() {
+    const panel = $("checkoutAuthPanel");
+    if (!panel || panel.dataset.checkoutWired === "1") return;
+    panel.dataset.checkoutWired = "1";
+    panel.querySelectorAll("[data-checkout-auth]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const action = btn.getAttribute("data-checkout-auth");
+        if (action === "login" || action === "register") {
+          setAuthLine(
+            $("loginMsg"),
+            action === "login"
+              ? "Jelentkezz be a mentett adatok és tagi kedvezmények használatához."
+              : "Regisztrálj a rendelési előzményekhez, mesekönyvekhez és tagi kedvezményekhez.",
+            true,
+          );
+          window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        }
+      });
+    });
+    const laterBtn = $("postPurchaseAccountLater");
+    if (laterBtn && !laterBtn.dataset.checkoutWired) {
+      laterBtn.dataset.checkoutWired = "1";
+      laterBtn.addEventListener("click", hidePostPurchaseAccountOffer);
+    }
+    const createBtn = $("postPurchaseAccountCreate");
+    if (createBtn && !createBtn.dataset.checkoutWired) {
+      createBtn.dataset.checkoutWired = "1";
+      createBtn.addEventListener("click", function () {
+        hidePostPurchaseAccountOffer();
+        const email =
+          (sessionStorage.getItem(GUEST_CHECKOUT_EMAIL_KEY) || "").trim() ||
+          ($("checkoutEmail") && $("checkoutEmail").value.trim()) ||
+          "";
+        const regEmail = $("registerEmail");
+        if (regEmail && email) regEmail.value = email;
+        setAuthLine(
+          $("loginMsg"),
+          "Hozz létre fiókot a megvásárolt mesekönyvekhez és rendelési előzményekhez.",
+          true,
+        );
+        window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      });
+    }
   }
 
   function cartFeedback(el, msg, ok) {
@@ -455,11 +576,6 @@
       hide(msg);
 
       try {
-        if (!isLoggedIn()) {
-          cartFeedback(msg, msgPurchaseAuth(), false);
-          return;
-        }
-
         if (!cartItems().length) {
           cartFeedback(
             msg,
@@ -545,6 +661,11 @@
           terms_accepted: termsAccepted,
           privacy_acknowledged: privacyAcknowledged,
         };
+        if (!isLoggedIn()) {
+          body.customer_email = (
+            $("checkoutEmail") && $("checkoutEmail").value
+          ).trim();
+        }
         const notes = $("checkoutNotes").value.trim();
         const containsUnsafeMarkup = deps.containsUnsafeMarkup;
         if (notes) {
@@ -572,6 +693,7 @@
         const estSig = checkoutEstimateSig();
         if (
           couponForOrder &&
+          isLoggedIn() &&
           est &&
           estSig === cartSig &&
           est.coupon_code &&
@@ -595,10 +717,18 @@
             "Rendelés leadása, fizetés indítása…",
           );
         }
-        const data = await api("/orders", {
+        const orderRes = await apiFetch("/orders", {
           method: "POST",
           body: JSON.stringify(body),
         });
+        const data = orderRes.data;
+        if (!isLoggedIn() && orderRes.headers) {
+          const guestTok =
+            orderRes.headers.get(GUEST_CHECKOUT_TOKEN_HEADER) ||
+            orderRes.headers.get("x-guest-checkout-token");
+          if (guestTok) storeGuestCheckoutToken(guestTok);
+          storeGuestCheckoutEmail(body.customer_email || "");
+        }
 
         const orderIds = orderIdsFromCreateResponse(data);
         if (!orderIds.length) {
@@ -617,6 +747,7 @@
         try {
           payStart = await api("/payments/barion/start", {
             method: "POST",
+            headers: paymentAuthHeaders(),
             body: JSON.stringify({
               order_ids: orderIds,
               description: payDescription,
@@ -751,12 +882,47 @@
           paymentConfirmedPaid = true;
         } else if (ps === "failed" || ps === "cancelled") {
           barionMsg = barionPaymentLandingErrorMsg(
-            "Fizetés: " + shopPaymentStatusHu(ps) + ".",
+            "Payment: " + shopPaymentStatusHu(ps) + ".",
           );
           barionKind = "error";
         } else {
           barionMsg = barionCautiousMsg(
-            "Fizetés: " + shopPaymentStatusHu(ps) + ".",
+            "Payment: " + shopPaymentStatusHu(ps) + ".",
+          );
+          barionKind = "pending";
+        }
+      } catch (e) {
+        barionMsg = barionPaymentLandingErrorMsg(
+          (e && e.message) || "A fizetés állapotát most nem ellenőrizhető.",
+        );
+        barionKind = "error";
+      }
+    } else if (getGuestCheckoutToken()) {
+      try {
+        const st = await api(
+          "/payments/barion/payment/" + encodeURIComponent(pid) + "/state",
+          {
+            method: "GET",
+            headers: paymentAuthHeaders(),
+          },
+        );
+        const ps = st && st.payment_status ? st.payment_status : "pending";
+        if (ps === "paid") {
+          barionMsg =
+            "Fizetés sikeresen teljesült. Visszaigazolást emailben küldünk.";
+          barionKind = "success";
+          paymentConfirmedPaid = true;
+          const guestEmail =
+            (sessionStorage.getItem(GUEST_CHECKOUT_EMAIL_KEY) || "").trim();
+          if (guestEmail) showPostPurchaseAccountOffer(guestEmail);
+        } else if (ps === "failed" || ps === "cancelled") {
+          barionMsg = barionPaymentLandingErrorMsg(
+            "Payment: " + shopPaymentStatusHu(ps) + ".",
+          );
+          barionKind = "error";
+        } else {
+          barionMsg = barionCautiousMsg(
+            "Payment: " + shopPaymentStatusHu(ps) + ".",
           );
           barionKind = "pending";
         }
@@ -768,9 +934,14 @@
       }
     } else {
       barionMsg = barionPaymentLandingErrorMsg(
-        "A pontos állapothoz lépj be ugyanazzal a fiókkal, amellyel rendeltél.",
+        "A fizetés sikerült — ellenőrizd az e-mailedet a visszaigazolásért. Fiók létrehozásával eléred a mesekönyveket és a rendelési előzményeket.",
       );
-      barionKind = "error";
+      barionKind = "success";
+      paymentConfirmedPaid = true;
+    }
+
+    if (paymentConfirmedPaid && !isLoggedIn()) {
+      clearGuestCheckoutToken();
     }
 
     clearCartAfterBarionPaid = paymentConfirmedPaid;
@@ -783,7 +954,11 @@
   async function syncCheckoutEmailFromSession() {
     const el = $("checkoutEmail");
     const nm = $("checkoutName");
-    if (!isLoggedIn()) return;
+    syncCheckoutAuthPanel();
+    if (!isLoggedIn()) {
+      if (el) el.removeAttribute("readonly");
+      return;
+    }
     try {
       const me = await api("/auth/me", { method: "GET" });
       if (me && me.email && el) el.value = me.email;
@@ -809,7 +984,9 @@
   function init(injectedDeps) {
     deps = injectedDeps || {};
     wireCheckoutForm();
+    wireCheckoutAuthPanel();
     initPaymentReturnBanner();
+    syncCheckoutAuthPanel();
   }
 
   ns.checkout = {
@@ -831,6 +1008,9 @@
     initUserOrdersPaymentRetryListener,
     handleBarionUrlParamsOnBoot,
     syncCheckoutEmailFromSession,
+    syncCheckoutAuthPanel,
+    showPostPurchaseAccountOffer,
+    hidePostPurchaseAccountOffer,
     init,
   };
 })();

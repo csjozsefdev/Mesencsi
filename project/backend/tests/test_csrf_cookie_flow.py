@@ -54,26 +54,27 @@ def test_cookie_authenticated_post_requires_csrf_header() -> None:
         json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-                "shipping_address": sample_valid_shipping_json(),
-                "items": [{"product_id": product_id, "quantity": 1}],
-                "terms_accepted": True,
-                "privacy_acknowledged": True,
+            "shipping_method": "personal_pickup",
+            "items": [{"product_id": product_id, "quantity": 1}],
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
         },
     )
     assert r0.status_code == 403, r0.text
 
     # With matching header -> allowed.
     r1 = client.post(
-        "/orders",
-        headers={"X-CSRF-Token": csrf_cookie},
-        json={
+            "/orders",
+            headers={"X-CSRF-Token": csrf_cookie},
+            json={
             "customer_name": "CSRF Buyer",
             "customer_email": email,
-                "shipping_address": sample_valid_shipping_json(),
-                "items": [{"product_id": product_id, "quantity": 1}],
-                "terms_accepted": True,
-                "privacy_acknowledged": True,
-        },
+            "shipping_address": sample_valid_shipping_json(),
+            "shipping_method": "personal_pickup",
+            "items": [{"product_id": product_id, "quantity": 1}],
+            "terms_accepted": True,
+            "privacy_acknowledged": True,
+            },
     )
     assert r1.status_code == 201, r1.text
 

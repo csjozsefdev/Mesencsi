@@ -80,6 +80,7 @@ def _user_jwt_secret(
 def issue_user_access_token(
     user_id: int,
     *,
+    token_version: int = 0,
     core_settings: CoreSettings | None = None,
     jwt_settings: ShopJwtSettings | None = None,
 ) -> str:
@@ -92,6 +93,7 @@ def issue_user_access_token(
     payload = {
         "sub": str(user_id),
         "typ": js.typ,
+        "tv": int(token_version),
         "iat": int(now.timestamp()),
         "exp": int((now + delta).timestamp()),
     }
@@ -103,7 +105,7 @@ def parse_user_access_token(
     *,
     core_settings: CoreSettings | None = None,
     jwt_settings: ShopJwtSettings | None = None,
-) -> int:
+) -> tuple[int, int]:
     core = core_settings or CoreSettings.from_env()
     js = jwt_settings or _DEFAULT_SETTINGS
     errors = _errors(js)
@@ -127,9 +129,15 @@ def parse_user_access_token(
             detail=errors.invalid,
         )
     try:
-        return int(payload["sub"])
+        user_id = int(payload["sub"])
     except (KeyError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=errors.invalid,
         ) from None
+    tv_raw = payload.get("tv", 0)
+    try:
+        token_version = int(tv_raw)
+    except (TypeError, ValueError):
+        token_version = 0
+    return user_id, token_version

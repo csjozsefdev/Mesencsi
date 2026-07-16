@@ -36,7 +36,8 @@ def _parse_demo_user(request: Request) -> int:
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     settings = demo_core_settings()
-    return parse_user_access_token(token, core_settings=settings)
+    user_id, _token_version = parse_user_access_token(token, core_settings=settings)
+    return user_id
 
 
 @router.get("/csrf")
@@ -92,5 +93,5 @@ def demo_jwt_smoke():
     settings = demo_core_settings()
     user_id = 42
     token = issue_user_access_token(user_id, core_settings=settings)
-    parsed = parse_user_access_token(token, core_settings=settings)
-    return {"issued_for": user_id, "parsed_user_id": parsed, "token_prefix": token[:16]}
+    parsed_user_id, _token_version = parse_user_access_token(token, core_settings=settings)
+    return {"issued_for": user_id, "parsed_user_id": parsed_user_id, "token_prefix": token[:16]}
