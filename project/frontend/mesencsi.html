@@ -1608,7 +1608,7 @@
               <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a>
             </p>
 
-            <div class="legal-meta">Utolsó frissítés: 2026.05.06.</div>
+            <div class="legal-meta">Dokumentumverzió: 2026-07-13 · Hatályos: 2026.07.13-tól visszavonásig</div>
           </div>
         </section>
 
@@ -1828,20 +1828,57 @@
           <div class="glass-card view-inner legal-prose">
             <button type="button" class="btn-back" data-route="/">← Vissza a főoldalra</button>
             <h2>Süti tájékoztató</h2>
-            <p class="legal-placeholder">TODO (jogi tanácsadó): a teljes tájékoztató végleges szövege.</p>
+            <p>A mesencsi.hu sütiket, valamint a böngésző helyi és munkamenet-tárolóját használja. A sütik kis adatfájlok, a helyi tároló (localStorage) és a munkamenet-tároló (sessionStorage) pedig a böngészőben elérhető technikai tárhely. Az alábbi leltár a weboldal forráskódjában ténylegesen alkalmazott elemeket tartalmazza.</p>
+            <p>A weboldal nem használ analitikai vagy marketing célú sütit. Az oldal saját, első féltől származó szükséges sütijei hozzájárulás nélkül működnek, mert a biztonságos bejelentkezéshez és a felhasználó által kért szolgáltatás nyújtásához szükségesek. A funkcionális helyi tárolást csak a felhasználó hozzájárulása után engedélyezzük.</p>
             <h3>Szükséges sütik</h3>
-            <p class="legal-placeholder">TODO: autentikációs és CSRF sütik célja, élettartama és jogalapja.</p>
-            <h3>Funkcionális tárolás</h3>
-            <p class="legal-placeholder">TODO: kosár-, profil- és kuponbeállítások leírása.</p>
-            <h3>Authentication cookies</h3>
-            <p class="legal-placeholder">TODO: `mesencsi_user_token` és admin munkamenet részletei.</p>
-            <h3>CSRF protection cookie</h3>
-            <p class="legal-placeholder">TODO: `mesencsi_csrf` részletei.</p>
-            <h3>Local storage usage</h3>
-            <p class="legal-placeholder">TODO: a helyi tároló tényleges kulcslistája és megőrzése.</p>
-            <h3>Session storage usage</h3>
-            <p class="legal-placeholder">TODO: a fizetési visszatéréshez használt munkamenet-kulcs részletei.</p>
-            <div class="legal-meta">Dokumentumverzió: 2026-06-14 · Utolsó frissítés: 2026.06.14.</div>
+            <h4><code>mesencsi_user_token</code></h4>
+            <ul>
+              <li><strong>Cél:</strong> a regisztrált webshop-felhasználó biztonságos bejelentkezési munkamenetének fenntartása.</li>
+              <li><strong>Szolgáltató:</strong> Mesencsi, első fél.</li>
+              <li><strong>Élettartam:</strong> böngésző-munkamenet; kijelentkezéskor töröljük.</li>
+              <li><strong>Beállítások:</strong> HttpOnly, HTTPS-en Secure, SameSite=Lax.</li>
+              <li><strong>Jogalap:</strong> a szerződés teljesítéséhez, illetve a felhasználó kérésére történő lépésekhez szükséges adatkezelés (GDPR 6. cikk (1) b)).</li>
+            </ul>
+            <h4><code>mesencsi_admin_token</code></h4>
+            <ul>
+              <li><strong>Cél:</strong> az elkülönített adminisztrációs felület jogosult munkamenetének fenntartása.</li>
+              <li><strong>Szolgáltató:</strong> Mesencsi, első fél.</li>
+              <li><strong>Élettartam:</strong> böngésző-munkamenet; kijelentkezéskor töröljük.</li>
+              <li><strong>Beállítások:</strong> HttpOnly, HTTPS-en Secure, SameSite=Lax.</li>
+              <li><strong>Jogalap:</strong> a weboldal és a kezelt adatok biztonságához fűződő jogos érdek (GDPR 6. cikk (1) f)).</li>
+            </ul>
+            <h4><code>mesencsi_csrf</code></h4>
+            <ul>
+              <li><strong>Cél:</strong> a hamisított, idegen webhelyről indított kérések (CSRF) elleni védelem.</li>
+              <li><strong>Szolgáltató:</strong> Mesencsi, első fél.</li>
+              <li><strong>Élettartam:</strong> böngésző-munkamenet.</li>
+              <li><strong>Beállítások:</strong> a védelmi fejléc létrehozásához JavaScript által olvasható, HTTPS-en Secure, SameSite=Lax.</li>
+              <li><strong>Jogalap:</strong> a weboldal és a felhasználói fiókok biztonságához fűződő jogos érdek (GDPR 6. cikk (1) f)).</li>
+            </ul>
+            <h3>Helyi tároló (localStorage)</h3>
+            <h4>Szükséges elem</h4>
+            <p><code>mesencsi_cookie_consent_v1</code>: a választott sütibeállítást, a szabályzat verzióját és a döntés időpontját őrzi, hogy a weboldal tiszteletben tudja tartani a felhasználó választását. A böngészőben marad a törléséig vagy a szabályzat verzióváltásáig. A hozzájárulás visszavonása ezt az elemet „csak szükséges” állapotra frissíti.</p>
+            <h4>Funkcionális elemek</h4>
+            <p>Az alábbi elemek jogalapja a hozzájárulás (GDPR 6. cikk (1) a)). A „Süti beállítások” alatt bármikor letilthatók; letiltáskor a weboldal eltávolítja az ismert funkcionális kulcsokat.</p>
+            <ul>
+              <li><code>mesencsi_user_profile_json</code>: a bejelentkezett felhasználó megjelenítéshez szükséges profiladatainak gyorsítótára; kijelentkezésig, visszavonásig, felülírásig vagy böngészőből történő törlésig.</li>
+              <li><code>mesencsi_cart_v1</code> és <code>mesencsi_cart_*</code>: a kosár helyi tartalékpéldánya; a kosár felülírásáig, visszavonásig vagy böngészőből történő törlésig.</li>
+              <li><code>mesencsi_selected_coupon</code>: az utoljára kiválasztott kupon; felülírásig, visszavonásig vagy böngészőből történő törlésig.</li>
+            </ul>
+            <p>Az adminisztrációs felület az <code>admin_role</code> és <code>admin_username</code> kulcsokat kizárólag az admin felület állapotának megjelenítésére használja. Ezek nem tartoznak a nyilvános webshop funkcionális tárolási választásához. A <code>debugStorybookV2</code> fejlesztői kapcsoló; a weboldal nem hozza létre automatikusan.</p>
+            <h3>Munkamenet-tároló (sessionStorage)</h3>
+            <p>Ezek az adatok az aktuális böngészőlap bezárásáig vagy korábbi programozott törlésükig maradnak meg:</p>
+            <ul>
+              <li><code>mesencsi_guest_checkout_token</code>: a vendégként leadott rendelés biztonságos folytatásához és azonosításához szükséges technikai token.</li>
+              <li><code>mesencsi_guest_checkout_email</code>: a vendég rendeléshez megadott e-mail-cím a fizetési folyamat és a rendelés összekapcsolásához.</li>
+              <li><code>mesencsi_barion_checkout_redirect</code>: jelzi, hogy a felhasználó a Barion fizetési oldalára történő átirányításból tér vissza.</li>
+            </ul>
+            <p>A fenti munkamenet-elemek a kért vásárlási és fizetési folyamat működéséhez szükségesek; jogalapjuk a szerződés teljesítése, illetve az azt megelőző, a felhasználó kérésére tett lépések (GDPR 6. cikk (1) b)).</p>
+            <h3>Külső fizetési szolgáltató</h3>
+            <p>Online bankkártyás fizetéskor a weboldal átirányítja a felhasználót a Barion által üzemeltetett fizetési felületre. A Barion saját oldalán alkalmazott sütikért és tárhelyhasználatért a Barion felel; ezekre a Barion mindenkori adatkezelési és süti tájékoztatója vonatkozik.</p>
+            <h3>Beállítások módosítása</h3>
+            <p>A lábléc „Süti beállítások” gombjával a funkcionális hozzájárulás bármikor megadható vagy visszavonható. A szükséges sütik kikapcsolása a böngésző beállításaiban lehetséges, de ez a bejelentkezés, a biztonsági védelem vagy a vásárlási folyamat hibás működését okozhatja. Adatkezelési kérdés esetén írjon az <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a> címre.</p>
+            <div class="legal-meta">Dokumentumverzió: 2026-07-13 · Hatályos: 2026.07.13-tól visszavonásig</div>
           </div>
         </section>
       </main>

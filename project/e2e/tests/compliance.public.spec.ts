@@ -16,7 +16,7 @@ test.describe("Compliance storefront", () => {
       JSON.parse(localStorage.getItem("mesencsi_cookie_consent_v1") || "null"),
     );
     expect(necessaryConsent).toMatchObject({
-      version: "2026-06-14",
+      version: "2026-07-13",
       necessary: true,
       functional: false,
     });
@@ -75,6 +75,18 @@ test.describe("Compliance storefront", () => {
     await expect(page.locator("#view-fizetes")).toContainText("Barion Payment Zrt.");
     await page.goto("/panaszkezeles");
     await expect(page.locator("#view-panaszkezeles")).toContainText("Fogyasztóvédelem - Fogyasztói vita");
+  });
+
+  test("cookie and privacy policies render the 2026-07-13 versions without placeholders", async ({ page }) => {
+    await page.goto("/sutik");
+    const cookies = page.locator("#view-sutik");
+    await expect(cookies).toContainText("Dokumentumverzió: 2026-07-13");
+    await expect(cookies).toContainText("mesencsi_guest_checkout_token");
+    await expect(cookies).toContainText("A weboldal nem használ analitikai vagy marketing célú sütit");
+    await expect(cookies.locator(".legal-placeholder")).toHaveCount(0);
+
+    await page.goto("/adatkezeles");
+    await expect(page.locator("#view-adatkezeles")).toContainText("Dokumentumverzió: 2026-07-13");
   });
 
   test("registration and checkout compliance controls are wired", async ({ page }) => {
