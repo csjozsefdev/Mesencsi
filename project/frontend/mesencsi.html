@@ -1865,7 +1865,6 @@
               <li><code>mesencsi_cart_v1</code> és <code>mesencsi_cart_*</code>: a kosár helyi tartalékpéldánya; a kosár felülírásáig, visszavonásig vagy böngészőből történő törlésig.</li>
               <li><code>mesencsi_selected_coupon</code>: az utoljára kiválasztott kupon; felülírásig, visszavonásig vagy böngészőből történő törlésig.</li>
             </ul>
-            <p>Az adminisztrációs felület az <code>admin_role</code> és <code>admin_username</code> kulcsokat kizárólag az admin felület állapotának megjelenítésére használja. Ezek nem tartoznak a nyilvános webshop funkcionális tárolási választásához. A <code>debugStorybookV2</code> fejlesztői kapcsoló; a weboldal nem hozza létre automatikusan.</p>
             <h3>Munkamenet-tároló (sessionStorage)</h3>
             <p>Ezek az adatok az aktuális böngészőlap bezárásáig vagy korábbi programozott törlésükig maradnak meg:</p>
             <ul>
@@ -1874,12 +1873,55 @@
               <li><code>mesencsi_barion_checkout_redirect</code>: jelzi, hogy a felhasználó a Barion fizetési oldalára történő átirányításból tér vissza.</li>
             </ul>
             <p>A fenti munkamenet-elemek a kért vásárlási és fizetési folyamat működéséhez szükségesek; jogalapjuk a szerződés teljesítése, illetve az azt megelőző, a felhasználó kérésére tett lépések (GDPR 6. cikk (1) b)).</p>
+            <h3>Barion Pixel</h3>
+
+            <p>
+              A webáruház a Barion Payment Zrt. által biztosított Alap
+              (Base) Barion Pixelt használja. A technológia a Barion
+              fizetési szolgáltatás működésének támogatását és a fizetési
+              visszaélések megelőzését szolgálja.
+            </p>
+
+             <ul>
+             <li>
+              <strong>Szolgáltató:</strong>
+              Barion Payment Zrt.
+            </li>
+            <li>
+             <strong>Cél:</strong>
+              a weboldal-látogatások technikai rögzítése, a Barion
+              fizetési rendszer működésének támogatása és csalásmegelőzés.
+            </li>
+       	    <li>
+              <strong>Pixelazonosító:</strong>
+              <code>BP-D1brwkHbMw-99</code>
+            </li>
+            <li>
+              <strong>Kezelt adatok:</strong>
+               az oldal megnyitásával, a böngészővel, az eszközzel,
+               a hálózati kapcsolattal és a munkamenettel összefüggő
+               technikai adatok.
+             </li>
+             <li>
+               <strong>Jogalap:</strong>
+               a webáruház és a Barion fizetési csalások megelőzéséhez
+               és a fizetési szolgáltatás biztonságos működtetéséhez
+               fűződő jogos érdeke.
+             </li>
+           </ul>
+
+            <p>
+              A jelenlegi implementáció kizárólag az Alap Barion Pixelt
+              használja. A webáruház nem küld részletes termék-, kosár-
+              vagy vásárlási eseményeket marketingcélú Full Pixelként,
+              és nem továbbít marketing-hozzájárulást a Barion részére.
+	    </p>
             <h3>Külső fizetési szolgáltató</h3>
             <p>Online bankkártyás fizetéskor a weboldal átirányítja a felhasználót a Barion által üzemeltetett fizetési felületre. A Barion saját oldalán alkalmazott sütikért és tárhelyhasználatért a Barion felel; ezekre a Barion mindenkori adatkezelési és süti tájékoztatója vonatkozik.</p>
             <h3>Beállítások módosítása</h3>
             <p>A lábléc „Süti beállítások” gombjával a funkcionális hozzájárulás bármikor megadható vagy visszavonható. A szükséges sütik kikapcsolása a böngésző beállításaiban lehetséges, de ez a bejelentkezés, a biztonsági védelem vagy a vásárlási folyamat hibás működését okozhatja. Adatkezelési kérdés esetén írjon az <a href="mailto:info@mesencsi.hu">info@mesencsi.hu</a> címre.</p>
             <div class="legal-meta">Dokumentumverzió: 2026-07-13 · Hatályos: 2026.07.13-tól visszavonásig</div>
-          </div>
+}          </div>
         </section>
       </main>
 
@@ -2050,6 +2092,9 @@
     <script src="/js/boot.js"></script>
     <script src="/js/storage.js"></script>
     <script src="/js/cookie-consent.js"></script>
+    <script src="/js/cookie-consent.js"></script>
+    <script src="/js/barion-pixel.js"></script>
+    <script src="/js/dom-utils.js"></script>
     <script src="/js/dom-utils.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/notify.js"></script>
