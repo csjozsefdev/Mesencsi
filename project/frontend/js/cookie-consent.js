@@ -1,7 +1,7 @@
 (() => {
   const ns = (window.Mesencsi = window.Mesencsi || {});
   const CONSENT_KEY = "mesencsi_cookie_consent_v1";
-  const POLICY_VERSION = "2026-06-14";
+  const POLICY_VERSION = "2026-07-13";
   const OPTIONAL_EXACT_KEYS = new Set([
     "mesencsi_user_profile_json",
     "mesencsi_selected_coupon",
