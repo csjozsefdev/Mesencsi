@@ -1,8 +1,8 @@
 # MESENCSI cookie and browser storage inventory
 
-Audit date: 2026-06-14
+Audit date: 2026-07-13
 
-Consent policy version: `2026-06-14`
+Consent policy version: `2026-07-13`
 
 This is a technical inventory. Legal purpose, legal basis, retention wording and third-party disclosures must be approved by legal counsel before production publication.
 
@@ -34,6 +34,8 @@ No analytics or marketing cookie was found in the audited source.
 
 | Key | Purpose | Category | Retention | Writer/reader | Consent behavior |
 | --- | --- | --- | --- | --- | --- |
+| `mesencsi_guest_checkout_token` | Links and authorizes the guest checkout flow | Necessary | Current browser tab session or earlier programmatic removal | `frontend/js/checkout.js` | Always allowed; required for guest checkout |
+| `mesencsi_guest_checkout_email` | Links the supplied guest e-mail address to the checkout/payment return flow | Necessary | Current browser tab session or earlier programmatic removal | `frontend/js/checkout.js` | Always allowed; required for guest checkout |
 | `mesencsi_barion_checkout_redirect` | Marks an in-progress Barion redirect so return/abandonment UX can be handled | Necessary | Current browser tab session | `frontend/js/checkout.js` | Always allowed because it is required for the payment transition |
 
 ## Other storage observations
@@ -48,9 +50,8 @@ No analytics or marketing cookie was found in the audited source.
 
 The footer link `Süti beállítások` reopens preferences. Selecting withdrawal stores a necessary-only decision and removes known functional keys and `mesencsi_cart_*` keys. It does not remove authentication or CSRF cookies because those are necessary and are managed through logout/session expiry.
 
-## Legal-counsel TODO
+## Review notes
 
-- Confirm the final category and legal basis for each item.
-- Approve retention descriptions and the policy-version change rule.
-- Confirm whether admin-only local storage needs separate staff-facing documentation.
-- Confirm the Barion data-transfer wording; Barion browser storage occurs on Barion-controlled pages and was outside this repository audit.
+- The public policy describes the categories, legal bases, retention behavior and the policy-version change rule reflected by the audited implementation.
+- Admin-only local storage is identified separately from the public storefront consent choice.
+- Barion browser storage occurs on Barion-controlled pages and remains outside this repository audit.
