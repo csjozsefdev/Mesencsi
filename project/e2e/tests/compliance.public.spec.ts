@@ -58,13 +58,23 @@ test.describe("Compliance storefront", () => {
     }
   });
 
-  test("ÁSZF renders the approved 2026-07-13 document", async ({ page }) => {
+  test("approved legal text is split across the matching legal pages", async ({ page }) => {
     await page.goto("/aszf");
     const terms = page.locator("#view-aszf");
     await expect(terms).toContainText("Hatályos: 2026.07.13-tól visszavonásig");
     await expect(terms).toContainText("A Szolgáltató nyilvántartási száma: 61964093");
-    await expect(terms).toContainText("Fogyasztóvédelem - Fogyasztói vita");
+    await expect(terms).toContainText("Kellékszavatosság");
+    await expect(terms).not.toContainText("Fogyasztóvédelem - Fogyasztói vita");
     await expect(terms.locator(".legal-placeholder")).toHaveCount(0);
+
+    await page.goto("/elallas");
+    await expect(page.locator("#view-elallas")).toContainText("Elállási jog");
+    await page.goto("/szallitas");
+    await expect(page.locator("#view-szallitas")).toContainText("Házhoz szállítás futárszolgálattal");
+    await page.goto("/fizetes");
+    await expect(page.locator("#view-fizetes")).toContainText("Barion Payment Zrt.");
+    await page.goto("/panaszkezeles");
+    await expect(page.locator("#view-panaszkezeles")).toContainText("Fogyasztóvédelem - Fogyasztói vita");
   });
 
   test("registration and checkout compliance controls are wired", async ({ page }) => {
