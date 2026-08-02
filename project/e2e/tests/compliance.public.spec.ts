@@ -58,6 +58,15 @@ test.describe("Compliance storefront", () => {
     }
   });
 
+  test("ÁSZF renders the approved 2026-07-13 document", async ({ page }) => {
+    await page.goto("/aszf");
+    const terms = page.locator("#view-aszf");
+    await expect(terms).toContainText("Hatályos: 2026.07.13-tól visszavonásig");
+    await expect(terms).toContainText("A Szolgáltató nyilvántartási száma: 61964093");
+    await expect(terms).toContainText("Fogyasztóvédelem - Fogyasztói vita");
+    await expect(terms.locator(".legal-placeholder")).toHaveCount(0);
+  });
+
   test("registration and checkout compliance controls are wired", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#regTermsAccepted")).toHaveAttribute("required", "");
