@@ -79,3 +79,30 @@ def test_storybook_page_image_layout_persists(client: TestClient) -> None:
     pub_page = pub.json()["pages"][0]
     assert pub_page["image_x_percent"] == 12.5
     assert pub_page["image_width_percent"] == 70.0
+
+    # Regresszió: két oldal felcserélése nem sértheti az egyedi indexet.
+    db = SessionLocal()
+    try:
+        second_page = DigitalStorybookPage(
+            book_id=book_id,
+            page_index=2,
+            title="Második lap",
+            body_text="Második oldal",
+        )
+        db.add(second_page)
+        db.commit()
+        db.refresh(second_page)
+        second_page_id = int(second_page.id)
+    finally:
+        db.close()
+
+    reordered = client.post(
+        f"/admin/storybooks/{book_id}/pages/reorder",
+        json={"ordered_page_ids": [second_page_id, page_id]},
+        headers=headers,
+    )
+    assert reordered.status_code == 200, reordered.text
+
+    reordered_pages = reordered.json().get("pages") or []
+    assert [page["id"] for page in reordered_pages] == [second_page_id, page_id]
+    assert [page["page_index"] for page in reordered_pages] == [1, 2]

@@ -404,8 +404,17 @@ def admin_reorder_storybook_pages(
             detail="A sorrendhez minden oldal azonosítóját pontosan egyszer add meg.",
         )
     index_map = {pid: i for i, pid in enumerate(ordered, start=1)}
-    for p in existing:
-        p.page_index = index_map[p.id]
+
+    # Kétfázisú átsorszámozás: először minden oldal biztosan szabad,
+    # ideiglenes indexet kap. Így az (book_id, page_index) UNIQUE
+    # korlátozás oldalcsere közben sem sérül.
+    temporary_base = max((p.page_index for p in existing), default=0) + 1
+    for offset, page in enumerate(existing):
+        page.page_index = temporary_base + offset
+    db.flush()
+
+    for page in existing:
+        page.page_index = index_map[page.id]
     db.commit()
     book = find_digital_storybook(db, book_id)
     pages = _load_pages(db, book.id)
