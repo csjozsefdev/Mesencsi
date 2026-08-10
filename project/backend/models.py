@@ -36,7 +36,7 @@ class ProductCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str = Field(..., min_length=1, max_length=255)
-    price: int = Field(..., ge=0)
+    price: int = Field(..., ge=0, le=2_147_483_647)
     description: str = Field(default="", max_length=2000)
 
 
@@ -44,7 +44,7 @@ class ProductUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str | None = Field(None, min_length=1, max_length=255)
-    price: int | None = Field(None, ge=0)
+    price: int | None = Field(None, ge=0, le=2_147_483_647)
     description: str | None = Field(None, max_length=2000)
 
 
