@@ -33,6 +33,15 @@ def test_security_headers_on_storefront_html(client: TestClient) -> None:
     _assert_security_headers(r)
 
 
+def test_csp_allows_barion_base_pixel_channels(client: TestClient) -> None:
+    r = client.get("/")
+    csp = r.headers.get("content-security-policy") or ""
+    assert "script-src 'self' 'unsafe-inline' https://pixel.barion.com" in csp
+    assert "frame-src 'self' https://pixel.barion.com" in csp
+    assert "img-src 'self' data: https: https://pixel.barion.com" in csp
+    assert "connect-src 'self' https: https://pixel.barion.com" in csp
+
+
 def test_security_headers_on_not_found(client: TestClient) -> None:
     r = client.get("/__mesencsi_security_headers_missing_route__")
     assert r.status_code == 404, r.text
