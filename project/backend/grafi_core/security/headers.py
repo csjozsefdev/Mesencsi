@@ -25,10 +25,11 @@ SECURITY_HEADER_VALUES: dict[str, str] = {
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "form-action 'self'; "
-        "img-src 'self' data: https:; "
-        "script-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https: https://pixel.barion.com; "
+        "script-src 'self' 'unsafe-inline' https://pixel.barion.com; "
         "style-src 'self' 'unsafe-inline'; "
-        "connect-src 'self' https:;"
+        "connect-src 'self' https: https://pixel.barion.com; "
+        "frame-src 'self' https://pixel.barion.com;"
     ),
 }
 

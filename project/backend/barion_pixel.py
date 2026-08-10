@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 
-_PIXEL_ID_RE = re.compile(r"^BP-[\w-]+$")
+_PIXEL_ID_RE = re.compile(r"^BP-[A-Za-z0-9]{10}-[0-9]{2}$")
 _BARION_PIXEL_SLOT = "<!-- BARION_PIXEL_SLOT -->"
 _BACKEND = Path(__file__).resolve().parent
 _FRONTEND = _BACKEND.parent / "frontend"
@@ -42,9 +42,9 @@ def barion_pixel_markup(pixel_id: str) -> str:
     scriptElement.src = "https://pixel.barion.com/bp.js";
     firstScript.parentNode.insertBefore(scriptElement, firstScript);
 
-    window["barion_pixel_id"] = "{pixel_id}";
+    window['barion_pixel_id'] = '{pixel_id}';
 
-    bp("init", "addBarionPixelId", window["barion_pixel_id"]);
+    bp('init', 'addBarionPixelId', window['barion_pixel_id']);
 </script>
 <noscript>
     <img height="1" width="1" style="display:none" alt="Barion Pixel"
