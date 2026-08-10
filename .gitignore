@@ -1,0 +1,5 @@
+
+# Local credentials and operational backups
+project/e2e/.env
+project/backend/.env.save
+backups/
