@@ -36,5 +36,6 @@
   }
 
   // Base Pixel inicializálás.
-  window.bp("init", "addBarionPixelId", PIXEL_ID);
+  window['barion_pixel_id'] = PIXEL_ID;
+  bp('init', 'addBarionPixelId', window['barion_pixel_id']);
 })();

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="hu">
   <head>
+    <script src="/js/barion-pixel.js"></script>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -18,6 +19,10 @@
     <script src="/password-toggle.js"></script>
   </head>
   <body data-testid="storefront">
+    <noscript data-barion-base-pixel>
+      <img height="1" width="1" style="display:none" alt="Barion Pixel"
+        src="https://pixel.barion.com/a.gif?ba_pixel_id=BP-D1brwkHbMw-99&ev=contentView&noscript=1" />
+    </noscript>
     <!--
     Hivatalos fejlesztői megnyitás: FastAPI (backend/run.bat) → http://127.0.0.1:8000/
     Így a relatív /admin linkek ugyanarra az originre mutatnak, ahol az API is fut.
@@ -2093,7 +2098,6 @@
     <script src="/js/storage.js"></script>
     <script src="/js/cookie-consent.js"></script>
     <script src="/js/cookie-consent.js"></script>
-    <script src="/js/barion-pixel.js"></script>
     <script src="/js/dom-utils.js"></script>
     <script src="/js/dom-utils.js"></script>
     <script src="/js/api.js"></script>
