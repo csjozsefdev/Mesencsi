@@ -1,4 +1,4 @@
-"""Smoke tests: API/admin/media routes must register before frontend StaticFiles catch-all."""
+﻿"""Smoke tests: API/admin/media routes must register before frontend StaticFiles catch-all."""
 
 from __future__ import annotations
 
@@ -15,16 +15,26 @@ def _mount_index(name: str) -> int:
 
 
 def _paths_before_mount(mount_name: str) -> list[str]:
-    """Collect Route.path values registered before the named mount."""
+    """Collect paths registered before the named static mount."""
     stop = _mount_index(mount_name)
     paths: list[str] = []
-    for route in app.routes[:stop]:
-        if isinstance(route, Route):
-            paths.append(route.path)
-        elif isinstance(route, Mount) and route.path:
-            paths.append(route.path.rstrip("/") or route.path)
-    return paths
 
+    for route in app.routes[:stop]:
+        path_value = getattr(route, "path", None)
+        if isinstance(path_value, str):
+            paths.append(path_value)
+
+        original_router = getattr(route, "original_router", None)
+        if original_router is not None:
+            context = getattr(route, "include_context", None)
+            prefix = getattr(context, "prefix", "") or ""
+
+            for child in original_router.routes:
+                child_path = getattr(child, "path", None)
+                if isinstance(child_path, str):
+                    paths.append(f"{prefix}{child_path}")
+
+    return paths
 
 def test_openapi_and_docs_available() -> None:
     from fastapi.testclient import TestClient
@@ -92,7 +102,7 @@ def test_admin_html_and_api_login_distinct() -> None:
         assert dashboard.status_code == 200, dashboard.text
         assert "text/html" in dashboard.headers.get("content-type", "")
 
-        # POST /admin/login is the API — must not 404 (static catch-all swallowing).
+        # POST /admin/login is the API â€” must not 404 (static catch-all swallowing).
         api_login = client.post("/admin/login", json={})
         assert api_login.status_code != 404
         assert api_login.status_code in (422, 401)

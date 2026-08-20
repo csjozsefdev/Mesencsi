@@ -27,7 +27,6 @@ def _checkout_order_body(customer_name: str, items: list[dict], **extra: object)
         "shipping_method": "personal_pickup",
         "terms_accepted": True,
         "privacy_acknowledged": True,
-	 origin/main
         "company_website": "",
     }
     body.update(extra)

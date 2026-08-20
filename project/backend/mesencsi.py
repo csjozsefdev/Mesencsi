@@ -526,7 +526,6 @@ def create_order(
 
     checkout_group_id = str(uuid.uuid4())
     accepted_at = datetime.now(UTC)
-    origin/main
     order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
     for pl in priced.lines:

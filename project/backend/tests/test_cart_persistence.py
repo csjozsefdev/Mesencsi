@@ -96,7 +96,6 @@ def test_create_order_does_not_clear_server_cart() -> None:
             "terms_accepted": True,
             "privacy_acknowledged": True,
             "company_website": "",
-        origin/main
         },
     )
     assert r2.status_code == 201, r2.text
