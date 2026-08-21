@@ -2409,6 +2409,7 @@
             </div>
             <div class="sb-creator-topbar-actions">
               <button type="button" class="btn btn-sm btn-ghost" id="btnSbPickCover" title="Borítókép">Borító</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btnSbRemoveCover" title="Borítókép törlése">Borító törlése</button>
               <button type="button" class="btn btn-sm" id="btnSbSaveBook">Mentés</button>
               <input type="file" id="sbCoverFile" accept="image/*" hidden />
             </div>
@@ -2519,13 +2520,24 @@
                   Szöveg keret stílusa
                   <select id="sbPropsTextBoxStyle" aria-label="Szöveg keret stílusa"></select>
                 </label>
+                <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
                 <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
               </section>
 
               <section class="sb-props-section">
                 <h5 class="sb-props-heading">Illusztráció</h5>
+                <label class="admin-field" id="sbPropsImagePlacementField" hidden>
+                  Kép elhelyezése
+                  <select id="sbPropsImagePlacement" aria-label="Kép elhelyezése">
+                    <option value="left">Balra</option>
+                    <option value="right" selected>Jobbra</option>
+                    <option value="above">Szöveg felett</option>
+                    <option value="below">Szöveg alatt</option>
+                  </select>
+                </label>
                 <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
                 <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
+                <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
               </section>
 
               <section class="sb-props-section">
@@ -2758,19 +2770,6 @@
         const SB_EDITOR_MOBILE_MSG =
           "Mesekönyv szerkesztéséhez kérlek használj tabletet vagy számítógépet.";
 
-        const SB_TEXT_BOX_OPTIONS = [
-          { id: "card", label: "Sima kártya" },
-          { id: "rounded", label: "Lekerekített doboz" },
-          { id: "cloud", label: "Felhő" },
-          { id: "bubble", label: "Buborék" },
-          { id: "parchment", label: "Pergamen" },
-          { id: "letter", label: "Levél" },
-          { id: "star", label: "Csillag" },
-          { id: "storyboard", label: "Mosetábla" },
-          { id: "bookpage", label: "Könyvlap" },
-          { id: "magic_frame", label: "Varázskeret" },
-        ];
-
         function sbExitCustomTextPercentLocal() {
           const stage = $("sbCanvasTextStage");
           const wrap = $("sbCanvasTextBoxWrap");
@@ -2838,14 +2837,6 @@
           return Math.abs(pair.x - sx) > 0.35 || Math.abs(pair.y - sy) > 0.35;
         }
 
-        function sbFillTextBoxStyleSelect() {
-          const sel = $("sbPropsTextBoxStyle");
-          if (!sel || sel.options.length) return;
-          sel.innerHTML = SB_TEXT_BOX_OPTIONS.map(
-            (o) => '<option value="' + o.id + '">' + escapeHtml(o.label) + "</option>"
-          ).join("");
-        }
-
         function sbApplyCanvasTextLayoutFromPage(p, opts) {
           const preserveBody = opts && opts.preserveBody;
           const stage = $("sbCanvasTextStage");
@@ -2886,10 +2877,8 @@
           box.className = "sb-text-box " + SBR.boxStyleClass(n.style);
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
           if (sv) sv.value = n.v;
           if (sh) sh.value = n.h;
-          if (ss) ss.value = n.style;
           if (!preserveBody) {
             const tx = $("sbCanvasText");
             const hid = $("sbCurPageBody");
@@ -2904,28 +2893,17 @@
           const box = $("sbCanvasTextBox");
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
-          if (!stage || !box || !sv || !sh || !ss) return;
+          if (!stage || !box || !sv || !sh) return;
           const v =
             sv.value === "top" || sv.value === "bottom" || sv.value === "center" ? sv.value : "center";
           const h =
             sh.value === "left" || sh.value === "right" || sh.value === "center" ? sh.value : "center";
-          const st = SB_TEXT_BOX_OPTIONS.some((x) => x.id === ss.value) ? ss.value : "card";
           if (!stage.classList.contains("sb-text-stage--overlay")) {
             stage.className = "sb-canvas-text-stage sb-pos-v-" + v + " sb-pos-h-" + h;
           }
-          box.className = "sb-text-box " + SBR.boxStyleClass(st);
           if (stage.classList.contains("sb-text-stage--overlay")) {
             requestAnimationFrame(() => sbRefineWrapPercentLayout());
           }
-        }
-
-        function sbApplyCanvasTextBoxStyleFromSelect() {
-          const box = $("sbCanvasTextBox");
-          const ss = $("sbPropsTextBoxStyle");
-          if (!box || !ss) return;
-          const st = SB_TEXT_BOX_OPTIONS.some((x) => x.id === ss.value) ? ss.value : "card";
-          box.className = "sb-text-box " + SBR.boxStyleClass(st);
         }
 
         function sbPageLayoutDirtyVsServer() {
@@ -2935,9 +2913,8 @@
           const n = SBR.normPageLayout(p);
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
-          if (!sv || !sh || !ss) return false;
-          return sv.value !== n.v || sh.value !== n.h || ss.value !== n.style;
+          if (!sv || !sh) return false;
+          return sv.value !== n.v || sh.value !== n.h;
         }
 
         function sbAdminPanelOpts() {
@@ -3132,7 +3109,6 @@
           const schedule = () => sbSchedulePageAutosave();
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
           const onVH = () => {
             sbExitCustomTextPercentLocal();
             sbApplyCanvasTextLayoutFromControls();
@@ -3145,19 +3121,6 @@
           if (sh && sh.dataset.sbLayWired !== "1") {
             sh.dataset.sbLayWired = "1";
             sh.addEventListener("change", onVH);
-          }
-          if (ss && ss.dataset.sbLayWired !== "1") {
-            ss.dataset.sbLayWired = "1";
-            ss.addEventListener("change", () => {
-              const stage = $("sbCanvasTextStage");
-              if (stage && stage.classList.contains("sb-text-stage--overlay")) {
-                sbApplyCanvasTextBoxStyleFromSelect();
-                requestAnimationFrame(() => sbRefineWrapPercentLayout());
-              } else {
-                sbApplyCanvasTextLayoutFromControls();
-              }
-              schedule();
-            });
           }
         }
 
@@ -4893,16 +4856,16 @@
           const pk = $("sbPropsPageBg");
           if (pk) pk.value = "#faf6f0";
           sbRenderCanvasImage($("sbCanvasImageSlot"), "");
+          sbApplyImagePlacementFromPage(null);
           const audSt = $("sbCurPageAudStatus");
           if (audSt) audSt.textContent = "Nincs feltöltve hang.";
           const sv = $("sbPropsTextPosV");
           const sh = $("sbPropsTextPosH");
-          const ss = $("sbPropsTextBoxStyle");
           if (sv) sv.value = "center";
           if (sh) sh.value = "center";
-          if (ss) ss.value = "card";
           sbExitCustomTextPercentLocal();
           sbApplyCanvasTextLayoutFromControls();
+          sbUpdateCharCounter();
           sbUpdateEditorBadge();
         }
 
@@ -4973,17 +4936,309 @@
           return { ...base, ...patch };
         }
 
-        function sbRenderCanvasImage(slotEl, url) {
-          if (!slotEl) return;
+        function sbDefaultImageLayout() {
+          return { x: 10, y: 6, w: 80, h: 34 };
+        }
+
+        function sbImageLayoutFromPage(p) {
+          if (!p || !SBR || !SBR.pageHasCustomImageLayout(p)) return null;
+          return {
+            x: SBR.parsePercent(p.image_x_percent),
+            y: SBR.parsePercent(p.image_y_percent),
+            w: SBR.parsePercent(p.image_width_percent),
+            h: SBR.parsePercent(p.image_height_percent),
+          };
+        }
+
+        function sbEditorImageLayoutForPage(p) {
+          const saved = sbImageLayoutFromPage(p);
+          if (saved) return saved;
+          if (((p && p.image_url) || "").trim()) return sbDefaultImageLayout();
+          return null;
+        }
+
+        function sbWriteImageLayoutToFrame(frame, layout) {
+          if (!frame || !layout) return;
+          frame.style.left = layout.x + "%";
+          frame.style.top = layout.y + "%";
+          frame.style.width = layout.w + "%";
+          frame.style.height = (layout.h != null ? layout.h : sbDefaultImageLayout().h) + "%";
+          frame.dataset.sbXp = String(layout.x);
+          frame.dataset.sbYp = String(layout.y);
+          frame.dataset.sbWp = String(layout.w);
+          frame.dataset.sbHp = String(layout.h != null ? layout.h : sbDefaultImageLayout().h);
+        }
+
+        function sbUiImageLayoutPair() {
+          const frame = $("sbCanvasImageFrame");
+          if (!frame || frame.hidden || frame.dataset.sbXp == null) return null;
+          const x = parseFloat(frame.dataset.sbXp);
+          const y = parseFloat(frame.dataset.sbYp);
+          const w = parseFloat(frame.dataset.sbWp);
+          const h = parseFloat(frame.dataset.sbHp);
+          if (![x, y, w, h].every(Number.isFinite)) return null;
+          return { x: x, y: y, w: w, h: h };
+        }
+
+        function sbImageLayoutDirtyVsServer() {
+          if (!sbDetail || !sbSelectedPageId) return false;
+          const p = (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId);
+          if (!p || !(p.image_url || "").trim()) return false;
+          const frameEl = $("sbCanvasImageFrame");
+          // Only a real drag/resize interaction on THIS page load should promote it into
+          // custom/advanced layout — merely displaying the default preview position (done
+          // by sbRenderCanvasImage for every image, simple-placement pages included) must not.
+          if (!frameEl || frameEl.dataset.sbUserPositioned !== "1") return false;
+          const ui = sbUiImageLayoutPair();
+          if (!ui) return false;
+          const saved = sbImageLayoutFromPage(p);
+          if (!saved) return true;
+          const tol = 0.35;
+          return (
+            Math.abs(ui.x - saved.x) > tol ||
+            Math.abs(ui.y - saved.y) > tol ||
+            Math.abs(ui.w - saved.w) > tol ||
+            Math.abs(ui.h - (saved.h != null ? saved.h : sbDefaultImageLayout().h)) > tol
+          );
+        }
+
+        function sbClampImageLayout(inner, layout) {
+          const wPct = Math.min(92, Math.max(8, Number(layout.w) || sbDefaultImageLayout().w));
+          const hPct = Math.min(88, Math.max(8, Number(layout.h) || sbDefaultImageLayout().h));
+          let x = Number(layout.x);
+          let y = Number(layout.y);
+          if (!Number.isFinite(x)) x = sbDefaultImageLayout().x;
+          if (!Number.isFinite(y)) y = sbDefaultImageLayout().y;
+          x = Math.min(100 - wPct, Math.max(0, x));
+          y = Math.min(100 - hPct, Math.max(0, y));
+          return { x: x, y: y, w: wPct, h: hPct };
+        }
+
+        function sbEnsureImageFrameChrome(frame) {
+          if (!frame || frame.dataset.sbFrameWired === "1") return;
+          frame.dataset.sbFrameWired = "1";
+          frame.innerHTML =
+            '<img alt="" draggable="false" />' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--nw" data-sb-resize="nw" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--ne" data-sb-resize="ne" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--sw" data-sb-resize="sw" aria-hidden="true"></span>' +
+            '<span class="sb-image-resize-handle sb-image-resize-handle--se" data-sb-resize="se" aria-hidden="true"></span>';
+          const img = frame.querySelector("img");
+          if (img) {
+            img.addEventListener("load", function () {
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                frame.dataset.sbAspect = String(img.naturalWidth / img.naturalHeight);
+              }
+            });
+          }
+        }
+
+        function sbSelectCanvasImage(selected) {
+          const frame = $("sbCanvasImageFrame");
+          if (!frame) return;
+          frame.classList.toggle("is-selected", !!selected);
+        }
+
+        function sbRenderCanvasImage(_slotEl, url) {
+          const layer = $("sbCanvasImageLayer");
+          const frame = $("sbCanvasImageFrame");
+          const placeholder = $("sbCanvasImagePlaceholder");
           const s = (url || "").trim();
+          if (!frame || !layer) return;
+          delete frame.dataset.sbUserPositioned;
           if (!s) {
             slotEl.classList.remove("has-image");
             slotEl.innerHTML =
               '<div class="sb-canvas-image-placeholder"><span>Illusztráció nélkül — tölts fel a jobb oldalról</span></div>';
             return;
           }
-          slotEl.classList.add("has-image");
-          slotEl.innerHTML = '<img src="' + escapeHtml(sbAbsAssetUrl(s)) + '" alt="" />';
+          if (placeholder) placeholder.hidden = true;
+          sbEnsureImageFrameChrome(frame);
+          const img = frame.querySelector("img");
+          const abs = sbAbsAssetUrl(s);
+          if (img) img.src = abs;
+          frame.hidden = false;
+          const p = sbDetail && sbSelectedPageId
+            ? (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId)
+            : null;
+          sbWriteImageLayoutToFrame(frame, sbEditorImageLayoutForPage(p || { image_url: s }));
+          sbSelectCanvasImage(false);
+        }
+
+        function sbWireImageFrameOnce() {
+          const inner = $("sbCanvasPageInner");
+          const frame = $("sbCanvasImageFrame");
+          if (!inner || !frame || frame.dataset.sbInteractWired === "1") return;
+          frame.dataset.sbInteractWired = "1";
+          let drag = null;
+
+          const layoutFromFrameRect = () => {
+            const w = inner.clientWidth || 1;
+            const h = inner.clientHeight || 1;
+            const left = parseFloat(frame.style.left) || sbDefaultImageLayout().x;
+            const top = parseFloat(frame.style.top) || sbDefaultImageLayout().y;
+            const width = parseFloat(frame.style.width) || sbDefaultImageLayout().w;
+            const height = parseFloat(frame.style.height) || sbDefaultImageLayout().h;
+            return sbClampImageLayout(inner, { x: left, y: top, w: width, h: height });
+          };
+
+          const onMove = (e) => {
+            if (!drag || e.pointerId !== drag.pid) return;
+            if (!sbStorybookEditorViewportOk()) return;
+            const ir = inner.getBoundingClientRect();
+            const mx = e.clientX - ir.left;
+            const my = e.clientY - ir.top;
+            if (drag.mode === "move") {
+              const cw = inner.clientWidth || 1;
+              const ch = inner.clientHeight || 1;
+              const layout = sbClampImageLayout(inner, {
+                x: (mx / cw) * 100 - drag.offX,
+                y: (my / ch) * 100 - drag.offY,
+                w: drag.w,
+                h: drag.h,
+              });
+              sbWriteImageLayoutToFrame(frame, layout);
+              return;
+            }
+            const dx = mx - drag.startMx;
+            const dy = my - drag.startMy;
+            const cw = inner.clientWidth || 1;
+            const ch = inner.clientHeight || 1;
+            let wPct = drag.startW + (dx / cw) * 100 * (drag.signX || 1);
+            wPct = Math.min(92, Math.max(8, wPct));
+            let hPct = drag.startH;
+            if (drag.freeResize) {
+              hPct = drag.startH + (dy / ch) * 100 * (drag.signY || 1);
+            } else if (frame.dataset.sbAspect) {
+              const aspect = parseFloat(frame.dataset.sbAspect) || 1;
+              hPct = wPct * (cw / ch) / aspect;
+            } else {
+              hPct = drag.startH + (dy / ch) * 100 * (drag.signY || 1);
+            }
+            const layout = sbClampImageLayout(inner, {
+              x: drag.startX,
+              y: drag.startY,
+              w: wPct,
+              h: hPct,
+            });
+            sbWriteImageLayoutToFrame(frame, layout);
+          };
+
+          const endDrag = (e) => {
+            if (!drag || e.pointerId !== drag.pid) return;
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", endDrag);
+            document.removeEventListener("pointercancel", endDrag);
+            frame.classList.remove("is-dragging");
+            drag = null;
+            sbSchedulePageAutosave();
+          };
+
+          inner.addEventListener("pointerdown", (e) => {
+            if (e.target === inner) sbSelectCanvasImage(false);
+          });
+
+          frame.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            if (!sbStorybookEditorViewportOk()) return;
+            frame.dataset.sbUserPositioned = "1";
+            const handle = e.target.closest("[data-sb-resize]");
+            sbSelectCanvasImage(true);
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              (handle || frame).setPointerCapture(e.pointerId);
+            } catch (_) {
+              /* */
+            }
+            const cur = layoutFromFrameRect();
+            const ir = inner.getBoundingClientRect();
+            const mx = e.clientX - ir.left;
+            const my = e.clientY - ir.top;
+            if (handle) {
+              const corner = handle.getAttribute("data-sb-resize") || "se";
+              const signX = corner.indexOf("e") >= 0 ? 1 : -1;
+              const signY = corner.indexOf("s") >= 0 ? 1 : -1;
+              drag = {
+                pid: e.pointerId,
+                mode: "resize",
+                startMx: mx,
+                startMy: my,
+                startX: cur.x,
+                startY: cur.y,
+                startW: cur.w,
+                startH: cur.h,
+                signX: signX,
+                signY: signY,
+                freeResize: !!e.shiftKey,
+              };
+            } else {
+              const cw = inner.clientWidth || 1;
+              const ch = inner.clientHeight || 1;
+              drag = {
+                pid: e.pointerId,
+                mode: "move",
+                w: cur.w,
+                h: cur.h,
+                offX: (mx / cw) * 100 - cur.x,
+                offY: (my / ch) * 100 - cur.y,
+              };
+            }
+            frame.classList.add("is-dragging");
+            document.addEventListener("pointermove", onMove);
+            document.addEventListener("pointerup", endDrag);
+            document.addEventListener("pointercancel", endDrag);
+          });
+        }
+
+        function sbApplyImagePlacementFromPage(p) {
+          const field = $("sbPropsImagePlacementField");
+          const removeBtn = $("btnSbCurPageRemoveImg");
+          const sel = $("sbPropsImagePlacement");
+          const hasImage = !!((p && p.image_url) || "").trim();
+          if (field) field.hidden = !hasImage;
+          if (removeBtn) removeBtn.hidden = !hasImage;
+          if (sel && hasImage) {
+            const placement = SBR.normImagePlacement(p);
+            sel.value = placement === "none" ? "right" : placement;
+          }
+        }
+
+        function sbCurrentPage() {
+          if (!sbDetail || !sbSelectedPageId) return null;
+          return (sbDetail.pages || []).find((x) => x.id === sbSelectedPageId) || null;
+        }
+
+        function sbCurrentPageHasImage() {
+          const p = sbCurrentPage();
+          return !!((p && p.image_url) || "").trim();
+        }
+
+        // Simple, safe placement pages get the measured 600/150 character limit.
+        // Pages using the free-position ("advanced") drag/resize system are
+        // unrestricted, matching that this is an owner-chosen escape hatch.
+        function sbCurrentPageUsesAdvancedLayout() {
+          const p = sbCurrentPage();
+          if (!p) return false;
+          return SBR.pageHasCustomImageLayout(p) || SBR.pageHasCustomDragPos(p) || sbUiHasCustomTextOverlay();
+        }
+
+        function sbUpdateCharCounter() {
+          const counter = $("sbCurPageCharCounter");
+          const tx = $("sbCanvasText");
+          if (!counter || !tx) return;
+          const len = (tx.textContent || "").length;
+          if (sbCurrentPageUsesAdvancedLayout()) {
+            counter.textContent = len + " karakter (speciális elrendezésben nincs korlát)";
+            counter.style.color = "";
+            counter.style.fontWeight = "";
+            return;
+          }
+          const limit = SBR.storybookPageTextLimit(sbCurrentPageHasImage());
+          const over = len >= limit;
+          counter.textContent = len + " / " + limit;
+          counter.style.color = over ? "var(--danger)" : "";
+          counter.style.fontWeight = over ? "700" : "";
         }
 
         function sbApplyPageToCanvas(p) {
@@ -4997,10 +5252,12 @@
           const pk = $("sbPropsPageBg");
           if (pk) pk.value = bg;
           sbRenderCanvasImage(slot, p.image_url);
+          sbApplyImagePlacementFromPage(p);
           const txt = p.body_text || "";
           if (tx) tx.textContent = txt;
           if (hid) hid.value = txt;
           sbApplyCanvasTextLayoutFromPage(p);
+          sbUpdateCharCounter();
         }
 
         function sbSyncCanvasToHidden() {
@@ -5013,7 +5270,16 @@
             tx.textContent = t;
             showToast("A szöveg elérte a maximális hosszot (50 000 karakter).", "err");
           }
+          if (!sbCurrentPageUsesAdvancedLayout()) {
+            const limit = SBR.storybookPageTextLimit(sbCurrentPageHasImage());
+            if (t.length > limit) {
+              t = t.slice(0, limit);
+              tx.textContent = t;
+              showToast("Az oldal elérte a maximális szöveghosszt. A történetet folytasd egy új oldalon.", "err");
+            }
+          }
           hid.value = t;
+          sbUpdateCharCounter();
         }
 
         function sbSchedulePageAutosave() {
@@ -6126,6 +6392,25 @@
             showToast(humanError(e), "err");
           }
         });
+        $("btnSbRemoveCover").addEventListener("click", async () => {
+          if (!me || me.role !== "owner") return;
+          const id = parseInt($("sbBookId").value, 10);
+          if (!Number.isFinite(id)) return;
+          const cur = ($("sbCoverUrl").value || "").trim();
+          if (!cur) {
+            showToast("Nincs beállított borítókép.", "err");
+            return;
+          }
+          if (!confirm("Biztosan törlöd a borítóképet?")) return;
+          try {
+            sbDetail = await auth.api("/admin/storybooks/" + id + "/cover", { method: "DELETE" });
+            $("sbCoverUrl").value = sbDetail.cover_image_url || "";
+            sbRenderCoverThumbMount(sbDetail.cover_image_url, $("sbCoverPreview"));
+            showToast("Borító törölve.", "ok");
+          } catch (e) {
+            showToast(humanError(e), "err");
+          }
+        });
 
         async function sbSaveCurrentPageIfDirty(opts) {
           const quiet = opts && opts.quiet;
@@ -6171,10 +6456,12 @@
           if (forceFull || layoutChanged) {
             const sv = $("sbPropsTextPosV");
             const sh = $("sbPropsTextPosH");
-            const ss = $("sbPropsTextBoxStyle");
             if (sv) payload.text_position_vertical = sv.value;
             if (sh) payload.text_position_horizontal = sh.value;
-            if (ss) payload.text_box_style = ss.value;
+          }
+          if (forceFull && (pSaved.image_url || "").trim()) {
+            const placementSel = $("sbPropsImagePlacement");
+            if (placementSel) payload.image_placement = placementSel.value;
           }
           if (forceFull || tDirty) {
             const pr = sbUiTextPercentPair();
@@ -6304,6 +6591,58 @@
             if (!confirm("Van már hang ezen az oldalon. Lecseréled?")) return;
           }
           $("sbCurPageAudFile").click();
+        });
+        $("sbPropsImagePlacement").addEventListener("change", async () => {
+          if (!me || me.role !== "owner") return;
+          const bookId = parseInt($("sbBookId").value, 10);
+          const pageId = sbSelectedPageId;
+          const sel = $("sbPropsImagePlacement");
+          if (!Number.isFinite(bookId) || !Number.isFinite(pageId) || !sel) return;
+          const pSaved = sbCurrentPage();
+          const wasCustom = pSaved && SBR.pageHasCustomImageLayout(pSaved);
+          const payload = { image_placement: sel.value };
+          if (wasCustom) {
+            payload.image_x_percent = null;
+            payload.image_y_percent = null;
+            payload.image_width_percent = null;
+            payload.image_height_percent = null;
+          }
+          try {
+            sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + pageId, {
+              method: "PATCH",
+              body: JSON.stringify(payload),
+            });
+            const pNew = (sbDetail.pages || []).find((x) => x.id === pageId);
+            if (pNew) {
+              sbRenderCanvasImage(null, pNew.image_url);
+              sbApplyImagePlacementFromPage(pNew);
+              sbUpdateCharCounter();
+            }
+            showToast("Kép elhelyezése mentve.", "ok");
+          } catch (e) {
+            showToast(humanError(e), "err");
+          }
+        });
+        $("btnSbCurPageRemoveImg").addEventListener("click", async () => {
+          if (!me || me.role !== "owner") return;
+          const bookId = parseInt($("sbBookId").value, 10);
+          const pageId = sbSelectedPageId;
+          if (!Number.isFinite(bookId) || !Number.isFinite(pageId)) return;
+          if (!confirm("Biztosan eltávolítod az illusztrációt erről az oldalról?")) return;
+          try {
+            sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + pageId + "/image", {
+              method: "DELETE",
+            });
+            const pNew = (sbDetail.pages || []).find((x) => x.id === pageId);
+            if (pNew) {
+              sbRenderCanvasImage(null, pNew.image_url);
+              sbApplyImagePlacementFromPage(pNew);
+              sbUpdateCharCounter();
+            }
+            showToast("Kép eltávolítva.", "ok");
+          } catch (e) {
+            showToast(humanError(e), "err");
+          }
         });
 
         $("sbEditorRoot").addEventListener("click", async (e) => {
@@ -6465,7 +6804,6 @@
           configureRoleUi();
           initOrdersMountListeners();
           wireSbPageNavDnD();
-          sbFillTextBoxStyleSelect();
           wireSbReaderAndLayoutControls();
           wireSbCanvasLayoutSelects();
           sbWireTextBoxDragOnce();
