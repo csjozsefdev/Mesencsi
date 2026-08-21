@@ -28,21 +28,12 @@
     return deps.isShopUserLoggedIn ? !!deps.isShopUserLoggedIn() : false;
   }
 
-  function setAuthLine(el, text, ok) {
-    if (deps.setAuthLine) return deps.setAuthLine(el, text, ok);
-  }
-
   function hide(el) {
     if (deps.hide) return deps.hide(el);
   }
 
   function showView(name) {
     if (deps.closeUserAccountPanelsOnly) deps.closeUserAccountPanelsOnly();
-    if (name === "storybooks" && !isLoggedIn()) {
-      setAuthLine($("loginMsg"), deps.MSG_STORYBOOKS_AUTH, false);
-      showView("home");
-      return;
-    }
 
     if (name !== "home") {
       try {
@@ -149,14 +140,6 @@
       el.addEventListener("click", () => {
         const v = el.getAttribute("data-view");
         if (!v) return;
-        if (v === "storybooks" && !isLoggedIn()) {
-          setAuthLine($("loginMsg"), deps.MSG_STORYBOOKS_AUTH, false);
-          try {
-            const le = $("loginEmail");
-            if (le) le.focus();
-          } catch (_) {}
-          return;
-        }
         try {
           history.pushState({ view: v }, "", "/");
         } catch (_) {}

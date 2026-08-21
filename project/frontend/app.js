@@ -777,8 +777,6 @@ function getStoredCheckoutCoupon() {
 
 const MSG_WEBSHOP_AUTH = "A webshop használatához kérlek jelentkezz be.";
 const MSG_PURCHASE_AUTH = "A vásárláshoz kérlek jelentkezz be.";
-const MSG_STORYBOOKS_AUTH =
-  "A mesekönyvek megtekintéséhez kérlek jelentkezz be.";
 const MSG_EMPTY_PUBLIC = "Jelenleg nincs megjeleníthető tartalom.";
 
 /** Lebegő kosár FAB: rejtve a kosár/checkout nézetben (checkout a view-cart alatt van). */
@@ -788,7 +786,8 @@ function syncCartFabVisibility() {
 }
 
 /**
- * Purchase gates: storybooks require login; webshop/cart are public.
+ * Purchase gates: webshop/cart/storybooks are all public; "stories" (Termékek)
+ * is a logged-out-only browsing view (cart lives under Webshop once logged in).
  */
 function applyPurchaseGates() {
   const ok = isShopUserLoggedIn();
@@ -799,12 +798,6 @@ function applyPurchaseGates() {
       .forEach(function (btn) {
         btn.hidden = false;
         btn.setAttribute("aria-hidden", "false");
-      });
-    nav
-      .querySelectorAll('button[data-view="storybooks"]')
-      .forEach(function (btn) {
-        btn.hidden = !ok;
-        btn.setAttribute("aria-hidden", ok ? "false" : "true");
       });
     const storiesBtn = nav.querySelector('button[data-view="stories"]');
     if (storiesBtn) {
@@ -831,11 +824,6 @@ function applyPurchaseGates() {
   }
   loadCartFromStorage();
   updateCartUI();
-  const stack = $("pageStack");
-  const cur = stack && stack.getAttribute("data-current-view");
-  if (cur === "storybooks") {
-    showView("home");
-  }
   syncCartFabVisibility();
   if (checkoutMod && checkoutMod.syncCheckoutCouponPanel) checkoutMod.syncCheckoutCouponPanel();
   else if (checkoutMod && checkoutMod.syncCheckoutAuthPanel) checkoutMod.syncCheckoutAuthPanel();
@@ -1663,7 +1651,6 @@ function initShopRouterModule() {
     hide: hide,
     MSG_WEBSHOP_AUTH: MSG_WEBSHOP_AUTH,
     MSG_PURCHASE_AUTH: MSG_PURCHASE_AUTH,
-    MSG_STORYBOOKS_AUTH: MSG_STORYBOOKS_AUTH,
     closeUserAccountPanelsOnly: closeUserAccountPanelsOnly,
     syncHomeNewsChrome: syncHomeNewsChrome,
     syncCartFabVisibility: syncCartFabVisibility,
