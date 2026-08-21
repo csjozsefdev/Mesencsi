@@ -376,7 +376,7 @@ class DigitalStorybookPage(Base):
     text_position_horizontal: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="center"
     )
-    text_box_style: Mapped[str] = mapped_column(String(32), nullable=False, server_default="card")
+    image_placement: Mapped[str] = mapped_column(String(16), nullable=False, server_default="none")
     text_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     text_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     image_x_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)

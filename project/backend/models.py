@@ -768,18 +768,13 @@ def _animation_settings_ok(v: dict) -> dict:
 
 StorybookTextPosV = Literal["top", "center", "bottom"]
 StorybookTextPosH = Literal["left", "center", "right"]
-StorybookTextBoxStyle = Literal[
-    "card",
-    "rounded",
-    "cloud",
-    "bubble",
-    "parchment",
-    "letter",
-    "star",
-    "storyboard",
-    "bookpage",
-    "magic_frame",
-]
+StorybookImagePlacement = Literal["left", "right", "above", "below", "none"]
+
+# Safe per-page body_text length: measured against the actual V2 reader CSS
+# geometry (desktop/tablet/mobile) so a page can never overflow its box —
+# see docs on the storybook page-layout redesign for how these were derived.
+STORYBOOK_TEXT_ONLY_MAX_CHARS = 600
+STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS = 150
 
 
 # --- Storybooks ---
@@ -796,7 +791,7 @@ class StorybookPagePublic(BaseModel):
     audio_url: str | None
     text_position_vertical: StorybookTextPosV = "center"
     text_position_horizontal: StorybookTextPosH = "center"
-    text_box_style: StorybookTextBoxStyle = "card"
+    image_placement: StorybookImagePlacement = "none"
     text_x_percent: float | None = None
     text_y_percent: float | None = None
     image_x_percent: float | None = None
@@ -841,7 +836,7 @@ class StorybookAdminPageRead(BaseModel):
     audio_url: str | None
     text_position_vertical: StorybookTextPosV = "center"
     text_position_horizontal: StorybookTextPosH = "center"
-    text_box_style: StorybookTextBoxStyle = "card"
+    image_placement: StorybookImagePlacement = "none"
     text_x_percent: float | None = None
     text_y_percent: float | None = None
     image_x_percent: float | None = None
@@ -872,6 +867,7 @@ class StorybookAdminListItem(BaseModel):
     id: int
     slug: str
     title: str
+    cover_image_url: str | None
     is_published: bool
     updated_at: datetime
 
@@ -935,7 +931,7 @@ class StorybookPageUpdate(BaseModel):
     audio_url: str | None = Field(None, max_length=4000)
     text_position_vertical: StorybookTextPosV | None = None
     text_position_horizontal: StorybookTextPosH | None = None
-    text_box_style: StorybookTextBoxStyle | None = None
+    image_placement: StorybookImagePlacement | None = None
     text_x_percent: float | None = None
     text_y_percent: float | None = None
     image_x_percent: float | None = None

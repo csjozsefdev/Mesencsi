@@ -47,9 +47,26 @@
     if (v !== "top" && v !== "bottom") v = "center";
     let h = String(p.text_position_horizontal || "center").toLowerCase();
     if (h !== "left" && h !== "right") h = "center";
-    let style = String(p.text_box_style || "card").toLowerCase();
-    if (!BOX_IDS.has(style)) style = "card";
-    return { v: v, h: h, style: style };
+    // text_box_style was removed (always transparent in the real reader) — the
+    // legacy/advanced canvas path still calls boxStyleClass(), which now always
+    // resolves to the single fixed "card" class regardless of input.
+    return { v: v, h: h, style: "card" };
+  }
+
+  function normImagePlacement(p) {
+    const raw = String((p && p.image_placement) || "none").toLowerCase();
+    if (raw === "left" || raw === "right" || raw === "above" || raw === "below") return raw;
+    return "none";
+  }
+
+  // Mirrors backend STORYBOOK_TEXT_ONLY_MAX_CHARS / STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS
+  // (models.py) — measured against the real V2 reader CSS geometry so a page can
+  // never overflow. Keep these two values in sync with the backend constants.
+  const STORYBOOK_TEXT_ONLY_MAX_CHARS = 600;
+  const STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS = 150;
+
+  function storybookPageTextLimit(hasImage) {
+    return hasImage ? STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS : STORYBOOK_TEXT_ONLY_MAX_CHARS;
   }
 
   function pageHasCustomDragPos(p) {
@@ -198,45 +215,24 @@
     };
   }
 
-  function buildFlowTextHtml(page, opts) {
+  function buildSimplePageTextHtml(page, opts) {
     const h = panelOptsHelpers(opts);
-    const n = normPageLayout(page);
     const bodyRaw = String((page && page.body_text) || "");
-    const body = bodyRaw.trim() ? h.esc(bodyRaw) : "";
-    if (!body) return "";
-    const boxClass = "sb-text-box " + boxStyleClass(n.style);
-    return (
-      '<div class="sb-read-text-host">' +
-      '<div class="sb-read-text-stage sb-pos-v-top sb-pos-h-left">' +
-      '<div class="sb-read-text-overlay">' +
-      '<div class="sb-read-text-wrap">' +
-      '<div class="' +
-      boxClass +
-      '"><div class="sb-canvas-text">' +
-      body +
-      "</div></div></div></div></div></div>"
-    );
+    const body = bodyRaw.trim() ? h.esc(bodyRaw) : "&nbsp;";
+    return '<div class="sbv2-zone sbv2-zone--page-text"><div class="sb-canvas-text">' + body + "</div></div>";
   }
 
-  function buildPageImageHtml(page, opts, role) {
+  function buildPlacedPageImageHtml(page, opts) {
     const h = panelOptsHelpers(opts);
     page = page || {};
     if (!page.image_url) return "";
-    if (pageHasCustomImageLayout(page)) {
-      const extra =
-        role === "hero" ? "sb-read-image-frame--hero" : "sb-read-image-frame--vignette";
-      return buildPositionedImageHtml(page, opts, extra);
-    }
     const u = h.assetUrl(String(page.image_url).trim());
     if (!u) return "";
-    const wrapClass =
-      "sb-read-image-wrap" + (role === "hero" ? " sbv2-hero-image" : " sbv2-vignette-image");
     return (
-      '<div class="' +
-      wrapClass +
-      '"><img src="' +
+      '<figure class="sbv2-zone sbv2-zone--page-image">' +
+      '<img src="' +
       h.esc(u) +
-      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>'
+      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></figure>'
     );
   }
 
@@ -278,12 +274,6 @@
     return { page: page || {}, opts: opts, context: ctx };
   }
 
-  /**
-   * V2 spread — left (TEXT_FORWARD): running title, vignette, story, audio, folio.
-   * @param {object} page
-   * @param {object} [opts]
-   * @param {{ pageNumber?: number, opts?: object }} [context]
-   */
   function buildV2CanvasLayoutPageHtml(page, opts, context, side) {
     const h = panelOptsHelpers(opts);
     page = page || {};
@@ -302,57 +292,19 @@
     );
   }
 
-  function buildV2LeftPageHtml(page, optsOrContext, context) {
-    const r = resolveV2PageArgs.apply(null, arguments);
-    if (pageHasCustomImageLayout(r.page)) {
-      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "left");
-    }
-    const h = panelOptsHelpers(r.opts);
-    page = r.page;
-    context = r.context;
-    const opts = r.opts;
-    let headerHtml = "";
-    if (page.title) {
-      headerHtml =
-        '<header class="sbv2-zone sbv2-zone--header">' +
-        '<p class="sbv2-running-title">' +
-        h.esc(String(page.title)) +
-        "</p></header>";
-    }
-    const vignetteHtml = buildPageImageHtml(page, opts, "vignette");
-    const vignetteZone = vignetteHtml
-      ? '<figure class="sbv2-zone sbv2-zone--vignette">' + vignetteHtml + "</figure>"
-      : "";
-    const storyHtml = buildFlowTextHtml(page, opts);
-    const storyZone = storyHtml
-      ? '<div class="sbv2-zone sbv2-zone--story">' + storyHtml + "</div>"
-      : '<div class="sbv2-zone sbv2-zone--story"><p class="empty"> </p></div>';
-    return (
-      '<div class="sbv2-spread-layout sbv2-spread-layout--left">' +
-      headerHtml +
-      vignetteZone +
-      storyZone +
-      buildPageAudioHtml(page, opts) +
-      buildFolioHtml(context.pageNumber) +
-      "</div>"
-    );
-  }
-
   /**
-   * V2 spread — right (VISUAL_FORWARD): title, hero image, supporting text, audio, folio.
+   * V2 standard page: every page renders the same way regardless of which spread
+   * slot it lands in — story text plus an optional normal-sized illustration
+   * placed exactly where the owner chose (left/right/above/below), or a clean
+   * text-only page when there's no image. No automatic vignette/hero sizing.
    * @param {object} page
    * @param {object} [opts]
    * @param {{ pageNumber?: number, opts?: object }} [context]
    */
-  function buildV2RightPageHtml(page, optsOrContext, context) {
-    const r = resolveV2PageArgs.apply(null, arguments);
-    if (pageHasCustomImageLayout(r.page)) {
-      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "right");
-    }
-    const h = panelOptsHelpers(r.opts);
-    page = r.page;
-    context = r.context;
-    const opts = r.opts;
+  function buildV2StandardPageHtml(page, opts, context) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    context = context || {};
     let titleHtml = "";
     if (page.title) {
       titleHtml =
@@ -361,23 +313,38 @@
         h.esc(String(page.title)) +
         "</h2></header>";
     }
-    const heroInner = buildPageImageHtml(page, opts, "hero");
-    const heroZone = heroInner
-      ? '<figure class="sbv2-zone sbv2-zone--hero">' + heroInner + "</figure>"
-      : "";
-    const supportInner = buildFlowTextHtml(page, opts);
-    const supportZone = supportInner
-      ? '<div class="sbv2-zone sbv2-zone--support">' + supportInner + "</div>"
-      : "";
+    const placement = page.image_url ? normImagePlacement(page) : "none";
+    const imageHtml = placement !== "none" ? buildPlacedPageImageHtml(page, opts) : "";
+    const textHtml = buildSimplePageTextHtml(page, opts);
     return (
-      '<div class="sbv2-spread-layout sbv2-spread-layout--right">' +
+      '<div class="sbv2-standard-page">' +
       titleHtml +
-      heroZone +
-      supportZone +
+      '<div class="sbv2-page-split sbv2-page-split--' +
+      placement +
+      '">' +
+      imageHtml +
+      textHtml +
+      "</div>" +
       buildPageAudioHtml(page, opts) +
       buildFolioHtml(context.pageNumber) +
       "</div>"
     );
+  }
+
+  function buildV2LeftPageHtml(page, optsOrContext, context) {
+    const r = resolveV2PageArgs.apply(null, arguments);
+    if (pageHasCustomImageLayout(r.page)) {
+      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "left");
+    }
+    return buildV2StandardPageHtml(r.page, r.opts, r.context);
+  }
+
+  function buildV2RightPageHtml(page, optsOrContext, context) {
+    const r = resolveV2PageArgs.apply(null, arguments);
+    if (pageHasCustomImageLayout(r.page)) {
+      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "right");
+    }
+    return buildV2StandardPageHtml(r.page, r.opts, r.context);
   }
 
   /** @deprecated Use buildV2LeftPageHtml — alias for older callers. */
@@ -467,6 +434,10 @@
   window.MesencsiStorybookReader = {
     boxStyleClass: boxStyleClass,
     normPageLayout: normPageLayout,
+    normImagePlacement: normImagePlacement,
+    storybookPageTextLimit: storybookPageTextLimit,
+    STORYBOOK_TEXT_ONLY_MAX_CHARS: STORYBOOK_TEXT_ONLY_MAX_CHARS,
+    STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS: STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS,
     parsePercent: parsePercent,
     pageHasCustomDragPos: pageHasCustomDragPos,
     pageHasCustomImageLayout: pageHasCustomImageLayout,

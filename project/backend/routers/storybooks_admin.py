@@ -26,6 +26,8 @@ from image_upload import (
 )
 from media_storage import media_storage_mode, store_upload_bytes
 from models import (
+    STORYBOOK_TEXT_ONLY_MAX_CHARS,
+    STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS,
     AdminImageUploadResponse,
     AdminStorybookMediaUploadResponse,
     StorybookAdminListItem,
@@ -117,6 +119,37 @@ def _reindex_pages(db: Session, book_id: int) -> None:
     pages = _load_pages(db, book_id)
     for i, p in enumerate(pages, start=1):
         p.page_index = i
+
+
+_TEXT_TOO_LONG_MESSAGE = "Az oldal elérte a maximális szöveghosszt. A történetet folytasd egy új oldalon."
+
+
+def _page_uses_custom_layout(page: DigitalStorybookPage) -> bool:
+    """Mirrors storybook-reader.js pageHasCustomImageLayout / pageHasCustomDragPos exactly.
+
+    Pages in this "advanced" free-position mode are unrestricted (owner's choice) —
+    the safe character limits below only apply to pages in simple/enum-placement mode.
+    """
+    has_custom_image = (
+        page.image_x_percent is not None
+        and page.image_y_percent is not None
+        and page.image_width_percent is not None
+    )
+    has_custom_text = page.text_x_percent is not None and page.text_y_percent is not None
+    return has_custom_image or has_custom_text
+
+
+def _storybook_page_text_limit(has_image: bool) -> int:
+    return STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS if has_image else STORYBOOK_TEXT_ONLY_MAX_CHARS
+
+
+def _assert_page_text_within_limit(page: DigitalStorybookPage) -> None:
+    """Enforce the safe length only for pages in simple (non-custom-layout) mode."""
+    if _page_uses_custom_layout(page):
+        return
+    limit = _storybook_page_text_limit(bool(page.image_url))
+    if len(page.body_text) > limit:
+        raise HTTPException(status_code=422, detail=_TEXT_TOO_LONG_MESSAGE)
 
 
 def _require_storybook_tables(db: Session) -> None:
@@ -240,9 +273,6 @@ def admin_update_storybook(
             book.description = None
         else:
             book.description = str(data["description"]).strip() or None
-    if "cover_image_url" in data:
-        v = data["cover_image_url"]
-        book.cover_image_url = v.strip() if isinstance(v, str) and v.strip() else None
     if "is_published" in data and data["is_published"] is not None:
         book.is_published = bool(data["is_published"])
     if "animation_settings" in data and data["animation_settings"] is not None:
@@ -305,9 +335,10 @@ def admin_add_storybook_page(
         audio_url=None,
         text_position_vertical="center",
         text_position_horizontal="center",
-        text_box_style="card",
+        image_placement="none",
         extra={},
     )
+    _assert_page_text_within_limit(page)
     db.add(page)
     db.commit()
     db.refresh(book)
@@ -341,8 +372,8 @@ def admin_update_storybook_page(
         page.text_position_vertical = data["text_position_vertical"]
     if "text_position_horizontal" in data and data["text_position_horizontal"] is not None:
         page.text_position_horizontal = data["text_position_horizontal"]
-    if "text_box_style" in data and data["text_box_style"] is not None:
-        page.text_box_style = data["text_box_style"]
+    if "image_placement" in data and data["image_placement"] is not None:
+        page.image_placement = data["image_placement"]
     if "text_x_percent" in data:
         page.text_x_percent = data["text_x_percent"]
     if "text_y_percent" in data:
@@ -355,6 +386,8 @@ def admin_update_storybook_page(
         page.image_width_percent = data["image_width_percent"]
     if "image_height_percent" in data:
         page.image_height_percent = data["image_height_percent"]
+    if "body_text" in data or "image_placement" in data:
+        _assert_page_text_within_limit(page)
     db.commit()
     book = find_digital_storybook(db, book_id)
     pages = _load_pages(db, book.id)
@@ -431,6 +464,24 @@ async def admin_upload_storybook_cover(
     return AdminImageUploadResponse(url=url, filename=filename)
 
 
+@router.delete("/{book_id}/cover", response_model=StorybookAdminRead)
+def admin_remove_storybook_cover(
+    book_id: int,
+    db: Session = Depends(get_db),
+    _admin: CurrentAdmin = Depends(require_role(["owner"])),
+):
+    _require_storybook_tables(db)
+    book = find_digital_storybook(db, book_id)
+    prev = (book.cover_image_url or "").strip() or None
+    book.cover_image_url = None
+    db.commit()
+    if prev:
+        delete_uploaded_file_by_url(prev)
+    db.refresh(book)
+    pages = _load_pages(db, book.id)
+    return _to_admin_read(book, pages)
+
+
 @router.post("/{book_id}/pages/{page_id}/image", response_model=AdminImageUploadResponse)
 async def admin_upload_storybook_page_image(
     book_id: int,
@@ -442,14 +493,45 @@ async def admin_upload_storybook_page_image(
     _require_storybook_tables(db)
     find_digital_storybook(db, book_id)
     page = find_storybook_page_for_book(db, book_id, page_id)
+    if not _page_uses_custom_layout(page) and len(page.body_text) > STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "A szöveg túl hosszú egy képes oldalhoz "
+                f"(legfeljebb {STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS} karakter). "
+                "Rövidítsd le a szöveget, mielőtt képet töltesz fel."
+            ),
+        )
     prev = page.image_url
     sub = _storybook_media_subdir(book_id)
     url, filename = await save_uploaded_image(file, subdir=sub, filename_prefix=f"page-{page_id}")
     page.image_url = url
+    if page.image_placement == "none":
+        page.image_placement = "right"
     db.commit()
     if prev and str(prev).strip() and str(prev).strip() != url.strip():
         delete_uploaded_file_by_url(prev)
     return AdminImageUploadResponse(url=url, filename=filename)
+
+
+@router.delete("/{book_id}/pages/{page_id}/image", response_model=StorybookAdminRead)
+def admin_remove_storybook_page_image(
+    book_id: int,
+    page_id: int,
+    db: Session = Depends(get_db),
+    _admin: CurrentAdmin = Depends(require_role(["owner"])),
+):
+    _require_storybook_tables(db)
+    book = find_digital_storybook(db, book_id)
+    page = find_storybook_page_for_book(db, book_id, page_id)
+    prev = (page.image_url or "").strip() or None
+    page.image_url = None
+    page.image_placement = "none"
+    db.commit()
+    if prev:
+        delete_uploaded_file_by_url(prev)
+    pages = _load_pages(db, book.id)
+    return _to_admin_read(book, pages)
 
 
 @router.post("/{book_id}/pages/{page_id}/audio", response_model=AdminStorybookMediaUploadResponse)

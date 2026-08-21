@@ -3504,84 +3504,6 @@ button.user-panel__nav-btn.user-panel__nav-btn--wood-muted {
   width: 100%;
   box-sizing: border-box;
 }
-.storybooks-reader-host .sb-box-card {
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(40, 30, 20, 0.1);
-  padding: 0.55rem 0.7rem;
-}
-.storybooks-reader-host .sb-box-rounded {
-  background: rgba(255, 250, 245, 0.96);
-  border-radius: 22px;
-  border: 2px solid rgba(139, 90, 43, 0.22);
-  padding: 0.65rem 0.85rem;
-}
-.storybooks-reader-host .sb-box-cloud {
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 50% 40% 55% 45% / 45% 55% 40% 60%;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 3px 12px rgba(80, 120, 160, 0.12);
-}
-.storybooks-reader-host .sb-box-bubble {
-  background: linear-gradient(180deg, #fffef8, #f5f0e6);
-  border-radius: 16px 16px 16px 4px;
-  border: 2px solid rgba(61, 36, 16, 0.12);
-  padding: 0.6rem 0.8rem;
-}
-.storybooks-reader-host .sb-box-parchment {
-  background: linear-gradient(135deg, #f4e8d4 0%, #e8dcc4 50%, #efe2cc 100%);
-  border-radius: 4px;
-  border: 1px solid rgba(100, 70, 40, 0.25);
-  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.35);
-  padding: 0.7rem 0.85rem;
-}
-.storybooks-reader-host .sb-box-letter {
-  background: #fffef9;
-  border-radius: 2px;
-  border-left: 4px solid var(--accent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  padding: 0.65rem 0.9rem;
-}
-.storybooks-reader-host .sb-box-star {
-  background: rgba(255, 248, 220, 0.95);
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  padding: 1.5rem 0.85rem 1.2rem;
-  min-height: 5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.storybooks-reader-host .sb-box-star .sb-canvas-text {
-  text-align: center;
-  max-width: 85%;
-}
-.storybooks-reader-host .sb-box-storyboard {
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.9),
-    rgba(255, 255, 255, 0.9) 8px,
-    rgba(245, 240, 230, 0.95) 8px,
-    rgba(245, 240, 230, 0.95) 16px
-  );
-  border: 2px dashed rgba(61, 36, 16, 0.2);
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
-}
-.storybooks-reader-host .sb-box-bookpage {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.97) 0%, rgba(252, 250, 246, 0.98) 8%, rgba(252, 250, 246, 0.98) 100%);
-  border-radius: 0 12px 12px 0;
-  box-shadow: 2px 2px 0 rgba(61, 36, 16, 0.08), inset 4px 0 0 rgba(200, 180, 150, 0.35);
-  padding: 0.65rem 0.85rem 0.65rem 1rem;
-}
-.storybooks-reader-host .sb-box-magic-frame {
-  background: rgba(20, 15, 40, 0.06);
-  border: 3px double rgba(90, 60, 120, 0.45);
-  border-radius: 4px;
-  box-shadow:
-    0 0 0 2px rgba(255, 215, 120, 0.35),
-    inset 0 0 24px rgba(120, 80, 180, 0.08);
-  padding: 0.7rem 0.85rem;
-}
 .storybooks-reader-host .sb-canvas-text {
   min-height: 2.5rem;
   font-size: 1.02rem;
@@ -3591,7 +3513,9 @@ button.user-panel__nav-btn.user-panel__nav-btn--wood-muted {
   word-break: break-word;
 }
 
-/* Reader / preview: only text visible — no box background, border, or shadow */
+/* Reader / preview: only text visible — no box background, border, or shadow.
+   Text box style variants were removed; this keeps the legacy/advanced
+   (custom drag-position) canvas path's text rendering the same as before. */
 .storybooks-reader-host .sb-text-box,
 .storybook-v2-root .sb-text-box {
   background: transparent !important;
@@ -3603,17 +3527,6 @@ button.user-panel__nav-btn.user-panel__nav-btn--wood-muted {
   border-radius: 0 !important;
   min-height: 0 !important;
   padding: 0 !important;
-}
-.storybooks-reader-host .sb-box-star,
-.storybook-v2-root .sb-box-star {
-  display: block !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-}
-.storybooks-reader-host .sb-box-star .sb-canvas-text,
-.storybook-v2-root .sb-box-star .sb-canvas-text {
-  max-width: 100%;
-  text-align: inherit;
 }
 
 /*
@@ -5224,16 +5137,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   padding: 0 0.2rem;
   max-width: 100%;
 }
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-text-box,
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-box-card,
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-box-rounded,
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-box-parchment,
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-box-bookpage,
-.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-text-box,
-.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-box-card,
-.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-box-rounded,
-.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-box-parchment,
-.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-box-bookpage {
+.storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-text-box {
   max-width: 100%;
   background: transparent !important;
   background-color: transparent !important;
@@ -5247,21 +5151,20 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 .storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-read-text-host {
   background: transparent;
 }
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-canvas-text {
-  line-height: 1.5;
-}
 .storybook-v2-root .sbv2-page__content:not(.sbv2-page__content--standard-spread) .sb-canvas-text {
   line-height: 1.45;
 }
 
-/* ----- V2 standard spread layout (regions only; shell frozen) ----- */
+/* ----- V2 standard page layout: every page renders the same way — story text
+   plus an optional normal-sized illustration at the owner-chosen placement
+   (left/right/above/below), or a clean text-only page. No vignette/hero split. ----- */
 .storybook-v2-root .sbv2-page__content--standard-spread {
   display: flex;
   flex-direction: column;
   padding-top: 0.5rem;
   padding-bottom: 0.45rem;
 }
-.storybook-v2-root .sbv2-spread-layout {
+.storybook-v2-root .sbv2-standard-page {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
@@ -5271,25 +5174,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   gap: 0.4rem;
   box-sizing: border-box;
   overflow: hidden;
-}
-.storybook-v2-root .sbv2-spread-layout--left {
-  padding-right: 0.55rem;
-  padding-left: 0.15rem;
-}
-.storybook-v2-root .sbv2-spread-layout--right {
-  padding-left: 0.5rem;
-  padding-right: 0.2rem;
-}
-.storybook-v2-root .sbv2-zone--header {
-  flex: 0 0 auto;
-}
-.storybook-v2-root .sbv2-running-title {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1.3;
-  text-transform: uppercase;
+  padding: 0 0.2rem;
 }
 .storybook-v2-root .sbv2-zone--title {
   flex: 0 0 auto;
@@ -5300,81 +5185,77 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   font-weight: 700;
   line-height: 1.25;
 }
-.storybook-v2-root .sbv2-zone--vignette {
+.storybook-v2-root .sbv2-page-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+.storybook-v2-root .sbv2-page-split--left,
+.storybook-v2-root .sbv2-page-split--none {
+  flex-direction: row;
+}
+.storybook-v2-root .sbv2-page-split--right {
+  flex-direction: row-reverse;
+}
+.storybook-v2-root .sbv2-page-split--above {
+  flex-direction: column;
+}
+.storybook-v2-root .sbv2-page-split--below {
+  flex-direction: column-reverse;
+}
+.storybook-v2-root .sbv2-zone--page-image {
   flex: 0 0 auto;
   margin: 0;
-  max-width: 44%;
-  align-self: flex-start;
-}
-.storybook-v2-root .sbv2-zone--vignette .sb-read-image-wrap {
-  margin: 0;
-  padding: 0;
-  max-width: 100%;
-}
-.storybook-v2-root .sbv2-zone--vignette img {
-  max-width: 100%;
-  max-height: min(22vh, 140px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
-.storybook-v2-root .sbv2-zone--story {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
-}
-.storybook-v2-root .sbv2-zone--story .sb-canvas-text {
-  font-size: 1rem;
-  line-height: 1.55;
-}
-.storybook-v2-root .sbv2-zone--story .sb-read-text-host {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding: 0;
-}
-.storybook-v2-root .sbv2-zone--hero {
-  flex: 1 1 55%;
-  min-height: 0;
-  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
-.storybook-v2-root .sbv2-zone--hero .sb-read-image-wrap {
-  margin: 0 auto;
-  padding: 0;
+.storybook-v2-root .sbv2-page-split--left .sbv2-zone--page-image,
+.storybook-v2-root .sbv2-page-split--right .sbv2-zone--page-image {
+  flex-basis: 42%;
+  max-width: 42%;
+  height: 100%;
+}
+.storybook-v2-root .sbv2-page-split--above .sbv2-zone--page-image,
+.storybook-v2-root .sbv2-page-split--below .sbv2-zone--page-image {
+  width: 100%;
+  max-height: min(38vh, 340px);
+}
+.storybook-v2-root .sbv2-zone--page-image img {
   max-width: 100%;
   max-height: 100%;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.storybook-v2-root .sbv2-zone--hero img {
-  max-width: 100%;
-  max-height: min(44vh, 400px);
   width: auto;
   height: auto;
   object-fit: contain;
+  border-radius: 2px;
+  box-shadow: 0 1px 5px rgba(72, 48, 28, 0.14);
 }
-.storybook-v2-root .sbv2-zone--support {
-  flex: 0 1 auto;
+.storybook-v2-root .sbv2-zone--page-text {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  max-height: 32%;
   overflow: hidden;
 }
-.storybook-v2-root .sbv2-zone--support .sb-read-text-host {
-  min-height: 0;
-  overflow: auto;
-  padding: 0;
+.storybook-v2-root .sbv2-page-split--left .sbv2-zone--page-text {
+  padding-left: 1rem;
 }
-.storybook-v2-root .sbv2-zone--support .sb-canvas-text {
-  font-size: 0.92rem;
-  line-height: 1.4;
+.storybook-v2-root .sbv2-page-split--right .sbv2-zone--page-text {
+  padding-right: 1rem;
+}
+.storybook-v2-root .sbv2-page-split--above .sbv2-zone--page-text {
+  padding-top: 0.75rem;
+}
+.storybook-v2-root .sbv2-page-split--below .sbv2-zone--page-text {
+  padding-bottom: 0.75rem;
+}
+.storybook-v2-root .sbv2-zone--page-text .sb-canvas-text {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .storybook-v2-root .sbv2-zone--audio {
   flex: 0 0 auto;
@@ -5388,18 +5269,6 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   padding-top: 0.2rem;
   font-size: 0.68rem;
   line-height: 1;
-}
-.storybook-v2-root .sbv2-spread-layout--left .sbv2-zone--folio {
-  text-align: left;
-}
-.storybook-v2-root .sbv2-spread-layout--right .sbv2-zone--folio {
-  text-align: right;
-}
-.storybook-v2-root .sbv2-page__content--standard-spread .sb-read-canvas-stack {
-  display: contents;
-}
-.storybook-v2-root .sbv2-page__content--standard-spread > .sbv2-spread-layout {
-  display: flex;
 }
 
 /* V2 page-flip overlay (3D turn above resting pages) */
@@ -5971,16 +5840,13 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     animation-duration: var(--sbv2-turn-ms, 400ms);
   }
 }
+/* Single-column collapse starts at 900px (not 600px): a 2-column spread with
+   each page under ~450px wide is measurably more cramped than one full-width
+   page, so keeping 2 columns down to 600px left a "worse than mobile" band. */
 @media (max-width: 900px) {
   .storybook-v2-root {
     --sbv2-spine-width: 16px;
   }
-  .storybook-v2-root .sbv2-open-book {
-    width: min(96vw, 1500px);
-    height: min(80dvh, 780px, calc(100dvh - 72px));
-  }
-}
-@media (max-width: 600px) {
   .storybook-v2-root .sbv2-open-book {
     width: min(96vw, 100%);
     height: min(78dvh, calc(100dvh - 64px));
