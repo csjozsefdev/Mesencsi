@@ -2827,6 +2827,14 @@ body.gallery-lightbox-open {
   font-size: 1rem;
   color: var(--accent-dark);
 }
+.legal-prose h4 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.98rem;
+  color: var(--accent-dark);
+}
+.legal-effective-date {
+  margin-bottom: 1.25rem;
+}
 .legal-prose p,
 .legal-prose li {
   color: var(--text);

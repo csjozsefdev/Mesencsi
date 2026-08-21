@@ -50,7 +50,7 @@ from guest_checkout_tokens import guest_checkout_token_header_name, parse_guest_
 from payment_confirmation_email import schedule_payment_confirmation_after_paid_sync
 from shipping_methods import checkout_group_grand_total_huf
 from routers.cart import clear_user_cart
-from runtime_flags import internal_barion_debug_authorized, mesencsi_production
+from runtime_flags import barion_payments_enabled, internal_barion_debug_authorized, mesencsi_production
 
 router = APIRouter(prefix="/payments/barion", tags=["payments-barion"])
 _log = logging.getLogger("mesencsi.payments")
@@ -58,6 +58,18 @@ _log = logging.getLogger("mesencsi.payments")
 # Client-safe messages — never attach raw exception text to HTTP responses.
 _BARION_STATE_CLIENT_MSG = "A fizetés állapota jelenleg nem ellenőrizhető. Próbáld újra később."
 _BARION_START_CLIENT_MSG = "A fizetés indítása sikertelen. Próbáld újra később."
+_BARION_PAYMENTS_DISABLED_MSG = "A fizetés jelenleg nem elérhető. Próbáld újra később."
+
+
+def _require_barion_payments_enabled() -> None:
+    """``BARION_PAYMENTS_ENABLED=false``: checkout indítás és callback/IPN feldolgozás 503."""
+    if not barion_payments_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_BARION_PAYMENTS_DISABLED_MSG,
+        )
+
+
 _BARION_UNAVAILABLE_CLIENT_MSG = "A fizetési szolgáltatás átmenetileg nem érhető el. Próbáld újra később."
 _BARION_SHOP_DRAFT_CLIENT_MSG = (
     "A Barion bolt még nincs jóváhagyva (piszkozat állapot). "
@@ -628,6 +640,7 @@ def barion_preview_status():
         "api_base_url": barion_api_base_url(),
         "gateway_base_url": barion_gateway_base_url(),
         "mesencsi_production": mesencsi_production(),
+        "barion_payments_enabled": barion_payments_enabled(),
         "pos_key_configured": bool(barion_pos_key()),
         "rest_api_enabled": use_barion_rest_api(),
         "barion_ipn_secret_configured": bool(barion_ipn_secret()),
@@ -663,6 +676,7 @@ def barion_start_payment(
     2a) **Barion mode** (BARION_POS_KEY set): Payment/Start, store PaymentId, redirect to gateway.
     2b) **Stub** (no POSKey): local preview id + redirect with query string (development).
     """
+    _require_barion_payments_enabled()
     owner_user_id, guest_gid = _resolve_barion_start_context(user, guest_checkout_token)
     rows = _load_orders_for_start(
         db,
@@ -1059,6 +1073,7 @@ async def barion_ipn(request: Request, db: Session = Depends(get_db)):
     ``attach_barion_ipn_query`` automatikusan hozzáadja) vagy ``X-Barion-Ipn-Secret`` / ``Authorization: Bearer``
     fejlécben kell küldeni. ``MESENCSI_PRODUCTION=true`` mellett titok nélkül a végpont **403**.
     """
+    _require_barion_payments_enabled()
     if not _barion_ipn_request_authorized(request):
         log_event(_log, logging.WARNING, "barion_ipn_rejected_unauthorized", request_id=get_request_id())
         raise HTTPException(
@@ -1152,6 +1167,7 @@ def barion_callback_stub(
     db: Session = Depends(get_db),
 ):
     """Kézi / fejlesztői stub (nem az éles Barion IPN). REST módban csak GetPaymentState szinkron — a body.status ignorálva."""
+    _require_barion_payments_enabled()
     if not _barion_manual_callback_allowed(request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

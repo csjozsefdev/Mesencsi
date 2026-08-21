@@ -23,7 +23,8 @@ def test_barion_pixel_markup_uses_const_loader_and_noscript(pixel_id: str) -> No
     assert "const scriptElement = document.createElement" in html
     assert "const firstScript = document.getElementsByTagName" in html
     assert 'scriptElement.src = "https://pixel.barion.com/bp.js"' in html
-    assert f'window["barion_pixel_id"] = "{pixel_id}"' in html
+    assert f"window['barion_pixel_id'] = '{pixel_id}'" in html
+    assert "bp('init', 'addBarionPixelId', window['barion_pixel_id'])" in html
     assert f"ba_pixel_id={pixel_id}" in html
     assert "noscript" in html
 
@@ -50,6 +51,25 @@ def test_inject_rejects_invalid_pixel_id(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "pixel.barion.com" not in out
 
 
+@pytest.mark.parametrize(
+    "invalid_id",
+    [
+        "BPT-TEST123456-01",
+        "BP-SHORT-01",
+        "BP-TOO-LONG-PIXEL-01",
+        "BP-TEST_23456-01",
+        "BP-TEST123456-AA",
+        "BP-TEST123456-1",
+    ],
+)
+def test_inject_rejects_noncanonical_pixel_ids(
+    monkeypatch: pytest.MonkeyPatch, invalid_id: str
+) -> None:
+    monkeypatch.setenv("BARION_PIXEL_ID", invalid_id)
+    out = inject_barion_pixel("<html><head><!-- BARION_PIXEL_SLOT --></head></html>")
+    assert "pixel.barion.com" not in out
+
+
 def test_storefront_includes_pixel_when_configured(pixel_id: str) -> None:
     from mesencsi import app
 
@@ -70,6 +90,8 @@ def test_password_reset_pages_include_pixel_when_configured(pixel_id: str) -> No
             assert r.status_code == 200, path
             assert pixel_id in r.text
             assert "https://pixel.barion.com/bp.js" in r.text
+            assert f"ba_pixel_id={pixel_id}" in r.text
+            assert "bp('init', 'addBarionPixelId', window['barion_pixel_id'])" in r.text
 
 
 def test_admin_pages_do_not_include_pixel(pixel_id: str) -> None:

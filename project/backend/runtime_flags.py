@@ -12,6 +12,23 @@ def mesencsi_production() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def barion_payments_enabled() -> bool:
+    """
+    ``BARION_PAYMENTS_ENABLED`` — független ``MESENCSI_PRODUCTION``-tól.
+
+    Alapértelmezetten ``true`` (visszafelé kompatibilis: meglévő éles Barion-integrációk
+    nem igényelnek új env-változót). ``false``-ra állítva a webalkalmazás lehet éles
+    (``MESENCSI_PRODUCTION=true``, ``/docs`` stb. továbbra is tiltva) úgy, hogy a Barion
+    fizetés még sandboxban van vagy egyáltalán nincs beállítva — a fizetésindító és
+    callback/IPN végpontok ekkor 503-at adnak, az induláskori validátor pedig nem követeli
+    meg a Barion production konfigot.
+    """
+    v = (os.environ.get("BARION_PAYMENTS_ENABLED") or "").strip().lower()
+    if not v:
+        return True
+    return v in ("1", "true", "yes", "on")
+
+
 def auth_email_requires_working_smtp() -> bool:
     """Shop verification/reset mail: strict SMTP only when ``MESENCSI_PRODUCTION`` (not merely RENDER)."""
     return mesencsi_production()

@@ -15,7 +15,7 @@ from grafi_core.ops.startup_helpers import (
     secret_ok as _secret_ok,
 )
 from bcrypt_validation import is_valid_bcrypt_hash
-from runtime_flags import mesencsi_production
+from runtime_flags import barion_payments_enabled, mesencsi_production
 
 _log = logging.getLogger("mesencsi.startup_config")
 
@@ -141,28 +141,37 @@ def _collect_issues(*, production: bool) -> tuple[list[str], list[str]]:
         if not ok and err:
             fatal.append(err)
 
-        add(bool(_env("BARION_POS_KEY")), "BARION_POS_KEY is not set", prod_fatal=True)
-        add(bool(_env("BARION_PAYEE_EMAIL")), "BARION_PAYEE_EMAIL is not set", prod_fatal=True)
-        add(bool(_env("BARION_IPN_SECRET")), "BARION_IPN_SECRET is not set", prod_fatal=True)
+        # Barion's own production readiness is independent of MESENCSI_PRODUCTION: the
+        # webapp can be hardened (production) while checkout is still disabled/sandboxed
+        # via BARION_PAYMENTS_ENABLED=false (e.g. awaiting Barion's live approval).
+        if barion_payments_enabled():
+            add(bool(_env("BARION_POS_KEY")), "BARION_POS_KEY is not set", prod_fatal=True)
+            add(bool(_env("BARION_PAYEE_EMAIL")), "BARION_PAYEE_EMAIL is not set", prod_fatal=True)
+            add(bool(_env("BARION_IPN_SECRET")), "BARION_IPN_SECRET is not set", prod_fatal=True)
 
-        barion_env = _env("BARION_ENV").lower()
-        if barion_env not in ("production", "prod", "live", "release"):
-            fatal.append("BARION_ENV must be production (or prod/live/release) in production mode")
+            barion_env = _env("BARION_ENV").lower()
+            if barion_env not in ("production", "prod", "live", "release"):
+                fatal.append("BARION_ENV must be production (or prod/live/release) in production mode")
 
-        ok, err = _https_public_url("BARION return URL", _barion_return_url())
-        if not ok and err:
-            fatal.append(err)
+            ok, err = _https_public_url("BARION return URL", _barion_return_url())
+            if not ok and err:
+                fatal.append(err)
 
-        ok, err = _https_public_url("BARION callback/IPN URL", _barion_callback_url())
-        if not ok and err:
-            fatal.append(err)
+            ok, err = _https_public_url("BARION callback/IPN URL", _barion_callback_url())
+            if not ok and err:
+                fatal.append(err)
 
-        backend_base = (
-            _env("BARION_BACKEND_PUBLIC_URL") or _env("BACKEND_PUBLIC_URL") or _env("PUBLIC_SITE_URL")
-        )
-        ok, err = _https_public_url("BARION_BACKEND_PUBLIC_URL (or BACKEND_PUBLIC_URL)", backend_base)
-        if not ok and err:
-            fatal.append(err)
+            backend_base = (
+                _env("BARION_BACKEND_PUBLIC_URL") or _env("BACKEND_PUBLIC_URL") or _env("PUBLIC_SITE_URL")
+            )
+            ok, err = _https_public_url("BARION_BACKEND_PUBLIC_URL (or BACKEND_PUBLIC_URL)", backend_base)
+            if not ok and err:
+                fatal.append(err)
+        else:
+            warn.append(
+                "BARION_PAYMENTS_ENABLED=false — Barion checkout is disabled; "
+                "payment-start and callback/IPN endpoints return 503 until it is turned back on"
+            )
     else:
         if not _env("BARION_POS_KEY"):
             warn.append("BARION_POS_KEY not set — Barion stub/preview mode")
@@ -211,6 +220,7 @@ def _safe_summary(*, production: bool, fatal: list[str], warn: list[str]) -> dic
         "admin_jwt_secret_set": bool(_env("ADMIN_JWT_SECRET")),
         "allowed_origins_count": origin_count,
         "database": "test_override" if _env("MESENCSI_TEST_DATABASE_URL") else "postgres_env",
+        "barion_payments_enabled": barion_payments_enabled(),
         "barion_pos_key_set": bool(_env("BARION_POS_KEY")),
         "barion_env": _env("BARION_ENV") or None,
         "barion_ipn_secret_set": bool(_env("BARION_IPN_SECRET")),
