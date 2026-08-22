@@ -73,6 +73,47 @@
     return parsePercent(p && p.text_x_percent) != null && parsePercent(p && p.text_y_percent) != null;
   }
 
+  function pageHasCustomImageLayout(p) {
+    return (
+      parsePercent(p && p.image_x_percent) != null &&
+      parsePercent(p && p.image_y_percent) != null &&
+      parsePercent(p && p.image_width_percent) != null
+    );
+  }
+
+  function imageLayoutStyle(page) {
+    page = page || {};
+    const x = parsePercent(page.image_x_percent);
+    const y = parsePercent(page.image_y_percent);
+    const w = parsePercent(page.image_width_percent);
+    const h = parsePercent(page.image_height_percent);
+    if (x == null || y == null || w == null) return "";
+    let style = "left:" + x + "%;top:" + y + "%;width:" + w + "%;";
+    if (h != null) style += "height:" + h + "%;";
+    return style;
+  }
+
+  function buildPositionedImageHtml(page, opts, extraClass) {
+    const h = panelOptsHelpers(opts);
+    page = page || {};
+    if (!page.image_url) return "";
+    const u = h.assetUrl(String(page.image_url).trim());
+    if (!u) return "";
+    const style = imageLayoutStyle(page);
+    if (!style) return "";
+    const cls = "sb-read-image-frame" + (extraClass ? " " + extraClass : "");
+    return (
+      '<div class="sb-read-image-canvas">' +
+      '<div class="' +
+      cls +
+      '" style="' +
+      style +
+      '"><img src="' +
+      h.esc(u) +
+      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div></div>'
+    );
+  }
+
   function buildPanelHtml(page, opts) {
     opts = opts || {};
     const esc = typeof opts.escapeHtml === "function" ? opts.escapeHtml : defaultEscape;
@@ -97,12 +138,16 @@
 
     let imageHtml = "";
     if (page.image_url) {
-      const u = assetUrl(String(page.image_url).trim());
-      if (u) {
-        imageHtml =
-          '<div class="sb-read-image-wrap"><img src="' +
-          esc(u) +
-          '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>';
+      if (pageHasCustomImageLayout(page)) {
+        imageHtml = buildPositionedImageHtml(page, opts, "sb-read-image-frame--panel");
+      } else {
+        const u = assetUrl(String(page.image_url).trim());
+        if (u) {
+          imageHtml =
+            '<div class="sb-read-image-wrap"><img src="' +
+            esc(u) +
+            '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>';
+        }
       }
     }
 
@@ -172,20 +217,31 @@
 
   function buildSimplePageTextHtml(page, opts) {
     const h = panelOptsHelpers(opts);
+    const editable = !!(opts && opts.editable);
     const bodyRaw = String((page && page.body_text) || "");
     const body = bodyRaw.trim() ? h.esc(bodyRaw) : "&nbsp;";
-    return '<div class="sbv2-zone sbv2-zone--page-text"><div class="sb-canvas-text">' + body + "</div></div>";
+    const zoneAttr = editable ? ' data-sb-editable-zone="text"' : "";
+    return (
+      '<div class="sbv2-zone sbv2-zone--page-text"' +
+      zoneAttr +
+      '><div class="sb-canvas-text">' +
+      body +
+      "</div></div>"
+    );
   }
 
   function buildPlacedPageImageHtml(page, opts) {
     const h = panelOptsHelpers(opts);
+    const editable = !!(opts && opts.editable);
     page = page || {};
     if (!page.image_url) return "";
     const u = h.assetUrl(String(page.image_url).trim());
     if (!u) return "";
+    const zoneAttr = editable ? ' data-sb-editable-zone="image"' : "";
     return (
-      '<figure class="sbv2-zone sbv2-zone--page-image">' +
-      '<img src="' +
+      '<figure class="sbv2-zone sbv2-zone--page-image"' +
+      zoneAttr +
+      '><img src="' +
       h.esc(u) +
       '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></figure>'
     );
@@ -395,6 +451,11 @@
     STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS: STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS,
     parsePercent: parsePercent,
     pageHasCustomDragPos: pageHasCustomDragPos,
+    pageHasCustomImageLayout: pageHasCustomImageLayout,
+    imageLayoutStyle: imageLayoutStyle,
+    buildPositionedImageHtml: buildPositionedImageHtml,
+    buildPlacedPageImageHtml: buildPlacedPageImageHtml,
+    buildV2StandardPageHtml: buildV2StandardPageHtml,
     buildPanelHtml: buildPanelHtml,
     buildV2LeftPageHtml: buildV2LeftPageHtml,
     buildV2RightPageHtml: buildV2RightPageHtml,
