@@ -217,20 +217,31 @@
 
   function buildSimplePageTextHtml(page, opts) {
     const h = panelOptsHelpers(opts);
+    const editable = !!(opts && opts.editable);
     const bodyRaw = String((page && page.body_text) || "");
     const body = bodyRaw.trim() ? h.esc(bodyRaw) : "&nbsp;";
-    return '<div class="sbv2-zone sbv2-zone--page-text"><div class="sb-canvas-text">' + body + "</div></div>";
+    const zoneAttr = editable ? ' data-sb-editable-zone="text"' : "";
+    return (
+      '<div class="sbv2-zone sbv2-zone--page-text"' +
+      zoneAttr +
+      '><div class="sb-canvas-text">' +
+      body +
+      "</div></div>"
+    );
   }
 
   function buildPlacedPageImageHtml(page, opts) {
     const h = panelOptsHelpers(opts);
+    const editable = !!(opts && opts.editable);
     page = page || {};
     if (!page.image_url) return "";
     const u = h.assetUrl(String(page.image_url).trim());
     if (!u) return "";
+    const zoneAttr = editable ? ' data-sb-editable-zone="image"' : "";
     return (
-      '<figure class="sbv2-zone sbv2-zone--page-image">' +
-      '<img src="' +
+      '<figure class="sbv2-zone sbv2-zone--page-image"' +
+      zoneAttr +
+      '><img src="' +
       h.esc(u) +
       '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></figure>'
     );
@@ -443,6 +454,8 @@
     pageHasCustomImageLayout: pageHasCustomImageLayout,
     imageLayoutStyle: imageLayoutStyle,
     buildPositionedImageHtml: buildPositionedImageHtml,
+    buildPlacedPageImageHtml: buildPlacedPageImageHtml,
+    buildV2StandardPageHtml: buildV2StandardPageHtml,
     buildPanelHtml: buildPanelHtml,
     buildV2LeftPageHtml: buildV2LeftPageHtml,
     buildV2RightPageHtml: buildV2RightPageHtml,

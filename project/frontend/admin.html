@@ -1174,6 +1174,45 @@
         object-fit: cover;
         display: block;
       }
+      /* Embedded live preview: reuses the real sbv2 reader shell/renderer, but
+         sized to a fixed-height band instead of the viewport-relative sizing
+         the fullscreen immersive reader uses (min(94vw,...)/min(82dvh,...)). */
+      .sb-live-preview {
+        position: relative;
+        margin-bottom: 1rem;
+        padding: 0.5rem 0.5rem 0.75rem;
+        border-radius: 12px;
+        background: rgba(20, 15, 10, 0.03);
+      }
+      .sb-live-preview__label {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--admin-muted, #7a6a55);
+      }
+      .sb-live-preview__mount {
+        position: relative;
+        height: min(34vh, 320px);
+        min-height: 220px;
+      }
+      #sbLivePreview .sbv2-stage {
+        height: 100%;
+        padding-bottom: 0;
+      }
+      #sbLivePreview .sbv2-open-book {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      #sbLivePreview .sbv2-hit-layer {
+        display: none;
+      }
+      #sbLivePreview .sbv2-spread-indicator {
+        font-size: 0.7rem;
+      }
       .sb-creator-grid {
         display: grid;
         grid-template-columns: 200px minmax(0, 1fr) minmax(220px, 280px);
@@ -1410,6 +1449,86 @@
         font-size: 0.8rem;
         color: var(--admin-muted);
       }
+      .sb-quick-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.4rem;
+        border-radius: 12px;
+        border: 1px solid rgba(61, 36, 16, 0.22);
+        background: rgba(255, 255, 255, 0.65);
+      }
+      .sb-quick-toolbar__group {
+        display: flex;
+        gap: 0.2rem;
+      }
+      .sb-quick-toolbar__sep {
+        width: 1px;
+        height: 1.4rem;
+        background: rgba(61, 36, 16, 0.18);
+        margin: 0 0.1rem;
+      }
+      .sb-quick-toolbar-btn {
+        cursor: pointer;
+        min-width: 2rem;
+        padding: 0.28rem 0.4rem;
+        border-radius: 9px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(255, 255, 255, 0.55);
+        font-size: 1rem;
+        line-height: 1.2;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .sb-quick-toolbar-btn:hover:not(:disabled) {
+        background: rgba(255, 248, 235, 0.9);
+        border-color: rgba(184, 140, 88, 0.45);
+      }
+      .sb-quick-toolbar-btn[aria-pressed="true"] {
+        background: var(--admin-accent-dark, #8a5a2c);
+        border-color: var(--admin-accent-dark, #8a5a2c);
+        color: #fff;
+      }
+      .sb-quick-toolbar-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+      .sb-canvas-warnings {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.5rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(184, 108, 24, 0.35);
+        background: rgba(255, 235, 205, 0.75);
+      }
+      .sb-canvas-warnings p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #7a4a12;
+        font-weight: 600;
+      }
+      .sb-legacy-suggestion {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(230, 240, 250, 0.75);
+      }
+      .sb-legacy-suggestion p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--admin-accent-dark);
+        flex: 1 1 220px;
+      }
+      .sb-legacy-suggestion__actions {
+        display: flex;
+        gap: 0.4rem;
+        flex: 0 0 auto;
+      }
       .sb-canvas-viewport {
         flex: 1;
         display: flex;
@@ -1450,6 +1569,42 @@
           0 0 0 1px rgba(255, 255, 255, 0.5) inset;
         position: relative;
         flex-shrink: 0;
+      }
+      /* Normal-mode WYSIWYG canvas: same footprint as the advanced canvas card,
+         but content comes from the SAME shared builder used by the live preview
+         and public reader (see storybook-reader.js buildV2StandardPageHtml). */
+      .sb-canvas-normal-root {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        border-radius: 16px;
+        border: 1px solid rgba(61, 36, 16, 0.1);
+        background: linear-gradient(160deg, #e4e9ef 0%, #d8dce2 40%, #eceef2 100%);
+        min-height: 420px;
+      }
+      .sb-canvas-normal-page {
+        width: min(100%, 420px);
+        aspect-ratio: 3 / 4;
+        border-radius: 14px;
+        box-shadow:
+          0 4px 6px rgba(0, 0, 0, 0.06),
+          0 18px 38px rgba(40, 30, 20, 0.14),
+          0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+        background: #faf6f0;
+        overflow: hidden;
+        padding: 1rem 1.1rem 1.25rem;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+      }
+      #sbCanvasNormalImageSlot.sbv2-zone--page-image img {
+        cursor: default;
+      }
+      /* Normal mode: no free drag handle — matches the read-only, template-style canvas. */
+      .sb-canvas-mode-normal #sbTextDragHandle {
+        display: none;
       }
       .sb-canvas-page-inner {
         position: relative;
@@ -1860,6 +2015,10 @@
         margin: 0 0 0.55rem;
         font-size: 0.85rem;
       }
+      .sb-props-note--danger {
+        color: var(--danger);
+        font-weight: 600;
+      }
       .sb-props-aud-status {
         margin: 0 0 0.45rem;
         font-size: 0.88rem;
@@ -1986,51 +2145,6 @@
         margin-top: 1.25rem;
         padding-top: 1rem;
         border-top: 1px solid rgba(61, 36, 16, 0.12);
-      }
-      .sb-inline-preview {
-        border-radius: 14px;
-        border: 1px solid rgba(61, 36, 16, 0.15);
-        background: rgba(255, 250, 245, 0.9);
-        padding: 1.25rem;
-        max-height: min(70vh, 640px);
-        overflow: auto;
-      }
-      .sb-inline-preview .sb-prev-book header h2 {
-        margin: 0 0 0.35rem;
-        color: var(--admin-accent-dark);
-      }
-      .sb-inline-preview .sb-prev-book header img {
-        max-width: 280px;
-        border-radius: 12px;
-        margin-top: 0.75rem;
-      }
-      .sb-inline-preview .sb-prev-page {
-        margin-top: 1.25rem;
-        padding-top: 1rem;
-        border-top: 1px dashed rgba(61, 36, 16, 0.2);
-      }
-      .sb-inline-preview .sb-prev-page h3 {
-        margin: 0 0 0.35rem;
-        font-size: 1rem;
-      }
-      .sb-inline-preview .sb-prev-text {
-        white-space: pre-wrap;
-        margin: 0.5rem 0;
-      }
-      .sb-inline-preview figure {
-        margin: 0.5rem 0;
-      }
-      .sb-inline-preview figure img {
-        max-width: 100%;
-        border-radius: 8px;
-      }
-      .sb-preview-banner {
-        margin-bottom: 0.75rem;
-        padding: 0.65rem 0.85rem;
-        border-radius: 10px;
-        background: rgba(139, 90, 43, 0.12);
-        font-size: 0.88rem;
-        color: var(--admin-accent-dark);
       }
       .news-admin-preview {
         margin: 1rem 0;
@@ -2523,6 +2637,11 @@
             </div>
           </div>
 
+          <section id="sbLivePreview" class="storybook-v2-root sb-live-preview" aria-label="Élő előnézet (csak olvasható)">
+            <p class="sb-live-preview__label">Élő előnézet</p>
+            <div id="sbLivePreviewMount" class="sb-live-preview__mount" aria-hidden="false"></div>
+          </section>
+
           <div class="sb-creator-grid">
             <aside class="sb-creator-sidebar sb-creator-sidebar--pages" aria-label="Oldalak">
               <div class="sb-sidebar-head">
@@ -2547,7 +2666,36 @@
                   <strong>mozgató fogantyúval</strong> a szövegdobozt is áthelyezheted (asztali
                   nézet).
                 </p>
-                <div class="sb-canvas-viewport">
+                <div id="sbQuickToolbar" class="sb-quick-toolbar" role="toolbar" aria-label="Gyors eszközök">
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg vízszintes igazítása">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextLeft" aria-label="Szöveg balra igazítása" title="Szöveg balra">⇤</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextHCenter" aria-label="Szöveg vízszintesen középre igazítása" title="Szöveg középre (vízszintesen)">⇔</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextRight" aria-label="Szöveg jobbra igazítása" title="Szöveg jobbra">⇥</button>
+                  </div>
+                  <span class="sb-quick-toolbar__sep" aria-hidden="true"></span>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg függőleges igazítása">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextTop" aria-label="Szöveg fent" title="Szöveg fent">⤒</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextVCenter" aria-label="Szöveg középen (függőlegesen)" title="Szöveg középen (függőlegesen)">⇕</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAlignTextBottom" aria-label="Szöveg lent" title="Szöveg lent">⤓</button>
+                  </div>
+                  <span class="sb-quick-toolbar__sep" aria-hidden="true"></span>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Kép eszközök">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbCenterImage" aria-label="Kép középre helyezése" title="Kép középre">⊙</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbFitImage" aria-label="Kép kitöltése a biztonságos területen" title="Kép kitöltése">⤢</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbLockAspect" aria-pressed="true" aria-label="Képarány megtartása be- vagy kikapcsolása" title="Képarány megtartása: be">🔒</button>
+                  </div>
+                  <span class="sb-quick-toolbar__sep" aria-hidden="true"></span>
+                  <button type="button" class="sb-quick-toolbar-btn" id="btnSbResetLayout" aria-label="Elrendezés visszaállítása normál módba" title="Elrendezés visszaállítása">⟲</button>
+                </div>
+                <div id="sbCanvasWarnings" class="sb-canvas-warnings" role="status" aria-live="polite" hidden></div>
+                <div id="sbLegacyLayoutSuggestion" class="sb-legacy-suggestion" role="note" hidden>
+                  <p>Ez a réteg egy régi hibából eredhet — visszaállítod Normál módba?</p>
+                  <div class="sb-legacy-suggestion__actions">
+                    <button type="button" class="btn btn-sm" id="btnSbLegacySuggestionApply">Visszaállítás normál módba</button>
+                    <button type="button" class="btn btn-sm btn-ghost" id="btnSbLegacySuggestionDismiss">Mégsem</button>
+                  </div>
+                </div>
+                <div class="sb-canvas-viewport" id="sbCanvasAdvancedRoot">
                   <div id="sbCanvasSpinner" class="sb-canvas-spinner" hidden aria-hidden="true"></div>
                   <div id="sbCanvasPage" class="sb-canvas-page">
                     <div id="sbCanvasPageInner" class="sb-canvas-page-inner">
@@ -2599,6 +2747,14 @@
                     </div>
                   </div>
                 </div>
+                <div id="sbCanvasNormalRoot" class="storybook-v2-root sb-canvas-normal-root" hidden>
+                  <div id="sbCanvasNormalMount" class="sbv2-standard-page sb-canvas-normal-page">
+                    <div id="sbCanvasNormalSplit" class="sbv2-page-split sbv2-page-split--none">
+                      <figure id="sbCanvasNormalImageSlot" class="sbv2-zone sbv2-zone--page-image" hidden></figure>
+                      <div id="sbCanvasNormalTextSlot" class="sbv2-zone sbv2-zone--page-text"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2626,6 +2782,7 @@
                   </select>
                 </label>
                 <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
+                <p class="sb-props-note sb-props-note--danger" id="sbCurPageOverLimitMsg" role="alert" hidden></p>
                 <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
               </section>
 
@@ -2642,6 +2799,15 @@
                 </label>
                 <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
                 <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost"
+                  id="btnSbToggleAdvancedLayout"
+                  hidden
+                  title="Szabad, kézi elhelyezés a lapon — nincs biztonsági korlát a szövegre/képre"
+                >
+                  Speciális elrendezés
+                </button>
                 <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
               </section>
 
@@ -2874,6 +3040,10 @@
         const SB_EDITOR_MIN_WIDTH_PX = 768;
         const SB_EDITOR_MOBILE_MSG =
           "Mesekönyv szerkesztéséhez kérlek használj tabletet vagy számítógépet.";
+        // Mirrors the backend's 422 (_TEXT_TOO_LONG_MESSAGE in storybooks_admin.py) —
+        // shown as a save-blocking inline message instead of silently truncating input.
+        const SB_TEXT_TOO_LONG_MESSAGE =
+          "Az oldal elérte a maximális szöveghosszt. A történetet folytasd egy új oldalon.";
 
         function sbExitCustomTextPercentLocal() {
           const stage = $("sbCanvasTextStage");
@@ -3028,6 +3198,82 @@
             assetUrl: sbAbsAssetUrl,
             layout: "admin",
           };
+        }
+
+        // --- Live preview (#sbLivePreview): read-only mirror of the currently
+        // edited page, rendered through the SAME shared builder as the public
+        // reader — never a second layout implementation. Reads current unsaved
+        // form/canvas state without touching sbDetail or hitting the server.
+
+        function sbBuildDraftPage(pSaved) {
+          if (!pSaved) return null;
+          const draft = Object.assign({}, pSaved);
+          const bodyEl = $("sbCurPageBody");
+          if (bodyEl) draft.body_text = bodyEl.value || "";
+          const placementField = $("sbPropsImagePlacementField");
+          const placementSel = $("sbPropsImagePlacement");
+          if (placementSel && placementField && !placementField.hidden) {
+            draft.image_placement = placementSel.value;
+          }
+          const sv = $("sbPropsTextPosV");
+          const sh = $("sbPropsTextPosH");
+          if (sv) draft.text_position_vertical = sv.value;
+          if (sh) draft.text_position_horizontal = sh.value;
+          if (sbUiHasCustomTextOverlay()) {
+            const tp = sbUiTextPercentPair();
+            if (tp) {
+              draft.text_x_percent = tp.x;
+              draft.text_y_percent = tp.y;
+            }
+          }
+          const frameEl = $("sbCanvasImageFrame");
+          if (frameEl && frameEl.dataset.sbUserPositioned === "1") {
+            const ip = sbUiImageLayoutPair();
+            if (ip) {
+              draft.image_x_percent = ip.x;
+              draft.image_y_percent = ip.y;
+              draft.image_width_percent = ip.w;
+              draft.image_height_percent = ip.h;
+            }
+          }
+          return draft;
+        }
+
+        function sbBuildDraftPagesArray() {
+          if (!sbDetail) return [];
+          const pages = sbSortedPages(sbDetail).map((p) => Object.assign({}, p));
+          if (sbSelectedPageId != null) {
+            const idx = pages.findIndex((p) => p.id === sbSelectedPageId);
+            if (idx !== -1) {
+              const draft = sbBuildDraftPage(pages[idx]);
+              if (draft) pages[idx] = draft;
+            }
+          }
+          return pages;
+        }
+
+        let sbLivePreviewTimer = null;
+
+        function sbRepaintLivePreviewNow() {
+          const mount = $("sbLivePreviewMount");
+          const SBR2 = window.MesencsiStorybookReaderV2;
+          if (!mount || !SBR2 || !SBR || !sbDetail) return;
+          const pages = sbBuildDraftPagesArray();
+          if (!pages.length) {
+            mount.innerHTML = '<p class="empty-state" style="margin:0">Nincs megjeleníthető oldal.</p>';
+            return;
+          }
+          SBR2.mountV2ShellIfNeeded(mount);
+          if (!mount.querySelector(".sbv2-reader")) return;
+          const pageIdx =
+            sbSelectedPageId != null ? pages.findIndex((p) => p.id === sbSelectedPageId) : 0;
+          const spreadIndex = SBR.spreadIndexForPageIndex(pageIdx >= 0 ? pageIdx : 0);
+          SBR2.paintSpreadResting(mount, pages, spreadIndex, sbAdminPanelOpts());
+        }
+
+        function sbRepaintLivePreview() {
+          clearTimeout(sbLivePreviewTimer);
+          sbLivePreviewTimer = setTimeout(sbRepaintLivePreviewNow, 150);
         }
 
         function sbSyncAdminReaderNav(mount, pages) {
@@ -3217,6 +3463,7 @@
           const onVH = () => {
             sbExitCustomTextPercentLocal();
             sbApplyCanvasTextLayoutFromControls();
+            sbRepaintLivePreviewNow();
             schedule();
           };
           if (sv && sv.dataset.sbLayWired !== "1") {
@@ -3227,6 +3474,219 @@
             sh.dataset.sbLayWired = "1";
             sh.addEventListener("change", onVH);
           }
+        }
+
+        // --- Quick toolbar (icon buttons): text align + image center/fit/aspect-lock/reset.
+        // Align buttons are a nicer UI on the same sbPropsTextPosV/H selects that
+        // wireSbCanvasLayoutSelects() already wires — only enabled in Advanced mode
+        // (see sbUpdateQuickToolbarState). Image tools only ever act on the Advanced
+        // canvas's drag frame, since Normal mode has nothing to drag/resize.
+
+        let sbCanvasAspectLocked = true;
+
+        // --- Advanced-mode warnings: out-of-bounds / overlap advisories.
+        // Purely informational — never mutate the frame, the text wrap, or
+        // sbDraftPage. Measured from real rendered rects (getBoundingClientRect)
+        // against #sbCanvasPageInner so they reflect what's actually on screen,
+        // including content-driven text-box sizing.
+
+        function sbRectPercentWithin(inner, el) {
+          const ir = inner.getBoundingClientRect();
+          const er = el.getBoundingClientRect();
+          if (!ir.width || !ir.height) return null;
+          return {
+            left: ((er.left - ir.left) / ir.width) * 100,
+            top: ((er.top - ir.top) / ir.height) * 100,
+            right: ((er.right - ir.left) / ir.width) * 100,
+            bottom: ((er.bottom - ir.top) / ir.height) * 100,
+          };
+        }
+
+        function sbRectArea(r) {
+          return Math.max(0, r.right - r.left) * Math.max(0, r.bottom - r.top);
+        }
+
+        function sbRectsOverlapArea(a, b) {
+          const left = Math.max(a.left, b.left);
+          const right = Math.min(a.right, b.right);
+          const top = Math.max(a.top, b.top);
+          const bottom = Math.min(a.bottom, b.bottom);
+          if (right <= left || bottom <= top) return 0;
+          return (right - left) * (bottom - top);
+        }
+
+        function sbRectOutOfBounds(r) {
+          const tol = 0.5;
+          return r.left < -tol || r.top < -tol || r.right > 100 + tol || r.bottom > 100 + tol;
+        }
+
+        function sbUpdateAdvancedLayoutWarnings() {
+          const banner = $("sbCanvasWarnings");
+          if (!banner) return;
+          const p = sbCurrentPage();
+          const inner = $("sbCanvasPageInner");
+          if (!sbCanvasIsAdvancedMode(p) || !inner) {
+            banner.hidden = true;
+            banner.innerHTML = "";
+            return;
+          }
+          const frame = $("sbCanvasImageFrame");
+          const wrap = $("sbCanvasTextBoxWrap");
+          const warnings = [];
+
+          let imgRect = null;
+          if (frame && !frame.hidden) {
+            imgRect = sbRectPercentWithin(inner, frame);
+            if (imgRect && sbRectOutOfBounds(imgRect)) {
+              warnings.push("A kép kilóg a lapból.");
+            }
+          }
+
+          let textRect = null;
+          if (wrap) {
+            textRect = sbRectPercentWithin(inner, wrap);
+            if (sbUiHasCustomTextOverlay() && textRect && sbRectOutOfBounds(textRect)) {
+              warnings.push("A szövegdoboz kilóg a lapból.");
+            }
+          }
+
+          if (imgRect && textRect) {
+            const overlapArea = sbRectsOverlapArea(imgRect, textRect);
+            const smallerArea = Math.min(sbRectArea(imgRect), sbRectArea(textRect));
+            if (smallerArea > 0 && overlapArea / smallerArea > 0.25) {
+              warnings.push("A kép és a szöveg átfedik egymást — előfordulhat, hogy a szöveg olvashatatlanná válik.");
+            }
+          }
+
+          if (warnings.length) {
+            banner.hidden = false;
+            banner.innerHTML = warnings.map((w) => "<p>" + escapeHtml(w) + "</p>").join("");
+          } else {
+            banner.hidden = true;
+            banner.innerHTML = "";
+          }
+        }
+
+        function sbSetAspectLockUi(locked) {
+          const btn = $("btnSbLockAspect");
+          if (!btn) return;
+          btn.setAttribute("aria-pressed", locked ? "true" : "false");
+          btn.title = locked ? "Képarány megtartása: be" : "Képarány megtartása: ki (szabad átméretezés)";
+        }
+
+        function sbSetTextAlign(axis, value) {
+          const sv = $("sbPropsTextPosV");
+          const sh = $("sbPropsTextPosH");
+          if (axis === "v" && sv) sv.value = value;
+          if (axis === "h" && sh) sh.value = value;
+          sbExitCustomTextPercentLocal();
+          sbApplyCanvasTextLayoutFromControls();
+          sbUpdateQuickToolbarState(sbCurrentPage());
+          sbUpdateAdvancedLayoutWarnings();
+          sbRepaintLivePreviewNow();
+          sbSchedulePageAutosave();
+        }
+
+        function sbCenterCurrentImage() {
+          const inner = $("sbCanvasPageInner");
+          const frame = $("sbCanvasImageFrame");
+          if (!inner || !frame || frame.hidden) return;
+          const cur = sbUiImageLayoutPair() || sbEditorImageLayoutForPage(sbCurrentPage());
+          if (!cur) return;
+          const layout = sbClampImageLayout(inner, {
+            x: (100 - cur.w) / 2,
+            y: (100 - cur.h) / 2,
+            w: cur.w,
+            h: cur.h,
+          });
+          frame.dataset.sbUserPositioned = "1";
+          sbWriteImageLayoutToFrame(frame, layout);
+          sbUpdateAdvancedLayoutWarnings();
+          sbRepaintLivePreviewNow();
+          sbSchedulePageAutosave();
+        }
+
+        function sbFitCurrentImage() {
+          const inner = $("sbCanvasPageInner");
+          const frame = $("sbCanvasImageFrame");
+          if (!inner || !frame || frame.hidden) return;
+          const cw = inner.clientWidth || 1;
+          const ch = inner.clientHeight || 1;
+          const aspect = parseFloat(frame.dataset.sbAspect) || 1;
+          let wPct = 92;
+          let hPct = (wPct * (cw / ch)) / aspect;
+          if (hPct > 88) {
+            hPct = 88;
+            wPct = (hPct * aspect) / (cw / ch);
+          }
+          const layout = sbClampImageLayout(inner, {
+            x: (100 - wPct) / 2,
+            y: (100 - hPct) / 2,
+            w: wPct,
+            h: hPct,
+          });
+          frame.dataset.sbUserPositioned = "1";
+          sbWriteImageLayoutToFrame(frame, layout);
+          sbUpdateAdvancedLayoutWarnings();
+          sbRepaintLivePreviewNow();
+          sbSchedulePageAutosave();
+        }
+
+        function sbUpdateQuickToolbarState(p) {
+          const advanced = sbCanvasIsAdvancedMode(p);
+          const hasImage = !!((p && p.image_url) || "").trim();
+          [
+            "btnSbAlignTextLeft",
+            "btnSbAlignTextHCenter",
+            "btnSbAlignTextRight",
+            "btnSbAlignTextTop",
+            "btnSbAlignTextVCenter",
+            "btnSbAlignTextBottom",
+          ].forEach((id) => {
+            const btn = $(id);
+            if (btn) btn.disabled = !advanced;
+          });
+          ["btnSbCenterImage", "btnSbFitImage", "btnSbLockAspect"].forEach((id) => {
+            const btn = $(id);
+            if (btn) btn.disabled = !(advanced && hasImage);
+          });
+          const resetBtn = $("btnSbResetLayout");
+          if (resetBtn) resetBtn.disabled = !advanced;
+          const sv = $("sbPropsTextPosV");
+          const sh = $("sbPropsTextPosH");
+          const setPressed = (id, on) => {
+            const btn = $(id);
+            if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+          };
+          setPressed("btnSbAlignTextLeft", !!sh && sh.value === "left");
+          setPressed("btnSbAlignTextHCenter", !!sh && sh.value === "center");
+          setPressed("btnSbAlignTextRight", !!sh && sh.value === "right");
+          setPressed("btnSbAlignTextTop", !!sv && sv.value === "top");
+          setPressed("btnSbAlignTextVCenter", !!sv && sv.value === "center");
+          setPressed("btnSbAlignTextBottom", !!sv && sv.value === "bottom");
+        }
+
+        function wireSbQuickToolbar() {
+          const bind = (id, fn) => {
+            const btn = $(id);
+            if (btn && btn.dataset.sbQtWired !== "1") {
+              btn.dataset.sbQtWired = "1";
+              btn.addEventListener("click", fn);
+            }
+          };
+          bind("btnSbAlignTextLeft", () => sbSetTextAlign("h", "left"));
+          bind("btnSbAlignTextHCenter", () => sbSetTextAlign("h", "center"));
+          bind("btnSbAlignTextRight", () => sbSetTextAlign("h", "right"));
+          bind("btnSbAlignTextTop", () => sbSetTextAlign("v", "top"));
+          bind("btnSbAlignTextVCenter", () => sbSetTextAlign("v", "center"));
+          bind("btnSbAlignTextBottom", () => sbSetTextAlign("v", "bottom"));
+          bind("btnSbCenterImage", sbCenterCurrentImage);
+          bind("btnSbFitImage", sbFitCurrentImage);
+          bind("btnSbLockAspect", () => {
+            sbCanvasAspectLocked = !sbCanvasAspectLocked;
+            sbSetAspectLockUi(sbCanvasAspectLocked);
+          });
+          bind("btnSbResetLayout", sbHandleAdvancedLayoutToggleClick);
         }
 
         function sbWireTextBoxDragOnce() {
@@ -3255,6 +3715,8 @@
             drag.wrap.style.transform = "translate(-50%, -50%)";
             drag.wrap.dataset.sbXp = String(clamped.xp);
             drag.wrap.dataset.sbYp = String(clamped.yp);
+            sbUpdateAdvancedLayoutWarnings();
+            sbRepaintLivePreview();
           };
           const endDrag = (e) => {
             if (!drag || e.pointerId !== drag.pid) return;
@@ -5000,6 +5462,8 @@
           sbApplyCanvasTextLayoutFromControls();
           sbUpdateCharCounter();
           sbUpdateEditorBadge();
+          const lp = $("sbLivePreviewMount");
+          if (lp) lp.innerHTML = "";
         }
 
         function sbPageBgDirtyVsServer() {
@@ -5135,6 +5599,15 @@
           );
         }
 
+        // Only the size stays hard-limited (8-92%/8-88%, so the frame never
+        // vanishes or engulfs the page). The frame is no longer forced to stay
+        // fully ON the page (x+w<=100, y+h<=88 used to be enforced) — Advanced
+        // mode is the owner's unrestricted escape hatch, so the image can now
+        // spill off the right/bottom edge; sbUpdateAdvancedLayoutWarnings()
+        // raises a non-blocking warning instead of silently snapping it back.
+        // x/y themselves still stay within 0-100: the backend's PATCH schema
+        // (models.py clamp_layout_percent) hard-rejects values outside 0-100
+        // with a 422, so going negative here would silently break autosave.
         function sbClampImageLayout(inner, layout) {
           const wPct = Math.min(92, Math.max(8, Number(layout.w) || sbDefaultImageLayout().w));
           const hPct = Math.min(88, Math.max(8, Number(layout.h) || sbDefaultImageLayout().h));
@@ -5142,8 +5615,8 @@
           let y = Number(layout.y);
           if (!Number.isFinite(x)) x = sbDefaultImageLayout().x;
           if (!Number.isFinite(y)) y = sbDefaultImageLayout().y;
-          x = Math.min(100 - wPct, Math.max(0, x));
-          y = Math.min(100 - hPct, Math.max(0, y));
+          x = Math.min(100, Math.max(0, x));
+          y = Math.min(100, Math.max(0, y));
           return { x: x, y: y, w: wPct, h: hPct };
         }
 
@@ -5234,6 +5707,8 @@
                 h: drag.h,
               });
               sbWriteImageLayoutToFrame(frame, layout);
+              sbUpdateAdvancedLayoutWarnings();
+              sbRepaintLivePreview();
               return;
             }
             const dx = mx - drag.startMx;
@@ -5258,6 +5733,8 @@
               h: hPct,
             });
             sbWriteImageLayoutToFrame(frame, layout);
+            sbUpdateAdvancedLayoutWarnings();
+            sbRepaintLivePreview();
           };
 
           const endDrag = (e) => {
@@ -5306,7 +5783,7 @@
                 startH: cur.h,
                 signX: signX,
                 signY: signY,
-                freeResize: !!e.shiftKey,
+                freeResize: !!e.shiftKey || !sbCanvasAspectLocked,
               };
             } else {
               const cw = inner.clientWidth || 1;
@@ -5338,6 +5815,23 @@
             const placement = SBR.normImagePlacement(p);
             sel.value = placement === "none" ? "right" : placement;
           }
+          sbUpdateAdvancedToggleButton(p);
+        }
+
+        function sbUpdateAdvancedToggleButton(p) {
+          const btn = $("btnSbToggleAdvancedLayout");
+          if (!btn) return;
+          const hasImage = !!((p && p.image_url) || "").trim();
+          if (!hasImage) {
+            btn.hidden = true;
+            return;
+          }
+          btn.hidden = false;
+          const advanced = sbCanvasIsAdvancedMode(p);
+          btn.textContent = advanced ? "Vissza normál módba" : "Speciális elrendezés";
+          btn.title = advanced
+            ? "Visszaáll a biztonságos, sablon szerinti elrendezésre"
+            : "Szabad, kézi elhelyezés a lapon — nincs biztonsági korlát a szövegre/képre";
         }
 
         function sbCurrentPage() {
@@ -5359,8 +5853,22 @@
           return SBR.pageHasCustomImageLayout(p) || SBR.pageHasCustomDragPos(p) || sbUiHasCustomTextOverlay();
         }
 
+        // Mirrors the backend's actual enforcement rule (len > limit is rejected,
+        // len === limit is fine) — used to gate Save/autosave, not just to color
+        // the counter (which turns red a character early, at len >= limit, as an
+        // early warning).
+        function sbCurrentPageOverTextLimit() {
+          const tx = $("sbCanvasText");
+          if (!tx || sbCurrentPageUsesAdvancedLayout()) return false;
+          const len = (tx.textContent || "").length;
+          const limit = SBR.storybookPageTextLimit(sbCurrentPageHasImage());
+          return len > limit;
+        }
+
         function sbUpdateCharCounter() {
           const counter = $("sbCurPageCharCounter");
+          const msg = $("sbCurPageOverLimitMsg");
+          const saveBtn = $("btnSbCurPageSave");
           const tx = $("sbCanvasText");
           if (!counter || !tx) return;
           const len = (tx.textContent || "").length;
@@ -5368,6 +5876,8 @@
             counter.textContent = len + " karakter (speciális elrendezésben nincs korlát)";
             counter.style.color = "";
             counter.style.fontWeight = "";
+            if (msg) msg.hidden = true;
+            if (saveBtn) saveBtn.disabled = false;
             return;
           }
           const limit = SBR.storybookPageTextLimit(sbCurrentPageHasImage());
@@ -5375,16 +5885,192 @@
           counter.textContent = len + " / " + limit;
           counter.style.color = over ? "var(--danger)" : "";
           counter.style.fontWeight = over ? "700" : "";
+          const blocked = sbCurrentPageOverTextLimit();
+          if (msg) {
+            msg.hidden = !blocked;
+            msg.textContent = blocked ? SB_TEXT_TOO_LONG_MESSAGE : "";
+          }
+          if (saveBtn) saveBtn.disabled = blocked;
+        }
+
+        // --- Normal vs. Advanced canvas mode: Normal mode renders through the
+        // SAME shared builder as the live preview/public reader (non-draggable,
+        // WYSIWYG "template" style); Advanced mode is the existing, fully
+        // reused free-position drag/resize canvas, unchanged. Mode is derived
+        // from the page's own data (pageHasCustomImageLayout/pageHasCustomDragPos),
+        // with a session-only override for the explicit "switch to advanced" action.
+
+        let sbCanvasForceAdvancedDisplay = false;
+
+        function sbCanvasIsAdvancedMode(p) {
+          if (sbCanvasForceAdvancedDisplay) return true;
+          if (!p || !SBR) return false;
+          return !!(SBR.pageHasCustomImageLayout(p) || SBR.pageHasCustomDragPos(p));
+        }
+
+        // --- Legacy-fingerprint suggestion: a pre-redesign admin-editor bug could
+        // silently promote a page into Advanced mode just by displaying it, always
+        // writing the exact same default layout (x:10, y:6, w:80 — sbDefaultImageLayout()
+        // below). scripts/audit_storybook_advanced_layout_pages.py flags pages whose
+        // saved percent values still closely match that accidental default; this
+        // mirrors the same fingerprint/tolerance client-side as a one-time, dismissible,
+        // per-page suggestion — never an automatic reset.
+        const SB_LEGACY_DEFAULT_FINGERPRINT = { x: 10, y: 6, w: 80 };
+        const SB_LEGACY_FINGERPRINT_TOL = 0.5;
+        const sbLegacyBannerDismissedIds = new Set();
+
+        function sbLegacyFingerprintMatches(p) {
+          if (!p || !SBR || !SBR.pageHasCustomImageLayout(p)) return false;
+          const close = (a, b) => a != null && Math.abs(Number(a) - b) <= SB_LEGACY_FINGERPRINT_TOL;
+          return (
+            close(p.image_x_percent, SB_LEGACY_DEFAULT_FINGERPRINT.x) &&
+            close(p.image_y_percent, SB_LEGACY_DEFAULT_FINGERPRINT.y) &&
+            close(p.image_width_percent, SB_LEGACY_DEFAULT_FINGERPRINT.w)
+          );
+        }
+
+        function sbUpdateLegacyFingerprintSuggestion(p) {
+          const banner = $("sbLegacyLayoutSuggestion");
+          if (!banner) return;
+          const show = !!p && sbLegacyFingerprintMatches(p) && !sbLegacyBannerDismissedIds.has(p.id);
+          banner.hidden = !show;
+        }
+
+        function sbApplyCanvasModeDisplay(p) {
+          const advanced = sbCanvasIsAdvancedMode(p);
+          sbUpdateAdvancedToggleButton(p);
+          sbUpdateQuickToolbarState(p);
+          sbUpdateLegacyFingerprintSuggestion(p);
+          const advancedRoot = $("sbCanvasAdvancedRoot");
+          const normalRoot = $("sbCanvasNormalRoot");
+          const pageInner = $("sbCanvasPageInner");
+          const normalTextSlot = $("sbCanvasNormalTextSlot");
+          const textStage = $("sbCanvasTextStage");
+          const imageSlotEl = $("sbCanvasImageSlot");
+          const editorRoot = $("sbEditorRoot");
+          if (editorRoot) editorRoot.classList.toggle("sb-canvas-mode-normal", !advanced);
+
+          if (advanced) {
+            if (advancedRoot) advancedRoot.hidden = false;
+            if (normalRoot) normalRoot.hidden = true;
+            if (textStage && pageInner && textStage.parentElement !== pageInner) {
+              if (imageSlotEl && imageSlotEl.parentElement === pageInner) {
+                imageSlotEl.insertAdjacentElement("afterend", textStage);
+              } else {
+                pageInner.appendChild(textStage);
+              }
+            }
+            // The stage's alignment classes get reset to plain (below) whenever the
+            // canvas is in Normal mode — restore them from the saved page on every
+            // entry into Advanced mode, since nothing else re-applies them on a mode
+            // switch (only on a fresh page load).
+            if (p) sbApplyCanvasTextLayoutFromPage(p, { preserveBody: true });
+            sbUpdateAdvancedLayoutWarnings();
+            return;
+          }
+
+          if (advancedRoot) advancedRoot.hidden = true;
+          if (normalRoot) normalRoot.hidden = false;
+          if (textStage && normalTextSlot && textStage.parentElement !== normalTextSlot) {
+            normalTextSlot.appendChild(textStage);
+          }
+          // Normal mode ignores text_position_vertical/horizontal entirely (the
+          // shared builder — buildV2StandardPageHtml/buildSimplePageTextHtml — always
+          // flows text naturally top-first, same as the public reader). The stage's
+          // "sb-pos-v/h-*" classes only make sense for the Advanced canvas's absolute
+          // positioning; left in place they'd wrongly justify-content/align-items the
+          // relocated stage inside the Normal-mode zone, showing e.g. vertically
+          // centered text in the admin canvas for a page the public reader renders
+          // starting at the top. Reset to the plain (naturally-flowing) class here.
+          if (textStage) textStage.className = "sb-canvas-text-stage";
+          const imgSlot = $("sbCanvasNormalImageSlot");
+          const split = $("sbCanvasNormalSplit");
+          const placement = p && p.image_url && SBR ? SBR.normImagePlacement(p) : "none";
+          if (split) split.className = "sbv2-page-split sbv2-page-split--" + placement;
+          if (imgSlot) {
+            if (placement !== "none" && p && p.image_url) {
+              imgSlot.hidden = false;
+              const u = sbAbsAssetUrl(String(p.image_url).trim());
+              imgSlot.innerHTML =
+                '<img src="' + escapeHtml(u) + '" alt="" onerror="this.style.display=\'none\'"/>';
+            } else {
+              imgSlot.hidden = true;
+              imgSlot.innerHTML = "";
+            }
+          }
+          sbUpdateAdvancedLayoutWarnings();
+        }
+
+        // Shared by the props-panel "Speciális elrendezés" toggle and the quick
+        // toolbar's "Reset layout" button — the toolbar button is only enabled in
+        // Advanced mode, so for it this always takes the "return to normal" path.
+        async function sbHandleAdvancedLayoutToggleClick() {
+          if (!me || me.role !== "owner") return;
+          const p = sbCurrentPage();
+          if (!p) return;
+          const currentlyAdvanced = sbCanvasIsAdvancedMode(p);
+          if (!currentlyAdvanced) {
+            sbCanvasForceAdvancedDisplay = true;
+            sbApplyCanvasModeDisplay(p);
+            sbRepaintLivePreviewNow();
+            return;
+          }
+          const hasPersistedAdvancedData =
+            SBR.pageHasCustomImageLayout(p) || SBR.pageHasCustomDragPos(p);
+          if (hasPersistedAdvancedData) {
+            if (
+              !confirm(
+                "Ez törli a kézzel beállított elhelyezést, és visszaáll a biztonságos sablonra. Folytatod?"
+              )
+            ) {
+              return;
+            }
+            const bookId = parseInt($("sbBookId").value, 10);
+            const pageId = sbSelectedPageId;
+            if (!Number.isFinite(bookId) || !Number.isFinite(pageId)) return;
+            try {
+              sbDetail = await auth.api("/admin/storybooks/" + bookId + "/pages/" + pageId, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  image_x_percent: null,
+                  image_y_percent: null,
+                  image_width_percent: null,
+                  image_height_percent: null,
+                  text_x_percent: null,
+                  text_y_percent: null,
+                }),
+              });
+              sbCanvasForceAdvancedDisplay = false;
+              const pNew = (sbDetail.pages || []).find((x) => x.id === pageId);
+              if (pNew) {
+                sbApplyCanvasTextLayoutFromPage(pNew);
+                sbApplyCanvasModeDisplay(pNew);
+                sbRepaintLivePreviewNow();
+              }
+              showToast("Visszaállítva normál módba.", "ok");
+            } catch (e) {
+              showToast(humanError(e), "err");
+            }
+            return;
+          }
+          sbCanvasForceAdvancedDisplay = false;
+          sbApplyCanvasModeDisplay(p);
+          sbRepaintLivePreviewNow();
         }
 
         function sbApplyPageToCanvas(p) {
           if (!p) return;
+          sbCanvasForceAdvancedDisplay = false;
+          sbCanvasAspectLocked = true;
+          sbSetAspectLockUi(true);
           const inner = $("sbCanvasPageInner");
+          const normalMount = $("sbCanvasNormalMount");
           const tx = $("sbCanvasText");
           const hid = $("sbCurPageBody");
           const slot = $("sbCanvasImageSlot");
           const bg = sbPageCanvasBg(p);
           if (inner) inner.style.backgroundColor = bg;
+          if (normalMount) normalMount.style.backgroundColor = bg;
           const pk = $("sbPropsPageBg");
           if (pk) pk.value = bg;
           sbRenderCanvasImage(slot, p.image_url);
@@ -5393,9 +6079,16 @@
           if (tx) tx.textContent = txt;
           if (hid) hid.value = txt;
           sbApplyCanvasTextLayoutFromPage(p);
+          sbApplyCanvasModeDisplay(p);
           sbUpdateCharCounter();
+          sbRepaintLivePreviewNow();
         }
 
+        // Only the absolute 50,000-char ceiling is enforced by truncating input —
+        // that's a hard technical limit, not the safe/readable 600-150 limit.
+        // The safe limit is no longer enforced by silently clipping what the
+        // admin types; typing stays unrestricted and sbUpdateCharCounter()
+        // blocks Save/autosave instead (see sbCurrentPageOverTextLimit()).
         function sbSyncCanvasToHidden() {
           const tx = $("sbCanvasText");
           const hid = $("sbCurPageBody");
@@ -5406,16 +6099,9 @@
             tx.textContent = t;
             showToast("A szöveg elérte a maximális hosszot (50 000 karakter).", "err");
           }
-          if (!sbCurrentPageUsesAdvancedLayout()) {
-            const limit = SBR.storybookPageTextLimit(sbCurrentPageHasImage());
-            if (t.length > limit) {
-              t = t.slice(0, limit);
-              tx.textContent = t;
-              showToast("Az oldal elérte a maximális szöveghosszt. A történetet folytasd egy új oldalon.", "err");
-            }
-          }
           hid.value = t;
           sbUpdateCharCounter();
+          sbRepaintLivePreview();
         }
 
         function sbSchedulePageAutosave() {
@@ -5423,6 +6109,7 @@
           clearTimeout(sbPageAutosaveTimer);
           sbPageAutosaveTimer = setTimeout(async () => {
             sbPageAutosaveTimer = null;
+            if (sbCurrentPageOverTextLimit()) return;
             try {
               await sbSaveCurrentPageIfDirty({ quiet: true });
             } catch (e) {
@@ -6695,6 +7382,10 @@
 
         $("btnSbCurPageSave").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
+          if (sbCurrentPageOverTextLimit()) {
+            showToast(SB_TEXT_TOO_LONG_MESSAGE, "err");
+            return;
+          }
           const pageSaveBtn = $("btnSbCurPageSave");
           await withAdminBusy(pageSaveBtn, async () => {
             const bookId = parseInt($("sbBookId").value, 10);
@@ -6771,11 +7462,19 @@
               sbRenderCanvasImage(null, pNew.image_url);
               sbApplyImagePlacementFromPage(pNew);
               sbUpdateCharCounter();
+              sbRepaintLivePreviewNow();
             }
             showToast("Kép elhelyezése mentve.", "ok");
           } catch (e) {
             showToast(humanError(e), "err");
           }
+        });
+        $("btnSbToggleAdvancedLayout").addEventListener("click", sbHandleAdvancedLayoutToggleClick);
+        $("btnSbLegacySuggestionApply").addEventListener("click", sbHandleAdvancedLayoutToggleClick);
+        $("btnSbLegacySuggestionDismiss").addEventListener("click", () => {
+          const p = sbCurrentPage();
+          if (p) sbLegacyBannerDismissedIds.add(p.id);
+          sbUpdateLegacyFingerprintSuggestion(p);
         });
         $("btnSbCurPageRemoveImg").addEventListener("click", async () => {
           if (!me || me.role !== "owner") return;
@@ -6792,6 +7491,7 @@
               sbRenderCanvasImage(null, pNew.image_url);
               sbApplyImagePlacementFromPage(pNew);
               sbUpdateCharCounter();
+              sbRepaintLivePreviewNow();
             }
             showToast("Kép eltávolítva.", "ok");
           } catch (e) {
@@ -6960,6 +7660,7 @@
           wireSbPageNavDnD();
           wireSbReaderAndLayoutControls();
           wireSbCanvasLayoutSelects();
+          wireSbQuickToolbar();
           sbWireTextBoxDragOnce();
           sbWireImageFrameOnce();
 
