@@ -125,11 +125,16 @@ _TEXT_TOO_LONG_MESSAGE = "Az oldal elérte a maximális szöveghosszt. A törté
 
 
 def _page_uses_custom_layout(page: DigitalStorybookPage) -> bool:
-    """Mirrors storybook-reader.js pageHasCustomImageLayout / pageHasCustomDragPos exactly.
+    """Mirrors storybook-reader.js pageHasCustomImageLayout / pageHasCustomDragPos / resolvePageLayout.
 
-    Pages in this "advanced" free-position mode are unrestricted (owner's choice) —
-    the safe character limits below only apply to pages in simple/enum-placement mode.
+    Pages with a free-position layout are unrestricted (owner's choice) — the safe
+    character limit below only applies to legacy pages using the fixed enum
+    placement, since those have no owner-resizable box to protect against overflow.
+    A page edited in the V3 object-canvas editor (layout_json set) is exempt the
+    same way, because its own live text-overflow fit-check is the real safeguard.
     """
+    if page.layout_json is not None:
+        return True
     has_custom_image = (
         page.image_x_percent is not None
         and page.image_y_percent is not None
@@ -150,6 +155,60 @@ def _assert_page_text_within_limit(page: DigitalStorybookPage) -> None:
     limit = _storybook_page_text_limit(bool(page.image_url))
     if len(page.body_text) > limit:
         raise HTTPException(status_code=422, detail=_TEXT_TOO_LONG_MESSAGE)
+
+
+def _assert_layout_json_consistent(page: DigitalStorybookPage) -> None:
+    """Cross-checks layout_json's {type:"image"} entry against the page's actual
+    image_url — Pydantic can't do this itself since image_url isn't a PATCH field
+    (it's only ever set by the separate upload endpoint)."""
+    layout = page.layout_json
+    if not isinstance(layout, dict):
+        return
+    has_image_object = any(
+        isinstance(o, dict) and o.get("type") == "image" for o in layout.get("objects", [])
+    )
+    if has_image_object and not (page.image_url or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Az elrendezés kép elemet tartalmaz, de az oldalhoz nincs feltöltve kép.",
+        )
+
+
+def _ensure_image_object_in_layout(layout: dict | None) -> dict | None:
+    """Adds a default-positioned {type:"image"} entry when a page already has a
+    saved layout_json but no image object — otherwise a freshly uploaded image
+    would set image_url yet never appear in the object canvas or public reader,
+    since resolvePageLayout() uses a non-null layout_json verbatim with no
+    legacy-adapter fallback."""
+    if not isinstance(layout, dict) or not isinstance(layout.get("objects"), list):
+        return layout
+    has_image_object = any(
+        isinstance(o, dict) and o.get("type") == "image" for o in layout["objects"]
+    )
+    if has_image_object:
+        return layout
+    default_image_object = {
+        "id": "image-" + uuid.uuid4().hex[:10],
+        "type": "image",
+        "x": 55,
+        "y": 4,
+        "w": 41,
+        "h": 92,
+        "rotation": 0,
+        "image": {"fit": "contain", "aspectLocked": True},
+    }
+    return {**layout, "objects": [*layout["objects"], default_image_object]}
+
+
+def _strip_image_object_from_layout(layout: dict | None) -> dict | None:
+    """Removes any {type:"image"} entry — called when a page's image is deleted,
+    so a saved layout never keeps a positioned box for an image that no longer exists."""
+    if not isinstance(layout, dict) or not isinstance(layout.get("objects"), list):
+        return layout
+    objects = [o for o in layout["objects"] if not (isinstance(o, dict) and o.get("type") == "image")]
+    if len(objects) == len(layout["objects"]):
+        return layout
+    return {**layout, "objects": objects}
 
 
 def _require_storybook_tables(db: Session) -> None:
@@ -386,7 +445,10 @@ def admin_update_storybook_page(
         page.image_width_percent = data["image_width_percent"]
     if "image_height_percent" in data:
         page.image_height_percent = data["image_height_percent"]
-    if "body_text" in data or "image_placement" in data:
+    if "layout_json" in data:
+        page.layout_json = data["layout_json"]
+        _assert_layout_json_consistent(page)
+    if "body_text" in data or "image_placement" in data or "layout_json" in data:
         _assert_page_text_within_limit(page)
     db.commit()
     book = find_digital_storybook(db, book_id)
@@ -508,6 +570,7 @@ async def admin_upload_storybook_page_image(
     page.image_url = url
     if page.image_placement == "none":
         page.image_placement = "right"
+    page.layout_json = _ensure_image_object_in_layout(page.layout_json)
     db.commit()
     if prev and str(prev).strip() and str(prev).strip() != url.strip():
         delete_uploaded_file_by_url(prev)
@@ -527,6 +590,7 @@ def admin_remove_storybook_page_image(
     prev = (page.image_url or "").strip() or None
     page.image_url = None
     page.image_placement = "none"
+    page.layout_json = _strip_image_object_from_layout(page.layout_json)
     db.commit()
     if prev:
         delete_uploaded_file_by_url(prev)

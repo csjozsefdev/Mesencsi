@@ -776,6 +776,127 @@ StorybookImagePlacement = Literal["left", "right", "above", "below", "none"]
 STORYBOOK_TEXT_ONLY_MAX_CHARS = 600
 STORYBOOK_TEXT_WITH_IMAGE_MAX_CHARS = 150
 
+# V3 object-canvas editor layout ({"version": 1, "objects": [...]})
+STORYBOOK_LAYOUT_MAX_BYTES = 24000
+STORYBOOK_LAYOUT_MAX_EXTRA_OBJECTS = 20
+STORYBOOK_LAYOUT_CAPTION_MAX_CHARS = 2000
+STORYBOOK_LAYOUT_GLYPH_MAX_CHARS = 8
+
+
+def _layout_number(v: object, field: str, lo: float, hi: float) -> float:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        raise ValueError(f"A(z) '{field}' mezőnek számnak kell lennie.") from None
+    if x < lo or x > hi:
+        raise ValueError(f"A(z) '{field}' mezőnek {lo} és {hi} között kell lennie.")
+    return x
+
+
+def _layout_text_format_ok(fmt: object) -> None:
+    if fmt is None:
+        return
+    if not isinstance(fmt, dict):
+        raise ValueError("A szövegformázásnak objektumnak kell lennie.")
+    if fmt.get("fontSize", "m") not in ("s", "m", "l", "xl"):
+        raise ValueError("Érvénytelen betűméret.")
+    if fmt.get("align", "left") not in ("left", "center", "right"):
+        raise ValueError("Érvénytelen szövegigazítás.")
+    for key in ("bold", "italic", "underline"):
+        if key in fmt and not isinstance(fmt[key], bool):
+            raise ValueError(f"A(z) '{key}' formázási mezőnek logikai értéknek kell lennie.")
+    for key in ("highlight", "color"):
+        val = fmt.get(key)
+        if val is not None and (not isinstance(val, str) or len(val) > 32):
+            raise ValueError(f"Érvénytelen '{key}' érték.")
+
+
+def _storybook_layout_json_ok(v: dict) -> dict:
+    """Validates the V3 object-canvas layout shape (see storybook-reader.js's
+    buildObjectCanvasHtml, which this schema must stay in lockstep with)."""
+    if not isinstance(v, dict):
+        raise ValueError("Az oldal elrendezésének objektumnak kell lennie.")
+    if v.get("version") != 1:
+        raise ValueError("Ismeretlen elrendezés-verzió.")
+    objects = v.get("objects")
+    if not isinstance(objects, list) or not objects:
+        raise ValueError("Az elrendezésnek legalább egy elemet (a fő szöveget) tartalmaznia kell.")
+
+    primary_count = 0
+    image_count = 0
+    extra_count = 0
+    seen_ids: set[str] = set()
+
+    for obj in objects:
+        if not isinstance(obj, dict):
+            raise ValueError("Minden elrendezés-elemnek objektumnak kell lennie.")
+        obj_id = obj.get("id")
+        if not isinstance(obj_id, str) or not obj_id.strip():
+            raise ValueError("Minden elrendezés-elemnek egyedi azonosítóval kell rendelkeznie.")
+        if obj_id in seen_ids:
+            raise ValueError("Az elrendezés-elemek azonosítói nem lehetnek duplikáltak.")
+        seen_ids.add(obj_id)
+
+        obj_type = obj.get("type")
+        if obj_type not in ("text", "image", "decoration"):
+            raise ValueError("Ismeretlen elrendezés-elem típus.")
+
+        _layout_number(obj.get("x"), "x", 0, 100)
+        _layout_number(obj.get("y"), "y", 0, 100)
+        _layout_number(obj.get("w"), "w", 0.5, 100)
+        _layout_number(obj.get("h"), "h", 0.5, 100)
+        _layout_number(obj.get("rotation", 0), "rotation", -180, 180)
+
+        if obj_type == "text":
+            role = obj.get("role")
+            if role not in ("primary", "secondary"):
+                raise ValueError("A szöveges elemnek 'primary' vagy 'secondary' szerepe kell legyen.")
+            if role == "primary":
+                primary_count += 1
+            else:
+                extra_count += 1
+                content = obj.get("content", "")
+                if not isinstance(content, str) or len(content) > STORYBOOK_LAYOUT_CAPTION_MAX_CHARS:
+                    raise ValueError("A felirat szövege túl hosszú vagy érvénytelen.")
+            _layout_text_format_ok(obj.get("format"))
+        elif obj_type == "image":
+            image_count += 1
+            img = obj.get("image", {})
+            if not isinstance(img, dict):
+                raise ValueError("A kép elem beállításainak objektumnak kell lenniük.")
+            if img.get("fit", "contain") not in ("contain", "cover"):
+                raise ValueError("Érvénytelen kép-illesztési mód.")
+            if "aspectLocked" in img and not isinstance(img["aspectLocked"], bool):
+                raise ValueError("Az 'aspectLocked' mezőnek logikai értéknek kell lennie.")
+        else:  # decoration
+            extra_count += 1
+            deco = obj.get("decoration", {})
+            if not isinstance(deco, dict):
+                raise ValueError("A dekoráció beállításainak objektumnak kell lenniük.")
+            glyph = deco.get("glyph")
+            if (
+                not isinstance(glyph, str)
+                or not glyph.strip()
+                or len(glyph) > STORYBOOK_LAYOUT_GLYPH_MAX_CHARS
+            ):
+                raise ValueError("Érvénytelen dekoráció.")
+
+    if primary_count != 1:
+        raise ValueError("Az elrendezésnek pontosan egy fő szövegelemet kell tartalmaznia.")
+    if image_count > 1:
+        raise ValueError("Egy oldalnak legfeljebb egy kép eleme lehet.")
+    if extra_count > STORYBOOK_LAYOUT_MAX_EXTRA_OBJECTS:
+        raise ValueError(
+            f"Legfeljebb {STORYBOOK_LAYOUT_MAX_EXTRA_OBJECTS} kiegészítő elem "
+            "(felirat/dekoráció) engedélyezett."
+        )
+
+    raw = json.dumps(v, ensure_ascii=False)
+    if len(raw) > STORYBOOK_LAYOUT_MAX_BYTES:
+        raise ValueError("Az oldal elrendezése túl nagy.")
+
+    return v
+
 
 # --- Storybooks ---
 
@@ -798,6 +919,7 @@ class StorybookPagePublic(BaseModel):
     image_y_percent: float | None = None
     image_width_percent: float | None = None
     image_height_percent: float | None = None
+    layout_json: dict | None = None
 
 
 class StorybookListItemPublic(BaseModel):
@@ -843,6 +965,7 @@ class StorybookAdminPageRead(BaseModel):
     image_y_percent: float | None = None
     image_width_percent: float | None = None
     image_height_percent: float | None = None
+    layout_json: dict | None = None
     extra: dict
 
 
@@ -938,7 +1061,15 @@ class StorybookPageUpdate(BaseModel):
     image_y_percent: float | None = None
     image_width_percent: float | None = None
     image_height_percent: float | None = None
+    layout_json: dict | None = None
     extra: dict | None = None
+
+    @field_validator("layout_json")
+    @classmethod
+    def validate_layout_json(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return None
+        return _storybook_layout_json_ok(v)
 
     @field_validator(
         "text_x_percent",

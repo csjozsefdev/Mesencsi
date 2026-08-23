@@ -5279,6 +5279,59 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   line-height: 1;
 }
 
+/* ----- V3 object-canvas: the single renderer for every page (legacy pages
+   resolve to an equivalent layout via legacyPageToLayout() — see
+   storybook-reader.js). Objects are percent-positioned/sized absolutely
+   within .sbv2-object-canvas-stage, which fills the same flex slot
+   .sbv2-page-split used to. ----- */
+.storybook-v2-root .sbv2-object-canvas-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.storybook-v2-root .sbv2-obj {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.storybook-v2-root .sbv2-obj--text {
+  display: flex;
+}
+.storybook-v2-root .sbv2-obj--text .sb-canvas-text {
+  width: 100%;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.storybook-v2-root .sbv2-obj--image {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.storybook-v2-root .sbv2-obj--image img {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  box-shadow: 0 1px 5px rgba(72, 48, 28, 0.14);
+}
+.storybook-v2-root .sbv2-obj--decoration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.storybook-v2-root .sbv2-obj-decoration-glyph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 200%;
+  line-height: 1;
+}
+
 /* V2 page-flip overlay (3D turn above resting pages) */
 #storybooksPublicReader.storybook-v2-root--immersive.storybook-v2-root--page-turn,
 .storybook-v2-root--immersive.storybook-v2-root--page-turn {
