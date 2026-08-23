@@ -5304,6 +5304,15 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Selection-based highlight (<mark>, from the inline rich-text formatting) —
+   fixed color, matching the previous whole-object highlight look, so there's
+   nothing to sanitize/validate for it beyond the bare tag itself. */
+.storybook-v2-root .sbv2-obj--text .sb-canvas-text mark {
+  background: #fff3c4;
+  color: inherit;
+  padding: 0 0.05em;
+  border-radius: 2px;
+}
 .storybook-v2-root .sbv2-obj--image {
   margin: 0;
   display: flex;

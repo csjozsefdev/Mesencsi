@@ -188,6 +188,22 @@
     return style;
   }
 
+  // Render-time defense-in-depth for obj.html (the optional sanitized rich-text
+  // fragment) — mirrors, but does not replace, the authoritative server-side
+  // allowlist validator (_rich_text_html_ok in models.py). Same pattern as
+  // _safeHexColor being re-checked here even though the server already
+  // validated it: if this string contains anything outside the small allowed
+  // set (bare <strong>/<em>/<u>/<mark>, or <span style="color:#hex">), treat
+  // it as unsafe and fall back to plain rendering rather than trust it.
+  const _RICH_TEXT_ALLOWED_TAG_RE =
+    /<\/?(strong|em|u|mark)>|<span style="color:#[0-9a-fA-F]{3,8}">|<\/span>/g;
+
+  function _isRichTextHtmlSafe(htmlStr) {
+    if (typeof htmlStr !== "string" || !htmlStr) return false;
+    const stripped = htmlStr.replace(_RICH_TEXT_ALLOWED_TAG_RE, "");
+    return stripped.indexOf("<") === -1 && stripped.indexOf(">") === -1;
+  }
+
   function buildLayoutObjectHtml(obj, page, opts) {
     const h = panelOptsHelpers(opts);
     const editable = !!(opts && opts.editable);
@@ -206,10 +222,24 @@
       const isPrimary = obj.role === "primary";
       const rawContent = isPrimary ? page.body_text || "" : obj.content || "";
       const hasContent = String(rawContent).trim().length > 0;
+      // obj.html is an optional additive field (sanitized on the client before
+      // persisting, validated authoritatively by _rich_text_html_ok server-side)
+      // carrying per-range formatting (bold/italic/underline/highlight/color)
+      // that a single whole-object `format` style can't express. Absent or
+      // unsafe -> the exact old plain-escaped path, so every pre-existing
+      // object renders byte-for-byte unchanged.
+      const richHtml = typeof obj.html === "string" ? obj.html : "";
+      const useRichHtml = richHtml.trim().length > 0 && _isRichTextHtmlSafe(richHtml);
       // Editable: leave a truly empty div when there's no content, so the
       // CSS-only placeholder (:empty::before) can show through. Read-only:
       // keep the old &nbsp; fallback so an empty box doesn't collapse.
-      const body = hasContent ? h.esc(String(rawContent)) : editable ? "" : "&nbsp;";
+      const body = useRichHtml
+        ? richHtml
+        : hasContent
+          ? h.esc(String(rawContent))
+          : editable
+            ? ""
+            : "&nbsp;";
       const fmtStyle = _layoutTextFormatStyle(obj.format);
       const roleAttr = editable ? ' data-sb-obj-role="' + (isPrimary ? "primary" : "secondary") + '"' : "";
       const editAttrs = editable

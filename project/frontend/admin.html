@@ -2424,6 +2424,14 @@
                       <label class="sb-props-num">Szél% <input type="number" id="sbImageSizeW" min="0.5" max="100" step="0.5" /></label>
                       <label class="sb-props-num">Mag% <input type="number" id="sbImageSizeH" min="0.5" max="100" step="0.5" /></label>
                     </div>
+                    <div class="sb-quick-toolbar__group" role="group" aria-label="Teljes oldal / háttér">
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFillPage" title="Kép a teljes oldalra">Teljes oldal</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageSendToBack" title="Kép a szöveg mögé">Háttérként</button>
+                    </div>
+                    <div class="sb-quick-toolbar__group" role="group" aria-label="Illesztési mód">
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitCover" aria-pressed="false" title="Kitöltés (levágással)">Kitöltés</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitContain" aria-pressed="true" title="Illesztés (levágás nélkül)">Illesztés</button>
+                    </div>
                   </div>
 
                   <div class="sb-props-group" id="sbToolbarDecorationGroup" hidden>
@@ -3024,13 +3032,29 @@
               const btn = $(id);
               if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
             };
-            setPressed("btnSbTextBold", !!fmt.bold);
-            setPressed("btnSbTextItalic", !!fmt.italic);
-            setPressed("btnSbTextUnderline", !!fmt.underline);
+            // Bold/italic/underline/highlight are now selection-based (obj.html),
+            // not whole-object — while actively editing, reflect the live
+            // caret/selection state via the native query APIs instead of the
+            // object-level fmt.* flags (which only matter as the pre-obj.html
+            // fallback look for objects that have never used rich formatting).
+            const liveEl = sbFocusedTextEditableEl();
+            if (liveEl) {
+              setPressed("btnSbTextBold", document.queryCommandState("bold"));
+              setPressed("btnSbTextItalic", document.queryCommandState("italic"));
+              setPressed("btnSbTextUnderline", document.queryCommandState("underline"));
+              const sel = window.getSelection();
+              const anchor =
+                sel && sel.anchorNode ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement) : null;
+              setPressed("btnSbTextHighlight", !!(anchor && anchor.closest && anchor.closest("mark")));
+            } else {
+              setPressed("btnSbTextBold", !!fmt.bold);
+              setPressed("btnSbTextItalic", !!fmt.italic);
+              setPressed("btnSbTextUnderline", !!fmt.underline);
+              setPressed("btnSbTextHighlight", !!fmt.highlight);
+            }
             setPressed("btnSbTextAlignLeft", (fmt.align || "left") === "left");
             setPressed("btnSbTextAlignCenter", fmt.align === "center");
             setPressed("btnSbTextAlignRight", fmt.align === "right");
-            setPressed("btnSbTextHighlight", !!fmt.highlight);
             const sizeSel = $("sbTextFontSize");
             if (sizeSel) sizeSel.value = fmt.fontSize || "m";
             const colorInput = $("sbTextColor");
@@ -3058,6 +3082,11 @@
           if (isImage) {
             sbSetNumberInputValue("sbImageSizeW", obj.w);
             sbSetNumberInputValue("sbImageSizeH", obj.h);
+            const isCover = !!(obj.image && obj.image.fit === "cover");
+            const coverBtn = $("btnSbImageFitCover");
+            const containBtn = $("btnSbImageFitContain");
+            if (coverBtn) coverBtn.setAttribute("aria-pressed", isCover ? "true" : "false");
+            if (containBtn) containBtn.setAttribute("aria-pressed", isCover ? "false" : "true");
           }
           const lockBtn = $("btnSbToggleAspectLock");
           if (lockBtn) {
@@ -3407,6 +3436,57 @@
           sbSchedulePageAutosave();
         }
 
+        // "Teljes oldal" — true page-background fill, deliberately bypassing
+        // sbFitSelectedImageCore's 92%-safe-zone (that function is for the
+        // separate "fit within a safe area" button); this reaches the actual
+        // page edges (0/0/100/100), which the backend already permits (x/y in
+        // [0,100], w/h in [0.5,100] — no schema change needed).
+        function sbFillPageSelectedImage() {
+          const obj = sbSelectedDraftObject();
+          const stageRoot = $("sbCanvasStage");
+          if (!obj || obj.type !== "image" || !stageRoot) return;
+          sbPushHistorySnapshot();
+          obj.x = 0;
+          obj.y = 0;
+          obj.w = 100;
+          obj.h = 100;
+          obj.rotation = 0;
+          obj.image = obj.image || {};
+          obj.image.fit = "cover";
+          sbApplyObjectRectToDom(stageRoot, obj);
+          sbUpdateQuickToolbarState();
+          sbSchedulePageAutosave();
+        }
+
+        // "Háttérként" — stacking is pure array order (see buildObjectCanvasHtml
+        // / _ensure_image_object_in_layout's own ordering fix), so sending an
+        // image behind everything else is just moving it to index 0. DOM order
+        // changes, so this needs a full repaint rather than the lightweight
+        // sbApplyObjectRectToDom used for in-place drags.
+        function sbSendImageToBack() {
+          const obj = sbSelectedDraftObject();
+          if (!obj || obj.type !== "image" || !SbEditor.draft) return;
+          const objects = SbEditor.draft.objects;
+          const idx = objects.indexOf(obj);
+          if (idx <= 0) return;
+          sbPushHistorySnapshot();
+          objects.splice(idx, 1);
+          objects.unshift(obj);
+          sbPaintObjectCanvas();
+          sbSchedulePageAutosave();
+        }
+
+        function sbSetSelectedImageFit(fit) {
+          const obj = sbSelectedDraftObject();
+          if (!obj || obj.type !== "image") return;
+          sbPushHistorySnapshot();
+          obj.image = obj.image || {};
+          obj.image.fit = fit;
+          sbPaintObjectCanvas();
+          sbUpdateQuickToolbarState();
+          sbSchedulePageAutosave();
+        }
+
         function sbFitSelectedImage() {
           sbPushHistorySnapshot();
           sbFitSelectedImageCore();
@@ -3527,6 +3607,10 @@
 
           $("btnSbImageAlignLeft").addEventListener("click", () => sbAlignSelectedImage("left"));
           $("btnSbImageAlignRight").addEventListener("click", () => sbAlignSelectedImage("right"));
+          $("btnSbImageFillPage").addEventListener("click", sbFillPageSelectedImage);
+          $("btnSbImageSendToBack").addEventListener("click", sbSendImageToBack);
+          $("btnSbImageFitCover").addEventListener("click", () => sbSetSelectedImageFit("cover"));
+          $("btnSbImageFitContain").addEventListener("click", () => sbSetSelectedImageFit("contain"));
           $("btnSbToggleAspectLock").addEventListener("click", () => {
             const obj = sbSelectedDraftObject();
             if (!obj || obj.type !== "image") return;
@@ -3542,21 +3626,19 @@
           $("btnSbImageReset").addEventListener("click", sbResetSelectedImage);
           $("btnSbUndo").addEventListener("click", sbUndo);
           $("btnSbRedo").addEventListener("click", sbRedo);
-          $("btnSbTextBold").addEventListener("click", () =>
-            sbMutateSelectedTextFormat((f) => {
-              f.bold = !f.bold;
-            })
-          );
-          $("btnSbTextItalic").addEventListener("click", () =>
-            sbMutateSelectedTextFormat((f) => {
-              f.italic = !f.italic;
-            })
-          );
-          $("btnSbTextUnderline").addEventListener("click", () =>
-            sbMutateSelectedTextFormat((f) => {
-              f.underline = !f.underline;
-            })
-          );
+          // Bold/italic/underline/highlight/color are selection-based (act on
+          // the live DOM Selection via execCommand — see sbApplyRichTextCommand)
+          // rather than whole-object toggles. mousedown preventDefault keeps
+          // the contenteditable's selection alive through the click, which
+          // execCommand needs to target the right range.
+          ["btnSbTextBold", "btnSbTextItalic", "btnSbTextUnderline", "btnSbTextHighlight"].forEach((id) => {
+            const btn = $(id);
+            if (btn) btn.addEventListener("mousedown", (e) => e.preventDefault());
+          });
+          $("btnSbTextBold").addEventListener("click", () => sbApplyRichTextCommand("bold"));
+          $("btnSbTextItalic").addEventListener("click", () => sbApplyRichTextCommand("italic"));
+          $("btnSbTextUnderline").addEventListener("click", () => sbApplyRichTextCommand("underline"));
+          $("btnSbTextHighlight").addEventListener("click", () => sbToggleSelectedHighlight());
           $("btnSbTextAlignLeft").addEventListener("click", () =>
             sbMutateSelectedTextFormat((f) => {
               f.align = "left";
@@ -3572,21 +3654,22 @@
               f.align = "right";
             })
           );
-          $("btnSbTextHighlight").addEventListener("click", () =>
-            sbMutateSelectedTextFormat((f) => {
-              f.highlight = f.highlight ? null : "#fff3c4";
-            })
-          );
           $("sbTextFontSize").addEventListener("change", (e) =>
             sbMutateSelectedTextFormat((f) => {
               f.fontSize = e.target.value;
             })
           );
-          $("sbTextColor").addEventListener("input", (e) =>
-            sbMutateSelectedTextFormat((f) => {
-              f.color = e.target.value;
-            })
-          );
+          // The native color picker steals focus/selection before its `input`
+          // event fires, so the selection must be explicitly saved on
+          // mousedown and restored right before execCommand — mousedown
+          // preventDefault (used above) doesn't stop a color input's OS
+          // picker from opening and stealing focus.
+          $("sbTextColor").addEventListener("mousedown", sbSaveTextSelectionIfInsideCanvas);
+          $("sbTextColor").addEventListener("input", (e) => {
+            if (!sbRestoreSavedTextSelection()) return;
+            document.execCommand("foreColor", false, e.target.value);
+            sbCommitFocusedRichText();
+          });
           $("btnSbAddSecondaryText").addEventListener("click", sbAddSecondaryTextObject);
           $("sbAddDecorationSelect").addEventListener("change", (e) => {
             const glyph = e.target.value;
@@ -3681,33 +3764,206 @@
         // Resolves a contenteditable text element back to the object it belongs
         // to (primary maps to draft.bodyText, secondary carries its own content)
         // — shared by input/blur so both text roles stay editable in place.
-        function sbTextEditableTarget(e) {
-          const el = e.target.closest && e.target.closest(".sbv2-obj--text .sb-canvas-text");
+        function sbTextEditableTargetFromEl(el) {
           if (!el) return null;
           const wrap = el.closest("[data-sb-obj-id]");
-          const objId = wrap ? wrap.getAttribute("data-sb-obj-id") : null;
-          const isPrimary = wrap && wrap.getAttribute("data-sb-obj-role") === "primary";
-          return { el, objId, isPrimary };
+          if (!wrap) return null;
+          return {
+            el,
+            objId: wrap.getAttribute("data-sb-obj-id"),
+            isPrimary: wrap.getAttribute("data-sb-obj-role") === "primary",
+          };
         }
 
-        function sbSyncTextEditableToDraft(target, commitPlainText) {
+        function sbTextEditableTarget(e) {
+          const el = e.target.closest && e.target.closest(".sbv2-obj--text .sb-canvas-text");
+          return sbTextEditableTargetFromEl(el);
+        }
+
+        function sbFocusedTextEditableEl() {
+          const el = document.activeElement;
+          return el && el.closest && el.closest(".sbv2-obj--text .sb-canvas-text") ? el : null;
+        }
+
+        // Selection-based rich text is stored additively as obj.html (a small
+        // sanitized fragment) alongside the existing plain projection
+        // (body_text / obj.content). Absent obj.html, rendering is the exact
+        // old plain-escaped path — see buildLayoutObjectHtml in
+        // storybook-reader.js, which this sanitizer's output must stay
+        // compatible with (same tiny allowlist: strong/em/u/mark, and
+        // span with only a hex color style).
+        const SB_RICH_TEXT_BARE_TAGS = { strong: 1, em: 1, u: 1, mark: 1 };
+        const SB_HIGHLIGHT_COLOR = "#fff3c4";
+
+        function sbColorToHex(v) {
+          if (typeof v !== "string" || !v.trim()) return null;
+          const s = v.trim();
+          if (/^#[0-9a-fA-F]{3,8}$/.test(s)) return s.toLowerCase();
+          const m = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/i);
+          if (!m) return null;
+          const toHex = (n) => Math.max(0, Math.min(255, parseInt(n, 10))).toString(16).padStart(2, "0");
+          return "#" + toHex(m[1]) + toHex(m[2]) + toHex(m[3]);
+        }
+
+        // DOM-walks a contenteditable's live innerHTML (execCommand's raw,
+        // browser-inconsistent output — <b>/<i>/<font>/rgb() colors/etc.) into
+        // the small normalized allowlist. Never deletes text: anything outside
+        // the allowlist is unwrapped (tag dropped, content kept), matching
+        // "existing unselected text must remain unchanged". Never rewrites the
+        // live DOM itself (that would reset the caret mid-edit) — only used to
+        // compute the value persisted into obj.html.
+        function sbSanitizeRichTextHtml(rawHtml) {
+          const container = document.createElement("div");
+          container.innerHTML = rawHtml || "";
+          let out = "";
+          let wroteBlock = false;
+
+          function walkChildren(node) {
+            Array.from(node.childNodes).forEach(walk);
+          }
+
+          function walk(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              out += escapeHtml(node.textContent || "");
+              return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            const tag = node.tagName.toLowerCase();
+
+            if (tag === "br") {
+              out += "\n";
+              return;
+            }
+            if (tag === "div" || tag === "p") {
+              if (wroteBlock) out += "\n";
+              wroteBlock = true;
+              walkChildren(node);
+              return;
+            }
+            if (tag === "b" || tag === "strong") {
+              out += "<strong>";
+              walkChildren(node);
+              out += "</strong>";
+              return;
+            }
+            if (tag === "i" || tag === "em") {
+              out += "<em>";
+              walkChildren(node);
+              out += "</em>";
+              return;
+            }
+            if (SB_RICH_TEXT_BARE_TAGS[tag]) {
+              out += "<" + tag + ">";
+              walkChildren(node);
+              out += "</" + tag + ">";
+              return;
+            }
+            if (tag === "span" || tag === "font") {
+              const colorHex = sbColorToHex(tag === "font" ? node.getAttribute("color") : node.style.color);
+              const bg = node.style ? node.style.backgroundColor : "";
+              const isHighlighted = !!bg && !/^(transparent|rgba?\(0,\s*0,\s*0,\s*0\))$/i.test(bg.trim());
+              let close = "";
+              if (isHighlighted) {
+                out += "<mark>";
+                close = "</mark>" + close;
+              }
+              if (colorHex) {
+                out += '<span style="color:' + colorHex + '">';
+                close = "</span>" + close;
+              }
+              walkChildren(node);
+              out += close;
+              return;
+            }
+            // Unknown/disallowed element — unwrap, keep its content.
+            walkChildren(node);
+          }
+
+          walkChildren(container);
+          return out;
+        }
+
+        function sbSyncTextEditableToDraft(target) {
           if (!target || !SbEditor.draft) return;
-          let text = target.el.textContent || "";
-          if (text.length > 50000) {
-            text = text.slice(0, 50000);
-            target.el.textContent = text;
+          let plain = target.el.textContent || "";
+          if (plain.length > 50000) {
+            plain = plain.slice(0, 50000);
+            target.el.textContent = plain;
             showToast("A szöveg elérte a maximális hosszot (50 000 karakter).", "err");
           }
-          if (commitPlainText) target.el.textContent = text;
+          const sanitizedHtml = sbSanitizeRichTextHtml(target.el.innerHTML);
+          const hasRichMarkup = /<(strong|em|u|mark|span)\b/.test(sanitizedHtml);
+          const richHtml = hasRichMarkup ? sanitizedHtml : undefined;
           if (target.isPrimary) {
-            SbEditor.draft.bodyText = text;
+            SbEditor.draft.bodyText = plain;
             const hid = $("sbCurPageBody");
-            if (hid) hid.value = text;
+            if (hid) hid.value = plain;
             sbUpdateCharCounter();
+            const primaryObj = SbEditor.draft.objects.find((o) => o.role === "primary");
+            if (primaryObj) primaryObj.html = richHtml;
           } else {
             const obj = SbEditor.draft.objects.find((o) => o.id === target.objId);
-            if (obj) obj.content = text;
+            if (obj) {
+              obj.content = plain;
+              obj.html = richHtml;
+            }
           }
+        }
+
+        // Applied by the Bold/Italic/Underline/Highlight/color toolbar controls:
+        // execCommand acts on the live DOM Selection/Range, so it naturally
+        // formats only a real selection, or sets the typing style forward from
+        // a collapsed caret — no hand-built range-tracking engine needed. Only
+        // fires when a text box is actually focused (sbFocusedTextEditableEl);
+        // the toolbar buttons prevent their own mousedown default so clicking
+        // them never blurs/loses the selection execCommand needs.
+        function sbCommitFocusedRichText() {
+          const target = sbTextEditableTargetFromEl(sbFocusedTextEditableEl());
+          if (!target) return;
+          sbSyncTextEditableToDraft(target);
+          sbUpdateQuickToolbarState();
+          sbSchedulePageAutosave();
+        }
+
+        function sbApplyRichTextCommand(command) {
+          if (!sbFocusedTextEditableEl()) return;
+          document.execCommand(command, false, null);
+          sbCommitFocusedRichText();
+        }
+
+        function sbToggleSelectedHighlight() {
+          if (!sbFocusedTextEditableEl()) return;
+          const sel = window.getSelection();
+          const anchor = sel && sel.anchorNode ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement) : null;
+          const alreadyHighlighted = !!(anchor && anchor.closest && anchor.closest("mark"));
+          document.execCommand("hiliteColor", false, alreadyHighlighted ? "transparent" : SB_HIGHLIGHT_COLOR);
+          sbCommitFocusedRichText();
+        }
+
+        // The native color <input> opens an OS picker on click, which steals
+        // focus/selection from the contenteditable before its `input` event
+        // ever fires — mousedown preventDefault (used for the other format
+        // buttons) can't stop that. Saving/restoring the Range explicitly is
+        // the only way execCommand("foreColor") still lands on the right text.
+        let sbSavedTextSelectionRange = null;
+
+        function sbSaveTextSelectionIfInsideCanvas() {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return;
+          const range = sel.getRangeAt(0);
+          const node = range.commonAncestorContainer;
+          const el = node.nodeType === 1 ? node : node.parentElement;
+          if (el && el.closest && el.closest(".sbv2-obj--text .sb-canvas-text")) {
+            sbSavedTextSelectionRange = range.cloneRange();
+          }
+        }
+
+        function sbRestoreSavedTextSelection() {
+          if (!sbSavedTextSelectionRange) return false;
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(sbSavedTextSelectionRange);
+          return true;
         }
 
         function sbWireCanvasStageOnce() {
@@ -3715,7 +3971,10 @@
           if (!stage || stage.dataset.sbWired === "1") return;
           stage.dataset.sbWired = "1";
           // One history snapshot per edit *session* (focus-in to blur), not per
-          // keystroke — matches the drag/resize/rotate gesture convention.
+          // keystroke — matches the drag/resize/rotate gesture convention. Also
+          // covers every execCommand-driven format action, since those only
+          // run while a text box is already focused (i.e. already inside a
+          // session that pushed its snapshot on focusin).
           stage.addEventListener("focusin", (e) => {
             const target = sbTextEditableTarget(e);
             if (!target) return;
@@ -3724,7 +3983,7 @@
           stage.addEventListener("input", (e) => {
             const target = sbTextEditableTarget(e);
             if (!target) return;
-            sbSyncTextEditableToDraft(target, false);
+            sbSyncTextEditableToDraft(target);
             sbSchedulePageAutosave();
           });
           stage.addEventListener(
@@ -3732,7 +3991,8 @@
             (e) => {
               const target = sbTextEditableTarget(e);
               if (!target) return;
-              sbSyncTextEditableToDraft(target, true);
+              sbSyncTextEditableToDraft(target);
+              sbSchedulePageAutosave();
             },
             true
           );
@@ -3742,6 +4002,9 @@
             e.preventDefault();
             const paste = (e.clipboardData || window.clipboardData).getData("text/plain");
             document.execCommand("insertText", false, paste);
+          });
+          document.addEventListener("selectionchange", () => {
+            if (sbFocusedTextEditableEl()) sbUpdateQuickToolbarState();
           });
         }
 
