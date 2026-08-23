@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
+from html.parser import HTMLParser
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
@@ -781,6 +783,10 @@ STORYBOOK_LAYOUT_MAX_BYTES = 24000
 STORYBOOK_LAYOUT_MAX_EXTRA_OBJECTS = 20
 STORYBOOK_LAYOUT_CAPTION_MAX_CHARS = 2000
 STORYBOOK_LAYOUT_GLYPH_MAX_CHARS = 8
+STORYBOOK_LAYOUT_RICH_HTML_MAX_CHARS = 4000
+
+_RICH_TEXT_ALLOWED_BARE_TAGS = {"strong", "em", "u", "mark"}
+_RICH_TEXT_SPAN_COLOR_RE = re.compile(r"^color:\s*#[0-9a-fA-F]{3,8}\s*;?$")
 
 
 def _layout_number(v: object, field: str, lo: float, hi: float) -> float:
@@ -809,6 +815,59 @@ def _layout_text_format_ok(fmt: object) -> None:
         val = fmt.get(key)
         if val is not None and (not isinstance(val, str) or len(val) > 32):
             raise ValueError(f"Érvénytelen '{key}' érték.")
+
+
+class _RichTextHtmlValidator(HTMLParser):
+    """Walks a text object's optional `html` fragment and flags anything
+    outside a deliberately tiny allowlist: bare <strong>/<em>/<u>/<mark>
+    (no attributes) and <span style="color:#hex"> (exactly that one
+    attribute/value shape). Reject-on-violation, matching the rest of this
+    file's validation style — the client is never trusted to have already
+    sanitized what it sends."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.ok = True
+
+    def _check_tag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "span":
+            if len(attrs) != 1 or attrs[0][0] != "style":
+                self.ok = False
+                return
+            style = (attrs[0][1] or "").strip()
+            if not _RICH_TEXT_SPAN_COLOR_RE.match(style):
+                self.ok = False
+            return
+        if tag not in _RICH_TEXT_ALLOWED_BARE_TAGS or attrs:
+            self.ok = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._check_tag(tag, attrs)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._check_tag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag not in _RICH_TEXT_ALLOWED_BARE_TAGS and tag != "span":
+            self.ok = False
+
+
+def _rich_text_html_ok(value: object, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"A(z) '{field}' mezőnek szövegnek kell lennie.")
+    if len(value) > STORYBOOK_LAYOUT_RICH_HTML_MAX_CHARS:
+        raise ValueError(f"A(z) '{field}' formázott szöveg túl hosszú.")
+    parser = _RichTextHtmlValidator()
+    try:
+        parser.feed(value)
+        parser.close()
+    except Exception:
+        raise ValueError(f"Érvénytelen '{field}' formázott szöveg.") from None
+    if not parser.ok:
+        raise ValueError(f"A(z) '{field}' formázott szöveg nem engedélyezett elemet tartalmaz.")
+    return value
 
 
 def _storybook_layout_json_ok(v: dict) -> dict:
@@ -860,6 +919,7 @@ def _storybook_layout_json_ok(v: dict) -> dict:
                 if not isinstance(content, str) or len(content) > STORYBOOK_LAYOUT_CAPTION_MAX_CHARS:
                     raise ValueError("A felirat szövege túl hosszú vagy érvénytelen.")
             _layout_text_format_ok(obj.get("format"))
+            _rich_text_html_ok(obj.get("html"), "html")
         elif obj_type == "image":
             image_count += 1
             img = obj.get("image", {})

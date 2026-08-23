@@ -219,6 +219,137 @@ check("rotation renders continuously — a non-90-multiple angle is never snappe
   assert.equal(html.includes("transform:rotate(37deg);"), true);
 });
 
+// --- V3.2: selection-based rich text (obj.html) -----------------------------
+
+check("obj.html renders verbatim (unescaped) for primary text", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0, html: "<strong>bold</strong> plain" },
+    ],
+  };
+  const page = { body_text: "bold plain" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("<strong>bold</strong> plain"), true);
+});
+
+check("obj.html renders verbatim (unescaped) for secondary text", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      {
+        id: "cap-1",
+        type: "text",
+        role: "secondary",
+        x: 0,
+        y: 60,
+        w: 50,
+        h: 20,
+        rotation: 0,
+        content: "highlighted",
+        html: "<mark>highlighted</mark>",
+      },
+    ],
+  };
+  const page = { body_text: "x" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("<mark>highlighted</mark>"), true);
+});
+
+check("a legacy object with no html key renders exactly as escaped plain text (regression lock)", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0, format: { bold: true } },
+    ],
+  };
+  const page = { body_text: "<script>not real markup, just text</script>" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  // The plain path always HTML-escapes body_text — proves obj.html absence
+  // never changes the old behavior, even if the plain text itself looks
+  // tag-like.
+  assert.equal(html.includes("&lt;script>"), true);
+  assert.equal(html.includes("<script>"), false);
+  assert.equal(html.includes("font-weight:700;"), true);
+});
+
+check("an unsafe obj.html value falls back to safe plain rendering at render time", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0, html: "<script>alert(1)</script>" },
+    ],
+  };
+  const page = { body_text: "fallback text" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("<script>"), false);
+  assert.equal(html.includes("fallback text"), true);
+});
+
+// --- V3.2: full-page image / background mode --------------------------------
+
+check("fill-page image renders 0/0/100/100 geometry with object-fit:cover", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 100, h: 100, rotation: 0, image: { fit: "cover" } },
+    ],
+  };
+  const page = { body_text: "x", image_url: "bg.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("left:0%;top:0%;width:100%;height:100%;"), true);
+  assert.equal(html.includes("object-fit:cover"), true);
+});
+
+check("contain fit mode renders object-fit:contain", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 55, y: 5, w: 40, h: 50, rotation: 0, image: { fit: "contain" } },
+    ],
+  };
+  const page = { body_text: "x", image_url: "y.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("object-fit:contain"), true);
+});
+
+check("z-order: array order drives DOM order — image first renders before text", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "img-1", type: "image", x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+    ],
+  };
+  const page = { body_text: "x", image_url: "bg.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.ok(html.indexOf("sbv2-obj--image") < html.indexOf("sbv2-obj--text"), "image markup precedes text markup");
+});
+
+check("z-order: text first renders before image", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+    ],
+  };
+  const page = { body_text: "x", image_url: "bg.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.ok(html.indexOf("sbv2-obj--text") < html.indexOf("sbv2-obj--image"), "text markup precedes image markup");
+});
+
 if (failures > 0) {
   console.log(failures + " failure(s).");
   process.exit(1);

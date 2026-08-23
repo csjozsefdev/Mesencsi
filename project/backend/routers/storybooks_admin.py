@@ -179,7 +179,13 @@ def _ensure_image_object_in_layout(layout: dict | None) -> dict | None:
     saved layout_json but no image object — otherwise a freshly uploaded image
     would set image_url yet never appear in the object canvas or public reader,
     since resolvePageLayout() uses a non-null layout_json verbatim with no
-    legacy-adapter fallback."""
+    legacy-adapter fallback.
+
+    Inserted at the FRONT of objects (not appended) so it defaults to sitting
+    behind existing text/decorations — stacking is array order (see
+    buildObjectCanvasHtml), and legacyPageToLayout's own image-then-text
+    convention is the same choice; an image landing on top of existing text
+    by default would be the wrong z-order for the common case."""
     if not isinstance(layout, dict) or not isinstance(layout.get("objects"), list):
         return layout
     has_image_object = any(
@@ -197,7 +203,7 @@ def _ensure_image_object_in_layout(layout: dict | None) -> dict | None:
         "rotation": 0,
         "image": {"fit": "contain", "aspectLocked": True},
     }
-    return {**layout, "objects": [*layout["objects"], default_image_object]}
+    return {**layout, "objects": [default_image_object, *layout["objects"]]}
 
 
 def _strip_image_object_from_layout(layout: dict | None) -> dict | None:

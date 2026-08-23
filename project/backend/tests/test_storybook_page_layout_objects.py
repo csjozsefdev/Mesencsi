@@ -495,3 +495,178 @@ def test_object_opacity_omitted_defaults_fine(client: TestClient) -> None:
         headers=headers,
     )
     assert r.status_code == 200, r.text
+
+
+# --- V3.2: selection-based rich text (obj.html) ------------------------------
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<strong>bold</strong> plain",
+        "<em>x</em><u>y</u><mark>z</mark>",
+        '<span style="color:#ff0000">red</span>',
+        "<strong><em>nested</em></strong>",
+        "plain text with no tags at all",
+        "",
+    ],
+)
+def test_object_html_allowed_markup_accepted(client: TestClient, html: str) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["html"] = html
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    assert row["layout_json"]["objects"][0]["html"] == html
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<script>alert(1)</script>",
+        "<div>x</div>",
+        '<span onclick="alert(1)">x</span>',
+        '<span style="position:absolute">x</span>',
+        '<span style="color:red">x</span>',
+        "<b>x</b>",
+        '<strong class="x">x</strong>',
+        "<img src=x onerror=alert(1)>",
+        '<a href="javascript:alert(1)">x</a>',
+    ],
+)
+def test_object_html_disallowed_markup_rejected(client: TestClient, html: str) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["html"] = html
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_object_html_oversized_rejected(client: TestClient) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["html"] = "<strong>" + ("a" * 4100) + "</strong>"
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_object_html_omitted_defaults_fine(client: TestClient) -> None:
+    """html is optional — a layout without it (every object before this
+    feature existed) must keep validating and saving fine."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    assert "html" not in layout["objects"][0]
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+
+# --- V3.2: full-page image / background mode ---------------------------------
+
+
+def test_image_fill_page_geometry_round_trips(client: TestClient) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    _upload_page_image(client, book["id"], page["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"].append(
+        {
+            "id": "image-1",
+            "type": "image",
+            "x": 0,
+            "y": 0,
+            "w": 100,
+            "h": 100,
+            "rotation": 0,
+            "image": {"fit": "cover", "aspectLocked": True},
+        }
+    )
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    img = next(o for o in row["layout_json"]["objects"] if o["type"] == "image")
+    assert (img["x"], img["y"], img["w"], img["h"]) == (0, 0, 100, 100)
+    assert img["image"]["fit"] == "cover"
+
+
+@pytest.mark.parametrize("fit", ["cover", "contain"])
+def test_image_fit_mode_round_trips(client: TestClient, fit: str) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    _upload_page_image(client, book["id"], page["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"].append(
+        {
+            "id": "image-1",
+            "type": "image",
+            "x": 55,
+            "y": 5,
+            "w": 40,
+            "h": 50,
+            "rotation": 0,
+            "image": {"fit": fit, "aspectLocked": True},
+        }
+    )
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    img = next(o for o in row["layout_json"]["objects"] if o["type"] == "image")
+    assert img["image"]["fit"] == fit
+
+
+def test_uploading_image_to_existing_text_only_layout_inserts_behind_text(client: TestClient) -> None:
+    """Z-order audit fix: an image auto-inserted into an already-saved
+    text-only layout must land BEFORE the text in the objects array (behind
+    it, per array-order stacking), not appended after (on top of it)."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+    _upload_page_image(client, book["id"], page["id"], headers)
+
+    r2 = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    row = next(p for p in r2.json()["pages"] if p["id"] == page["id"])
+    object_types = [o["type"] for o in row["layout_json"]["objects"]]
+    assert object_types[0] == "image"
+    assert "text" in object_types[1:]
