@@ -166,6 +166,10 @@
       (Number.isFinite(hh) ? hh : 10) +
       "%;";
     if (rot) style += "transform:rotate(" + rot + "deg);";
+    if (obj.opacity != null) {
+      const op = Number(obj.opacity);
+      if (Number.isFinite(op) && op < 1) style += "opacity:" + Math.max(0, Math.min(1, op)) + ";";
+    }
     return style;
   }
 
