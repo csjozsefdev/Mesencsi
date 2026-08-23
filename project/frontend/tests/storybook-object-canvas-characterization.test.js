@@ -394,6 +394,56 @@ check("obj.name is a pure passthrough — present or absent, it never changes re
   assert.equal(htmlWith.includes("Háttérkép"), false);
 });
 
+// --- V3.4: Fill Page / Send to Background UI removed, but pre-existing data
+// shaped exactly like what those buttons used to write must still render. ---
+
+check("Cover/Contain fit is independent of opacity, rotation, and array order", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 55, y: 5, w: 40, h: 50, rotation: 22, opacity: 0.4, image: { fit: "cover" } },
+    ],
+  };
+  const page = { body_text: "x", image_url: "y.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  // All four properties must show up simultaneously in the same object's
+  // markup — proves the renderer applies fit without disturbing opacity,
+  // rotation, or where the object sits in the DOM (array order).
+  assert.equal(html.includes("object-fit:cover"), true);
+  assert.equal(html.includes("opacity:0.4;"), true);
+  assert.equal(html.includes("transform:rotate(22deg);"), true);
+  assert.ok(html.indexOf("sbv2-obj--text") < html.indexOf("sbv2-obj--image"), "array order unaffected by fit");
+
+  const containLayout = JSON.parse(JSON.stringify(layout));
+  containLayout.objects[1].image.fit = "contain";
+  const containHtml = SBR.buildObjectCanvasHtml(containLayout, page, opts);
+  assert.equal(containHtml.includes("object-fit:contain"), true);
+  assert.equal(containHtml.includes("opacity:0.4;"), true);
+  assert.equal(containHtml.includes("transform:rotate(22deg);"), true);
+});
+
+check("a page saved by the old Fill Page + Send to Background buttons still renders identically (regression lock)", () => {
+  const SBR = loadReaderModule();
+  // Exactly the shape sbFillPageSelectedImage + sbSendImageToBack used to
+  // produce before both were removed in V3.4: full-page geometry, rotation
+  // reset to 0, and the image at array index 0 (sent to back, behind text).
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "img-1", type: "image", x: 0, y: 0, w: 100, h: 100, rotation: 0, opacity: 1, image: { fit: "cover" } },
+      { id: "primary-text", type: "text", role: "primary", x: 5, y: 5, w: 90, h: 90, rotation: 0 },
+    ],
+  };
+  const page = { body_text: "Régi oldal szövege", image_url: "old-bg.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("left:0%;top:0%;width:100%;height:100%;"), true);
+  assert.equal(html.includes("object-fit:cover"), true);
+  assert.ok(html.indexOf("sbv2-obj--image") < html.indexOf("sbv2-obj--text"), "image stays behind text (array order preserved)");
+  assert.equal(html.includes("Régi oldal szövege"), true);
+});
+
 if (failures > 0) {
   console.log(failures + " failure(s).");
   process.exit(1);

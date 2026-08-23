@@ -47,7 +47,6 @@ router = APIRouter(prefix="/storybooks", tags=["admin-storybooks"])
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 _MAX_AUDIO_BYTES = 25 * 1024 * 1024
 _ALLOWED_AUDIO_EXT = {".mp3", ".m4a", ".ogg", ".wav", ".webm"}
-_MAX_PAGES_PER_BOOK = 80
 
 logger = logging.getLogger(__name__)
 
@@ -383,12 +382,6 @@ def admin_add_storybook_page(
 ):
     _require_storybook_tables(db)
     book = find_digital_storybook(db, book_id)
-    n = int(db.scalar(select(func.count()).select_from(DigitalStorybookPage).where(DigitalStorybookPage.book_id == book_id)) or 0)
-    if n >= _MAX_PAGES_PER_BOOK:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Legfeljebb {_MAX_PAGES_PER_BOOK} oldal engedélyezett könyvenként.",
-        )
     max_idx = db.scalar(select(func.max(DigitalStorybookPage.page_index)).where(DigitalStorybookPage.book_id == book_id))
     next_idx = int(max_idx or 0) + 1
     page = DigitalStorybookPage(
@@ -505,6 +498,14 @@ def admin_reorder_storybook_pages(
             detail="A sorrendhez minden oldal azonosítóját pontosan egyszer add meg.",
         )
     index_map = {pid: i for i, pid in enumerate(ordered, start=1)}
+    # Two-phase write: (book_id, page_index) is UNIQUE, so writing final indices
+    # directly can collide mid-batch with another row's not-yet-updated index
+    # (e.g. moving the last page to the front bumps everything else up by one,
+    # which needs an intermediate state). Negative offsets can never collide
+    # with any real 1..N index, so they're a safe parking spot between passes.
+    for p in existing:
+        p.page_index = -index_map[p.id]
+    db.flush()
     for p in existing:
         p.page_index = index_map[p.id]
     db.commit()

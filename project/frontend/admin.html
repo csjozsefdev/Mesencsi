@@ -2409,7 +2409,7 @@
               </details>
 
               <details class="sb-editor-acc" open>
-                <summary class="sb-editor-acc-summary">Elemek</summary>
+                <summary class="sb-editor-acc-summary">Szerkesztés</summary>
                 <div class="sb-editor-acc-body">
                   <div class="sb-quick-toolbar__group" role="group" aria-label="Visszavonás" id="sbToolbarHistoryGroup">
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbUndo" aria-label="Visszavonás" title="Visszavonás" disabled>↶</button>
@@ -2417,6 +2417,7 @@
                   </div>
                   <div class="sb-quick-toolbar__group" role="group" aria-label="Elemek" id="sbToolbarObjectsGroup">
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbAddSecondaryText" aria-label="Felirat hozzáadása" title="Felirat hozzáadása">+Szöveg</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAddImageShortcut" aria-label="Kép feltöltése vagy csere" title="Kép feltöltése vagy csere">+Kép</button>
                     <select id="sbAddDecorationSelect" aria-label="Dekoráció hozzáadása" title="Dekoráció hozzáadása">
                       <option value="" selected>+ Dekoráció</option>
                       <option value="⭐">⭐ Csillag</option>
@@ -2428,13 +2429,8 @@
                     </select>
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbDeleteSelectedObject" aria-label="Kijelölt elem törlése" title="Kijelölt elem törlése" disabled>🗑</button>
                   </div>
-                </div>
-              </details>
 
-              <details class="sb-editor-acc" open>
-                <summary class="sb-editor-acc-summary">Kijelölt elem tulajdonságai</summary>
-                <div class="sb-editor-acc-body">
-                  <p id="sbNoSelectionHint" class="sb-props-note">Nincs kijelölt elem. Jelölj ki egy elemet az előnézeten.</p>
+                  <p id="sbNoSelectionHint" class="sb-props-note">Válassz ki egy elemet a szerkesztéshez.</p>
 
                   <div class="sb-props-group" id="sbToolbarTextGroup" hidden>
                     <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg formázása">
@@ -2492,10 +2488,6 @@
                     <div class="sb-props-numrow">
                       <label class="sb-props-num">Szél% <input type="number" id="sbImageSizeW" min="0.5" max="100" step="0.5" /></label>
                       <label class="sb-props-num">Mag% <input type="number" id="sbImageSizeH" min="0.5" max="100" step="0.5" /></label>
-                    </div>
-                    <div class="sb-quick-toolbar__group" role="group" aria-label="Teljes oldal / háttér">
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFillPage" title="Kép a teljes oldalra">Teljes oldal</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageSendToBack" title="Kép a szöveg mögé">Háttérként</button>
                     </div>
                     <div class="sb-quick-toolbar__group" role="group" aria-label="Illesztési mód">
                       <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitCover" aria-pressed="false" title="Kitöltés (levágással)">Kitöltés</button>
@@ -3331,8 +3323,9 @@
           });
         }
 
-        // Populates the "Kijelölt elem tulajdonságai" accordion (§C) for whatever
-        // is currently selected — called after every selection change and after
+        // Populates the selected-object property groups inside the "Szerkesztés"
+        // accordion for whatever is currently selected — called after every
+        // selection change and after
         // every drag/resize/rotate pointermove (via sbApplyObjectRectToDom ->
         // sbPaintSelectionOverlay), so these fields double as the live numeric
         // read-out for on-canvas dragging, not just controls of their own.
@@ -3758,48 +3751,6 @@
           sbSchedulePageAutosave();
         }
 
-        // "Teljes oldal" — true page-background fill, deliberately bypassing
-        // sbFitSelectedImageCore's 92%-safe-zone (that function is for the
-        // separate "fit within a safe area" button); this reaches the actual
-        // page edges (0/0/100/100), which the backend already permits (x/y in
-        // [0,100], w/h in [0.5,100] — no schema change needed). Geometry +
-        // rotation only — does NOT touch image.fit (previously force-set it
-        // to "cover", silently overwriting whatever fit the admin had already
-        // chosen) or array order, so this stays independent/composable with
-        // the Cover/Contain and Send-to-Background controls.
-        function sbFillPageSelectedImage() {
-          const obj = sbSelectedDraftObject();
-          const stageRoot = $("sbCanvasStage");
-          if (!obj || obj.type !== "image" || !stageRoot) return;
-          sbPushHistorySnapshot();
-          obj.x = 0;
-          obj.y = 0;
-          obj.w = 100;
-          obj.h = 100;
-          obj.rotation = 0;
-          sbApplyObjectRectToDom(stageRoot, obj);
-          sbUpdateQuickToolbarState();
-          sbSchedulePageAutosave();
-        }
-
-        // "Háttérként" — stacking is pure array order (see buildObjectCanvasHtml
-        // / _ensure_image_object_in_layout's own ordering fix), so sending an
-        // image behind everything else is just moving it to index 0. DOM order
-        // changes, so this needs a full repaint rather than the lightweight
-        // sbApplyObjectRectToDom used for in-place drags.
-        function sbSendImageToBack() {
-          const obj = sbSelectedDraftObject();
-          if (!obj || obj.type !== "image" || !SbEditor.draft) return;
-          const objects = SbEditor.draft.objects;
-          const idx = objects.indexOf(obj);
-          if (idx <= 0) return;
-          sbPushHistorySnapshot();
-          objects.splice(idx, 1);
-          objects.unshift(obj);
-          sbPaintObjectCanvas();
-          sbSchedulePageAutosave();
-        }
-
         function sbSetSelectedImageFit(fit) {
           const obj = sbSelectedDraftObject();
           if (!obj || obj.type !== "image") return;
@@ -3931,8 +3882,6 @@
 
           $("btnSbImageAlignLeft").addEventListener("click", () => sbAlignSelectedImage("left"));
           $("btnSbImageAlignRight").addEventListener("click", () => sbAlignSelectedImage("right"));
-          $("btnSbImageFillPage").addEventListener("click", sbFillPageSelectedImage);
-          $("btnSbImageSendToBack").addEventListener("click", sbSendImageToBack);
           $("btnSbImageFitCover").addEventListener("click", () => sbSetSelectedImageFit("cover"));
           $("btnSbImageFitContain").addEventListener("click", () => sbSetSelectedImageFit("contain"));
           $("btnSbToggleAspectLock").addEventListener("click", () => {
@@ -3995,6 +3944,12 @@
             sbCommitFocusedRichText();
           });
           $("btnSbAddSecondaryText").addEventListener("click", sbAddSecondaryTextObject);
+          // Pure convenience shortcut — a page's image is a singleton tied to
+          // upload, not a freely-creatable object like text/decoration, so this
+          // just replays the existing "Oldal tulajdonságai" upload button's own
+          // click handler (role check + replace-confirm + file picker) rather
+          // than duplicating any of that logic here.
+          $("btnSbAddImageShortcut").addEventListener("click", () => $("btnSbCurPageImg").click());
           $("sbAddDecorationSelect").addEventListener("change", (e) => {
             const glyph = e.target.value;
             e.target.value = "";
