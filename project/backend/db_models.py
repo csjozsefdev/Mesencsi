@@ -383,6 +383,11 @@ class DigitalStorybookPage(Base):
     image_y_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     image_width_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
     image_height_percent: Mapped[float | None] = mapped_column(Float(), nullable=True)
+    # V3 object-canvas editor: {"version": 1, "objects": [...]}. NULL for pages
+    # never opened in the new editor — legacyPageToLayout() in storybook-reader.js
+    # synthesizes an equivalent object list from the legacy fields above at render
+    # time, so this column is populated lazily, per-page, on first save only.
+    layout_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     extra: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

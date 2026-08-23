@@ -81,127 +81,6 @@
     );
   }
 
-  function imageLayoutStyle(page) {
-    page = page || {};
-    const x = parsePercent(page.image_x_percent);
-    const y = parsePercent(page.image_y_percent);
-    const w = parsePercent(page.image_width_percent);
-    const h = parsePercent(page.image_height_percent);
-    if (x == null || y == null || w == null) return "";
-    let style = "left:" + x + "%;top:" + y + "%;width:" + w + "%;";
-    if (h != null) style += "height:" + h + "%;";
-    return style;
-  }
-
-  function buildPositionedImageHtml(page, opts, extraClass) {
-    const h = panelOptsHelpers(opts);
-    page = page || {};
-    if (!page.image_url) return "";
-    const u = h.assetUrl(String(page.image_url).trim());
-    if (!u) return "";
-    const style = imageLayoutStyle(page);
-    if (!style) return "";
-    const cls = "sb-read-image-frame" + (extraClass ? " " + extraClass : "");
-    return (
-      '<div class="sb-read-image-canvas">' +
-      '<div class="' +
-      cls +
-      '" style="' +
-      style +
-      '"><img src="' +
-      h.esc(u) +
-      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div></div>'
-    );
-  }
-
-  function buildPanelHtml(page, opts) {
-    opts = opts || {};
-    const esc = typeof opts.escapeHtml === "function" ? opts.escapeHtml : defaultEscape;
-    const assetUrl =
-      typeof opts.assetUrl === "function"
-        ? opts.assetUrl
-        : function (u) {
-            return u;
-          };
-
-    page = page || {};
-    const n = normPageLayout(page);
-    const custom = pageHasCustomDragPos(page);
-    const bodyRaw = String(page.body_text || "");
-    const body = bodyRaw.trim() ? esc(bodyRaw) : "&nbsp;";
-    const boxClass = "sb-text-box " + boxStyleClass(n.style);
-
-    let titleHtml = "";
-    if (page.title) {
-      titleHtml = '<h3 class="sb-read-page-title">' + esc(String(page.title)) + "</h3>";
-    }
-
-    let imageHtml = "";
-    if (page.image_url) {
-      if (pageHasCustomImageLayout(page)) {
-        imageHtml = buildPositionedImageHtml(page, opts, "sb-read-image-frame--panel");
-      } else {
-        const u = assetUrl(String(page.image_url).trim());
-        if (u) {
-          imageHtml =
-            '<div class="sb-read-image-wrap"><img src="' +
-            esc(u) +
-            '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></div>';
-        }
-      }
-    }
-
-    let audioHtml = "";
-    if (page.audio_url) {
-      const au = assetUrl(String(page.audio_url).trim());
-      if (au) {
-        audioHtml =
-          '<div class="sb-read-audio-wrap"><audio controls preload="metadata" src="' +
-          esc(au) +
-          '"></audio></div>';
-      }
-    }
-
-    let textBlock;
-    if (custom) {
-      const xp = parsePercent(page.text_x_percent);
-      const yp = parsePercent(page.text_y_percent);
-      const posStyle =
-        Number.isFinite(xp) && Number.isFinite(yp)
-          ? "left:" + xp + "%;top:" + yp + "%;transform:translate(-50%, -50%)"
-          : "";
-      textBlock =
-        '<div class="sb-read-text-host">' +
-        '<div class="sb-read-text-stage sb-text-stage--overlay">' +
-        '<div class="sb-read-text-overlay">' +
-        '<div class="sb-read-text-wrap"' +
-        (posStyle ? ' style="' + posStyle + '"' : "") +
-        ">" +
-        '<div class="' +
-        boxClass +
-        '"><div class="sb-canvas-text">' +
-        body +
-        "</div></div></div></div></div></div>";
-    } else {
-      textBlock =
-        '<div class="sb-read-text-host">' +
-        '<div class="sb-read-text-stage sb-pos-v-' +
-        n.v +
-        " sb-pos-h-" +
-        n.h +
-        '">' +
-        '<div class="sb-read-text-overlay">' +
-        '<div class="sb-read-text-wrap">' +
-        '<div class="' +
-        boxClass +
-        '"><div class="sb-canvas-text">' +
-        body +
-        "</div></div></div></div></div></div>";
-    }
-
-    return titleHtml + '<div class="sb-read-canvas-stack">' + imageHtml + textBlock + audioHtml + "</div>";
-  }
-
   function panelOptsHelpers(opts) {
     opts = opts || {};
     return {
@@ -213,38 +92,6 @@
               return u;
             },
     };
-  }
-
-  function buildSimplePageTextHtml(page, opts) {
-    const h = panelOptsHelpers(opts);
-    const editable = !!(opts && opts.editable);
-    const bodyRaw = String((page && page.body_text) || "");
-    const body = bodyRaw.trim() ? h.esc(bodyRaw) : "&nbsp;";
-    const zoneAttr = editable ? ' data-sb-editable-zone="text"' : "";
-    return (
-      '<div class="sbv2-zone sbv2-zone--page-text"' +
-      zoneAttr +
-      '><div class="sb-canvas-text">' +
-      body +
-      "</div></div>"
-    );
-  }
-
-  function buildPlacedPageImageHtml(page, opts) {
-    const h = panelOptsHelpers(opts);
-    const editable = !!(opts && opts.editable);
-    page = page || {};
-    if (!page.image_url) return "";
-    const u = h.assetUrl(String(page.image_url).trim());
-    if (!u) return "";
-    const zoneAttr = editable ? ' data-sb-editable-zone="image"' : "";
-    return (
-      '<figure class="sbv2-zone sbv2-zone--page-image"' +
-      zoneAttr +
-      '><img src="' +
-      h.esc(u) +
-      '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"/></figure>'
-    );
   }
 
   function buildPageAudioHtml(page, opts) {
@@ -285,37 +132,148 @@
     return { page: page || {}, opts: opts, context: ctx };
   }
 
-  function buildV2CanvasLayoutPageHtml(page, opts, context, side) {
+  // ----- V3 object-canvas renderer -----
+  //
+  // One rendering function for every page, used unconditionally by both the
+  // admin editor canvas and the public reader — no more branching on whether
+  // a page has "custom" layout data. A page's layout is either its own
+  // layout_json (set once an admin saves it in the object-canvas editor) or,
+  // for every page that predates this feature, an in-memory-only equivalent
+  // synthesized by legacyPageToLayout() from the legacy enum/percent fields —
+  // never persisted, so opening/viewing a legacy page never mutates it.
+
+  const STORYBOOK_LAYOUT_FONT_SIZE_PX = { s: 14, m: 17, l: 21, xl: 26 };
+
+  function _safeHexColor(v) {
+    return typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
+  }
+
+  function _layoutRectStyle(obj) {
+    obj = obj || {};
+    const x = Number(obj.x);
+    const y = Number(obj.y);
+    const w = Number(obj.w);
+    const hh = Number(obj.h);
+    const rot = Number(obj.rotation) || 0;
+    let style =
+      "position:absolute;left:" +
+      (Number.isFinite(x) ? x : 0) +
+      "%;top:" +
+      (Number.isFinite(y) ? y : 0) +
+      "%;width:" +
+      (Number.isFinite(w) ? w : 10) +
+      "%;height:" +
+      (Number.isFinite(hh) ? hh : 10) +
+      "%;";
+    if (rot) style += "transform:rotate(" + rot + "deg);";
+    return style;
+  }
+
+  function _layoutTextFormatStyle(fmt) {
+    fmt = fmt || {};
+    const px = STORYBOOK_LAYOUT_FONT_SIZE_PX[fmt.fontSize] || STORYBOOK_LAYOUT_FONT_SIZE_PX.m;
+    let style = "font-size:" + px + "px;";
+    if (fmt.bold) style += "font-weight:700;";
+    if (fmt.italic) style += "font-style:italic;";
+    if (fmt.underline) style += "text-decoration:underline;";
+    style += "text-align:" + (fmt.align === "center" || fmt.align === "right" ? fmt.align : "left") + ";";
+    const color = _safeHexColor(fmt.color);
+    if (color) style += "color:" + color + ";";
+    const highlight = _safeHexColor(fmt.highlight);
+    if (highlight) style += "background-color:" + highlight + ";";
+    return style;
+  }
+
+  function buildLayoutObjectHtml(obj, page, opts) {
     const h = panelOptsHelpers(opts);
+    const editable = !!(opts && opts.editable);
+    obj = obj || {};
     page = page || {};
-    context = context || {};
-    const inner =
-      buildPanelHtml(page, opts) +
-      buildPageAudioHtml(page, opts) +
-      buildFolioHtml(context.pageNumber);
-    return (
-      '<div class="sbv2-spread-layout sbv2-spread-layout--' +
-      h.esc(side) +
-      ' sbv2-spread-layout--canvas">' +
-      '<div class="sbv2-page-canvas">' +
-      inner +
-      "</div></div>"
-    );
+    const rectStyle = _layoutRectStyle(obj);
+    const dataAttrs = editable
+      ? ' data-sb-obj-id="' +
+        h.esc(String(obj.id || "")) +
+        '" data-sb-obj-type="' +
+        h.esc(String(obj.type || "")) +
+        '"'
+      : "";
+
+    if (obj.type === "text") {
+      const isPrimary = obj.role === "primary";
+      const rawContent = isPrimary ? page.body_text || "" : obj.content || "";
+      const hasContent = String(rawContent).trim().length > 0;
+      // Editable: leave a truly empty div when there's no content, so the
+      // CSS-only placeholder (:empty::before) can show through. Read-only:
+      // keep the old &nbsp; fallback so an empty box doesn't collapse.
+      const body = hasContent ? h.esc(String(rawContent)) : editable ? "" : "&nbsp;";
+      const fmtStyle = _layoutTextFormatStyle(obj.format);
+      const roleAttr = editable ? ' data-sb-obj-role="' + (isPrimary ? "primary" : "secondary") + '"' : "";
+      const editAttrs = editable
+        ? ' contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Oldal szövege"'
+        : "";
+      return (
+        '<div class="sbv2-obj sbv2-obj--text' +
+        (isPrimary ? " sbv2-obj--text-primary" : " sbv2-obj--text-secondary") +
+        '" style="' +
+        rectStyle +
+        '"' +
+        dataAttrs +
+        roleAttr +
+        '><div class="sb-canvas-text"' +
+        editAttrs +
+        ' style="' +
+        fmtStyle +
+        '">' +
+        body +
+        "</div></div>"
+      );
+    }
+    if (obj.type === "image") {
+      if (!page.image_url) return "";
+      const u = h.assetUrl(String(page.image_url).trim());
+      if (!u) return "";
+      const fit = obj.image && obj.image.fit === "cover" ? "cover" : "contain";
+      return (
+        '<figure class="sbv2-obj sbv2-obj--image" style="' +
+        rectStyle +
+        '"' +
+        dataAttrs +
+        '><img src="' +
+        h.esc(u) +
+        '" alt="" loading="lazy" decoding="async" style="object-fit:' +
+        fit +
+        '" onerror="this.style.display=\'none\'"/></figure>'
+      );
+    }
+    if (obj.type === "decoration") {
+      const glyph = (obj.decoration && obj.decoration.glyph) || "";
+      return (
+        '<div class="sbv2-obj sbv2-obj--decoration" style="' +
+        rectStyle +
+        '"' +
+        dataAttrs +
+        '><span class="sbv2-obj-decoration-glyph">' +
+        h.esc(String(glyph)) +
+        "</span></div>"
+      );
+    }
+    return "";
   }
 
   /**
-   * V2 standard page: every page renders the same way regardless of which spread
-   * slot it lands in — story text plus an optional normal-sized illustration
-   * placed exactly where the owner chose (left/right/above/below), or a clean
-   * text-only page when there's no image. No automatic vignette/hero sizing.
+   * Renders a page from a resolved layout ({version, objects}) — the ONE
+   * function both the admin object-canvas editor and the public reader call.
+   * @param {{version:number, objects:object[]}} layout
    * @param {object} page
-   * @param {object} [opts]
-   * @param {{ pageNumber?: number, opts?: object }} [context]
+   * @param {object} [opts] — opts.editable=true adds data-sb-obj-* hooks only.
+   * @param {{pageNumber?: number}} [context]
    */
-  function buildV2StandardPageHtml(page, opts, context) {
+  function buildObjectCanvasHtml(layout, page, opts, context) {
     const h = panelOptsHelpers(opts);
     page = page || {};
     context = context || {};
+    const objects = layout && Array.isArray(layout.objects) ? layout.objects : [];
+
     let titleHtml = "";
     if (page.title) {
       titleHtml =
@@ -324,17 +282,13 @@
         h.esc(String(page.title)) +
         "</h2></header>";
     }
-    const placement = page.image_url ? normImagePlacement(page) : "none";
-    const imageHtml = placement !== "none" ? buildPlacedPageImageHtml(page, opts) : "";
-    const textHtml = buildSimplePageTextHtml(page, opts);
+    const objectsHtml = objects.map((obj) => buildLayoutObjectHtml(obj, page, opts)).join("");
+
     return (
-      '<div class="sbv2-standard-page">' +
+      '<div class="sbv2-standard-page sbv2-object-canvas">' +
       titleHtml +
-      '<div class="sbv2-page-split sbv2-page-split--' +
-      placement +
-      '">' +
-      imageHtml +
-      textHtml +
+      '<div class="sbv2-object-canvas-stage">' +
+      objectsHtml +
       "</div>" +
       buildPageAudioHtml(page, opts) +
       buildFolioHtml(context.pageNumber) +
@@ -342,31 +296,153 @@
     );
   }
 
+  function _legacyPlacementRects(placement) {
+    switch (placement) {
+      case "left":
+        return { image: { x: 0, y: 0, w: 42, h: 100 }, text: { x: 44, y: 0, w: 56, h: 100 } };
+      case "right":
+        return { image: { x: 58, y: 0, w: 42, h: 100 }, text: { x: 0, y: 0, w: 56, h: 100 } };
+      case "above":
+        return { image: { x: 0, y: 0, w: 100, h: 40 }, text: { x: 0, y: 42, w: 100, h: 58 } };
+      case "below":
+        return { image: { x: 0, y: 58, w: 100, h: 40 }, text: { x: 0, y: 0, w: 100, h: 56 } };
+      default:
+        return { image: { x: 0, y: 0, w: 0, h: 0 }, text: { x: 6, y: 6, w: 88, h: 88 } };
+    }
+  }
+
+  // Legacy advanced-image-only pages (custom image_x/y/width/height_percent but
+  // NOT a free-dragged text position) used sb-pos-v/h-* flex alignment to place
+  // the text box within whatever page area the image left free. Approximated
+  // here as a same-sized box anchored to match that alignment's intent.
+  function _legacyEnumTextRect(page, hasImage) {
+    const n = normPageLayout(page);
+    const w = hasImage ? 50 : 88;
+    const hh = 30;
+    let x = 6;
+    let y = 6;
+    if (n.h === "center") x = (100 - w) / 2;
+    else if (n.h === "right") x = 94 - w;
+    if (n.v === "center") y = (100 - hh) / 2;
+    else if (n.v === "bottom") y = 94 - hh;
+    return { x: Math.max(0, x), y: Math.max(0, y), w: w, h: hh };
+  }
+
+  /**
+   * Synthesizes a layout object list from a page's legacy enum/percent fields —
+   * in-memory only, NEVER persisted. This is what makes buildObjectCanvasHtml the
+   * single renderer for every page: legacy pages just resolve to an equivalent
+   * layout on the fly instead of going through a second rendering implementation.
+   */
+  function legacyPageToLayout(page) {
+    page = page || {};
+    const objects = [];
+    const advanced = pageHasCustomImageLayout(page) || pageHasCustomDragPos(page);
+
+    if (advanced) {
+      const hasImage = pageHasCustomImageLayout(page);
+      if (hasImage) {
+        objects.push({
+          id: "legacy-image",
+          type: "image",
+          x: parsePercent(page.image_x_percent) || 0,
+          y: parsePercent(page.image_y_percent) || 0,
+          w: parsePercent(page.image_width_percent) || 40,
+          h: parsePercent(page.image_height_percent) != null ? parsePercent(page.image_height_percent) : 34,
+          rotation: 0,
+          image: { fit: "contain", aspectLocked: true },
+        });
+      }
+      let textRect;
+      if (pageHasCustomDragPos(page)) {
+        const cx = parsePercent(page.text_x_percent) || 50;
+        const cy = parsePercent(page.text_y_percent) || 50;
+        const w = 44;
+        const hh = 22;
+        textRect = {
+          x: Math.max(0, Math.min(100 - w, cx - w / 2)),
+          y: Math.max(0, Math.min(100 - hh, cy - hh / 2)),
+          w: w,
+          h: hh,
+        };
+      } else {
+        textRect = _legacyEnumTextRect(page, hasImage);
+      }
+      objects.push({
+        id: "primary-text",
+        type: "text",
+        role: "primary",
+        x: textRect.x,
+        y: textRect.y,
+        w: textRect.w,
+        h: textRect.h,
+        rotation: 0,
+        format: { fontSize: "m", bold: false, italic: false, underline: false, align: "left" },
+      });
+    } else {
+      const placement = normImagePlacement(page);
+      const hasImage = !!(page.image_url && placement !== "none");
+      if (hasImage) {
+        const rects = _legacyPlacementRects(placement);
+        objects.push({
+          id: "legacy-image",
+          type: "image",
+          x: rects.image.x,
+          y: rects.image.y,
+          w: rects.image.w,
+          h: rects.image.h,
+          rotation: 0,
+          image: { fit: "contain", aspectLocked: true },
+        });
+        objects.push({
+          id: "primary-text",
+          type: "text",
+          role: "primary",
+          x: rects.text.x,
+          y: rects.text.y,
+          w: rects.text.w,
+          h: rects.text.h,
+          rotation: 0,
+          format: { fontSize: "m", bold: false, italic: false, underline: false, align: "left" },
+        });
+      } else {
+        objects.push({
+          id: "primary-text",
+          type: "text",
+          role: "primary",
+          x: 6,
+          y: 6,
+          w: 88,
+          h: 88,
+          rotation: 0,
+          format: { fontSize: "m", bold: false, italic: false, underline: false, align: "left" },
+        });
+      }
+    }
+
+    return { version: 1, objects: objects };
+  }
+
+  function resolvePageLayout(page) {
+    page = page || {};
+    return page.layout_json && typeof page.layout_json === "object"
+      ? page.layout_json
+      : legacyPageToLayout(page);
+  }
+
+  // Unconditional now — every page (legacy or layout_json) renders through
+  // buildObjectCanvasHtml via resolvePageLayout(). The pre-V3 dual-dispatch
+  // builders (buildV2CanvasLayoutPageHtml, buildV2StandardPageHtml, buildPanelHtml,
+  // buildPositionedImageHtml, ...) were removed in the Phase 8 cleanup once nothing
+  // referenced them from this dispatch or from any external caller.
   function buildV2LeftPageHtml(page, optsOrContext, context) {
     const r = resolveV2PageArgs.apply(null, arguments);
-    if (pageHasCustomImageLayout(r.page)) {
-      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "left");
-    }
-    return buildV2StandardPageHtml(r.page, r.opts, r.context);
+    return buildObjectCanvasHtml(resolvePageLayout(r.page), r.page, r.opts, r.context);
   }
 
   function buildV2RightPageHtml(page, optsOrContext, context) {
     const r = resolveV2PageArgs.apply(null, arguments);
-    if (pageHasCustomImageLayout(r.page)) {
-      return buildV2CanvasLayoutPageHtml(r.page, r.opts, r.context, "right");
-    }
-    return buildV2StandardPageHtml(r.page, r.opts, r.context);
-  }
-
-  /** @deprecated Use buildV2LeftPageHtml — alias for older callers. */
-  /** @deprecated Use buildV2LeftPageHtml / buildV2RightPageHtml — kept for external callers. */
-  function buildV2StandardLeftPageHtml(page, opts, context) {
-    return buildV2LeftPageHtml(page, opts, context);
-  }
-
-  /** @deprecated Use buildV2RightPageHtml — alias for older callers. */
-  function buildV2StandardRightPageHtml(page, opts, context) {
-    return buildV2RightPageHtml(page, opts, context);
+    return buildObjectCanvasHtml(resolvePageLayout(r.page), r.page, r.opts, r.context);
   }
 
   /* ----- Spread math + content helpers (V2 reader) ----- */
@@ -452,15 +528,11 @@
     parsePercent: parsePercent,
     pageHasCustomDragPos: pageHasCustomDragPos,
     pageHasCustomImageLayout: pageHasCustomImageLayout,
-    imageLayoutStyle: imageLayoutStyle,
-    buildPositionedImageHtml: buildPositionedImageHtml,
-    buildPlacedPageImageHtml: buildPlacedPageImageHtml,
-    buildV2StandardPageHtml: buildV2StandardPageHtml,
-    buildPanelHtml: buildPanelHtml,
+    buildObjectCanvasHtml: buildObjectCanvasHtml,
+    legacyPageToLayout: legacyPageToLayout,
+    resolvePageLayout: resolvePageLayout,
     buildV2LeftPageHtml: buildV2LeftPageHtml,
     buildV2RightPageHtml: buildV2RightPageHtml,
-    buildV2StandardLeftPageHtml: buildV2StandardLeftPageHtml,
-    buildV2StandardRightPageHtml: buildV2StandardRightPageHtml,
     spreadCount: spreadCount,
     spreadIndexForPageIndex: spreadIndexForPageIndex,
     pagesForSpread: pagesForSpread,
