@@ -1174,34 +1174,115 @@
         object-fit: cover;
         display: block;
       }
-      .sb-creator-grid {
+      .sb-editor-split {
         display: grid;
-        grid-template-columns: 200px minmax(0, 1fr) minmax(220px, 280px);
+        grid-template-columns: 340px minmax(0, 1fr);
         gap: 1rem;
-        align-items: stretch;
-        min-height: min(72vh, 820px);
+        align-items: start;
+      }
+      .sb-editor-left {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        min-height: 0;
+      }
+      .sb-editor-acc {
+        border-radius: 12px;
+        border: 1px solid rgba(61, 36, 16, 0.14);
+        background: rgba(255, 255, 255, 0.58);
+        overflow: hidden;
+      }
+      .sb-editor-acc-summary {
+        cursor: pointer;
+        padding: 0.55rem 0.75rem;
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: var(--admin-accent-dark);
+        list-style: none;
+        user-select: none;
+      }
+      .sb-editor-acc-summary::-webkit-details-marker {
+        display: none;
+      }
+      .sb-editor-acc-summary::before {
+        content: "▸ ";
+        display: inline-block;
+        transition: transform 0.15s ease;
+      }
+      .sb-editor-acc[open] > .sb-editor-acc-summary::before {
+        transform: rotate(90deg);
+      }
+      .sb-editor-acc-body {
+        padding: 0 0.75rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .sb-editor-preview-col {
+        position: sticky;
+        top: 0.75rem;
+        align-self: start;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .sb-props-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .sb-props-numrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .sb-props-num {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        font-size: 0.72rem;
+        color: var(--admin-muted);
+        flex: 1 1 70px;
+      }
+      .sb-props-num input {
+        width: 100%;
+        padding: 0.3rem 0.4rem;
+        border-radius: 8px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(255, 255, 255, 0.75);
+        font: inherit;
+      }
+      .sb-props-slider-label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.78rem;
+        color: var(--admin-muted);
+      }
+      .sb-props-slider-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .sb-props-slider-row input[type="range"] {
+        flex: 1;
+      }
+      .sb-props-slider-row input[type="number"] {
+        width: 4rem;
+        padding: 0.25rem 0.35rem;
+        border-radius: 8px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(255, 255, 255, 0.75);
+        font: inherit;
       }
       @media (max-width: 1100px) {
-        .sb-creator-grid {
-          grid-template-columns: 180px minmax(0, 1fr);
-          grid-template-rows: auto auto;
-        }
-        .sb-creator-sidebar--props {
-          grid-column: 1 / -1;
-        }
-      }
-      @media (max-width: 720px) {
-        .sb-creator-grid {
+        .sb-editor-split {
           grid-template-columns: 1fr;
         }
-        .sb-creator-sidebar--pages {
-          order: 2;
-        }
-        .sb-creator-canvas-wrap {
-          order: 1;
-        }
-        .sb-creator-sidebar--props {
-          order: 3;
+        .sb-editor-preview-col {
+          position: static;
+          order: -1;
         }
       }
       /* Keskeny nézet: a szerkesztő DOM ne kapjon felesleges kompozitálást, ha véletlenül megnyílna */
@@ -1236,22 +1317,6 @@
           display: block;
         }
       }
-      .sb-creator-sidebar {
-        border-radius: 14px;
-        border: 1px solid rgba(61, 36, 16, 0.14);
-        background: rgba(255, 255, 255, 0.58);
-        padding: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.65rem;
-        min-height: 0;
-      }
-      .sb-creator-sidebar--props {
-        padding: 0.85rem 1rem;
-      }
-      .sb-sidebar-head {
-        margin-bottom: 0.15rem;
-      }
       .sb-sidebar-hint {
         margin: 0.2rem 0 0;
         font-size: 0.72rem;
@@ -1269,10 +1334,9 @@
       .sb-page-thumb-list {
         display: flex;
         flex-direction: column;
-        gap: 0.45rem;
+        gap: 0.35rem;
         overflow-y: auto;
-        flex: 1;
-        min-height: 120px;
+        max-height: 240px;
         padding-right: 2px;
       }
       .sb-page-thumb {
@@ -1314,7 +1378,7 @@
       .sb-page-thumb__pick {
         grid-column: 2;
         display: grid;
-        grid-template-columns: 52px 1fr;
+        grid-template-columns: 32px 1fr;
         gap: 0.4rem;
         align-items: center;
         width: 100%;
@@ -1332,8 +1396,8 @@
         background: rgba(255, 255, 255, 0.5);
       }
       .sb-page-thumb__viz {
-        width: 52px;
-        height: 68px;
+        width: 32px;
+        height: 42px;
         border-radius: 6px;
         overflow: hidden;
         background: linear-gradient(145deg, #e8dfd4, #f5ebe0);
@@ -1364,12 +1428,6 @@
         gap: 0.2rem;
         justify-content: flex-end;
       }
-      .sb-creator-canvas-wrap {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        gap: 0.5rem;
-      }
       .sb-canvas-empty {
         flex: 1;
         display: flex;
@@ -1388,41 +1446,11 @@
         font-weight: 700;
         color: var(--admin-accent-dark);
       }
-      .sb-canvas-workspace {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        animation: sb-fade-in 0.35s ease;
-      }
-      @keyframes sb-fade-in {
-        from {
-          opacity: 0;
-          transform: translateY(6px);
-        }
-        to {
-          opacity: 1;
-          transform: none;
-        }
-      }
-      .sb-canvas-hint {
-        margin: 0;
-        font-size: 0.8rem;
-        color: var(--admin-muted);
-      }
-      .sb-quick-toolbar {
+      .sb-quick-toolbar__group {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.35rem 0.4rem;
-        border-radius: 12px;
-        border: 1px solid rgba(61, 36, 16, 0.22);
-        background: rgba(255, 255, 255, 0.65);
-      }
-      .sb-quick-toolbar__group {
-        display: flex;
-        gap: 0.2rem;
+        gap: 0.3rem;
       }
       .sb-quick-toolbar-btn {
         cursor: pointer;
@@ -1448,7 +1476,7 @@
         cursor: not-allowed;
         opacity: 0.4;
       }
-      .sb-quick-toolbar select {
+      .sb-quick-toolbar__group select {
         padding: 0.25rem 0.35rem;
         border-radius: 9px;
         border: 1px solid rgba(61, 36, 16, 0.18);
@@ -1493,8 +1521,19 @@
         background: linear-gradient(160deg, #e4e9ef 0%, #d8dce2 40%, #eceef2 100%);
         min-height: 420px;
       }
-      .sb-canvas-stage .sbv2-object-canvas {
-        width: min(100%, 420px);
+      /* Must override style.css's `.storybook-v2-root .sbv2-standard-page` rule,
+         which sets `flex: 1 1 auto; width: 100%; height: 100%` for its normal
+         job of filling a properly-sized page slot in the real book reader. Here
+         the same element sits directly in a flex row (.sb-canvas-stage) with
+         `justify-content: center`, so `flex-grow: 1` — not specificity — is what
+         stretched the card to the full (now much wider) preview column: a flex
+         item's `flex-grow` overrides `width` as the main-axis sizing rule
+         regardless of !important on width alone. Pinning `flex: 0 0 auto` stops
+         the growth so the width/aspect-ratio cap actually applies. */
+      .sb-canvas-stage .sbv2-standard-page.sbv2-object-canvas {
+        flex: 0 0 auto !important;
+        width: min(100%, 460px) !important;
+        height: auto !important;
         aspect-ratio: 3 / 4;
         border-radius: 14px;
         box-shadow:
@@ -1709,11 +1748,6 @@
         border: 1px solid rgba(61, 36, 16, 0.18);
         background: rgba(255, 255, 255, 0.55);
         padding: 0.85rem;
-      }
-      .sb-sidebar-title {
-        margin: 0 0 0.5rem;
-        font-size: 0.95rem;
-        color: var(--admin-accent-dark);
       }
       .sb-page-nav {
         display: flex;
@@ -2274,7 +2308,10 @@
             </div>
           </header>
 
-          <div class="sb-creator-subbar glass-panel">
+          <!-- Book-level metadata (description) is edited at creation time (#sbNewBookPanel) —
+               kept in the DOM so existing save/load wiring is untouched, but not part of the
+               compact page-composition view: it isn't page editing. -->
+          <div class="sb-creator-subbar glass-panel" hidden>
             <label class="sb-creator-desc-label">
               <span class="sb-creator-desc-hint">Rövid leírás</span>
               <textarea
@@ -2291,60 +2328,24 @@
             </div>
           </div>
 
-          <div class="sb-creator-grid">
-            <aside class="sb-creator-sidebar sb-creator-sidebar--pages" aria-label="Oldalak">
-              <div class="sb-sidebar-head">
-                <h4 class="sb-sidebar-title" style="margin: 0">Oldalak</h4>
-                <p class="sb-sidebar-hint">A <span class="sb-dnd-ico" aria-hidden="true">⠿</span> jellel húzhatod az oldalakat új sorrendbe.</p>
-              </div>
-              <button type="button" class="btn sb-btn-add-page" id="btnSbAddPage">+ Új oldal</button>
-              <div id="sbPageNavList" class="sb-page-thumb-list"></div>
-            </aside>
+          <div class="sb-editor-split">
+            <aside class="sb-editor-left" aria-label="Szerkesztő vezérlők">
+              <details class="sb-editor-acc" open>
+                <summary class="sb-editor-acc-summary">Oldalak</summary>
+                <div class="sb-editor-acc-body">
+                  <p class="sb-sidebar-hint">A <span class="sb-dnd-ico" aria-hidden="true">⠿</span> jellel húzhatod az oldalakat új sorrendbe.</p>
+                  <button type="button" class="btn sb-btn-add-page" id="btnSbAddPage">+ Új oldal</button>
+                  <div id="sbPageNavList" class="sb-page-thumb-list"></div>
+                </div>
+              </details>
 
-            <!-- sb: canvas workspace -->
-            <div class="sb-creator-canvas-wrap">
-              <div id="sbPageEmptyState" class="sb-canvas-empty glass-panel">
-                <p class="sb-canvas-empty-title">Még nincs oldal ebben a mesekönyvben.</p>
-                <p class="sub" style="margin: 0 0 1rem">Adj hozzá egy lapot: megjelenik a vizuális szerkesztőfelület.</p>
-                <button type="button" class="btn" id="btnSbFirstPage">+ Első oldal hozzáadása</button>
-              </div>
-              <div id="sbCanvasWorkspace" class="sb-canvas-workspace" hidden>
-                <p class="sb-canvas-hint">A lap a valódi végleges kinézetet mutatja — a szöveget közvetlenül itt szerkesztheted; kép, hang és háttér a jobb oldali panelben.</p>
-                <div id="sbQuickToolbar" class="sb-quick-toolbar" role="toolbar" aria-label="Szerkesztő eszköztár" hidden>
+              <details class="sb-editor-acc" open>
+                <summary class="sb-editor-acc-summary">Elemek</summary>
+                <div class="sb-editor-acc-body">
                   <div class="sb-quick-toolbar__group" role="group" aria-label="Visszavonás" id="sbToolbarHistoryGroup">
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbUndo" aria-label="Visszavonás" title="Visszavonás" disabled>↶</button>
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbRedo" aria-label="Mégis" title="Mégis" disabled>↷</button>
                   </div>
-
-                  <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg formázása" id="sbToolbarTextGroup" hidden>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextBold" aria-pressed="false" aria-label="Félkövér" title="Félkövér"><strong>B</strong></button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextItalic" aria-pressed="false" aria-label="Dőlt" title="Dőlt"><em>I</em></button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextUnderline" aria-pressed="false" aria-label="Aláhúzott" title="Aláhúzott"><span style="text-decoration: underline">A</span></button>
-                    <select id="sbTextFontSize" aria-label="Betűméret" title="Betűméret">
-                      <option value="s">S</option>
-                      <option value="m" selected>M</option>
-                      <option value="l">L</option>
-                      <option value="xl">XL</option>
-                    </select>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignLeft" aria-pressed="false" aria-label="Balra igazítás" title="Balra">⇤</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignCenter" aria-pressed="false" aria-label="Középre igazítás" title="Középre">⇔</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignRight" aria-pressed="false" aria-label="Jobbra igazítás" title="Jobbra">⇥</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextHighlight" aria-pressed="false" aria-label="Kiemelés be- vagy kikapcsolása" title="Kiemelés">🖍</button>
-                    <input type="color" id="sbTextColor" class="sb-quick-toolbar-color" aria-label="Szövegszín" title="Szövegszín" value="#3d2410" />
-                  </div>
-
-                  <div class="sb-quick-toolbar__group" role="group" aria-label="Forgatás" id="sbToolbarRotateGroup" hidden>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbRotateLeft" aria-label="Elforgatás balra 90 fokkal" title="Forgatás balra">↺</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbRotateRight" aria-label="Elforgatás jobbra 90 fokkal" title="Forgatás jobbra">↻</button>
-                  </div>
-
-                  <div class="sb-quick-toolbar__group" role="group" aria-label="Kép" id="sbToolbarImageGroup" hidden>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageCenter" aria-label="Kép középre helyezése" title="Kép középre">⊙</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFit" aria-label="Kép kitöltése a biztonságos területen" title="Kép kitöltése">⤢</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageReset" aria-label="Kép elrendezésének visszaállítása" title="Visszaállítás">⟲</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbToggleAspectLock" aria-pressed="true" aria-label="Képarány megtartása be- vagy kikapcsolása" title="Képarány megtartása: be">🔒</button>
-                  </div>
-
                   <div class="sb-quick-toolbar__group" role="group" aria-label="Elemek" id="sbToolbarObjectsGroup">
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbAddSecondaryText" aria-label="Felirat hozzáadása" title="Felirat hozzáadása">+Szöveg</button>
                     <select id="sbAddDecorationSelect" aria-label="Dekoráció hozzáadása" title="Dekoráció hozzáadása">
@@ -2359,49 +2360,121 @@
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbDeleteSelectedObject" aria-label="Kijelölt elem törlése" title="Kijelölt elem törlése" disabled>🗑</button>
                   </div>
                 </div>
-                <div id="sbCanvasWarnings" class="sb-canvas-warnings" hidden></div>
-                <div id="sbCanvasStage" class="storybook-v2-root sb-canvas-stage"></div>
-              </div>
-            </div>
+              </details>
 
-            <!-- sb: props panel -->
-            <aside id="sbPropsPanel" class="sb-creator-sidebar sb-creator-sidebar--props glass-panel" hidden aria-label="Oldal tulajdonságok">
-              <h4 class="sb-sidebar-title" style="margin-top: 0">Tulajdonságok</h4>
+              <details class="sb-editor-acc" open>
+                <summary class="sb-editor-acc-summary">Kijelölt elem tulajdonságai</summary>
+                <div class="sb-editor-acc-body">
+                  <p id="sbNoSelectionHint" class="sb-props-note">Nincs kijelölt elem. Jelölj ki egy elemet az előnézeten.</p>
 
-              <section class="sb-props-section">
-                <h5 class="sb-props-heading">Szöveg</h5>
-                <p class="sub sb-props-note">A fő szöveg közvetlenül a lapon szerkeszthető. Mentéskor a lap tartalma, elrendezése és a háttérszín kerül szerverre.</p>
-                <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
-                <p class="sb-props-note sb-props-note--danger" id="sbCurPageOverLimitMsg" role="alert" hidden></p>
-                <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
-              </section>
+                  <div class="sb-props-group" id="sbToolbarTextGroup" hidden>
+                    <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg formázása">
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextBold" aria-pressed="false" aria-label="Félkövér" title="Félkövér"><strong>B</strong></button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextItalic" aria-pressed="false" aria-label="Dőlt" title="Dőlt"><em>I</em></button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextUnderline" aria-pressed="false" aria-label="Aláhúzott" title="Aláhúzott"><span style="text-decoration: underline">A</span></button>
+                      <select id="sbTextFontSize" aria-label="Betűméret" title="Betűméret">
+                        <option value="s">S</option>
+                        <option value="m" selected>M</option>
+                        <option value="l">L</option>
+                        <option value="xl">XL</option>
+                      </select>
+                    </div>
+                    <div class="sb-quick-toolbar__group" role="group" aria-label="Igazítás">
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignLeft" aria-pressed="false" aria-label="Balra igazítás" title="Balra">⇤</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignCenter" aria-pressed="false" aria-label="Középre igazítás" title="Középre">⇔</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignRight" aria-pressed="false" aria-label="Jobbra igazítás" title="Jobbra">⇥</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextHighlight" aria-pressed="false" aria-label="Kiemelés be- vagy kikapcsolása" title="Kiemelés">🖍</button>
+                      <input type="color" id="sbTextColor" class="sb-quick-toolbar-color" aria-label="Szövegszín" title="Szövegszín" value="#3d2410" />
+                    </div>
+                    <div class="sb-props-numrow">
+                      <label class="sb-props-num">X% <input type="number" id="sbTextPosX" min="0" max="100" step="0.5" /></label>
+                      <label class="sb-props-num">Y% <input type="number" id="sbTextPosY" min="0" max="100" step="0.5" /></label>
+                      <label class="sb-props-num">Szél% <input type="number" id="sbTextSizeW" min="0.5" max="100" step="0.5" /></label>
+                      <label class="sb-props-num">Mag% <input type="number" id="sbTextSizeH" min="0.5" max="100" step="0.5" /></label>
+                    </div>
+                  </div>
 
-              <section class="sb-props-section">
-                <h5 class="sb-props-heading">Illusztráció</h5>
-                <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
-                <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
-                <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
-              </section>
+                  <div class="sb-props-group" id="sbToolbarRotateGroup" hidden>
+                    <label class="sb-props-slider-label">
+                      Forgatás
+                      <span class="sb-props-slider-row">
+                        <input type="range" id="sbObjRotationRange" min="-180" max="180" step="1" value="0" aria-label="Forgatás" />
+                        <input type="number" id="sbObjRotationNumber" min="-180" max="180" step="1" value="0" aria-label="Forgatás fokban" />°
+                      </span>
+                    </label>
+                    <label class="sb-props-slider-label">
+                      Átlátszóság
+                      <span class="sb-props-slider-row">
+                        <input type="range" id="sbObjOpacityRange" min="0" max="100" step="1" value="100" aria-label="Átlátszóság" />
+                        <span id="sbObjOpacityValue">100%</span>
+                      </span>
+                    </label>
+                  </div>
 
-              <section class="sb-props-section">
-                <h5 class="sb-props-heading">Hang</h5>
-                <p id="sbCurPageAudStatus" class="sb-props-aud-status">Nincs feltöltve hang.</p>
-                <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageAud">Hang feltöltése</button>
-                <input type="file" id="sbCurPageAudFile" accept="audio/*,.mp3,.m4a,.ogg,.wav,.webm" hidden />
-              </section>
+                  <div class="sb-props-group" id="sbToolbarImageGroup" hidden>
+                    <div class="sb-quick-toolbar__group" role="group" aria-label="Kép igazítás">
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignLeft" aria-label="Kép balra" title="Balra">⇤</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageCenter" aria-label="Kép középre helyezése" title="Középre">⇔</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignRight" aria-label="Kép jobbra" title="Jobbra">⇥</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFit" aria-label="Kép kitöltése a biztonságos területen" title="Kép kitöltése">⤢</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageReset" aria-label="Kép elrendezésének visszaállítása" title="Visszaállítás">⟲</button>
+                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbToggleAspectLock" aria-pressed="true" aria-label="Képarány megtartása be- vagy kikapcsolása" title="Képarány megtartása: be">🔒</button>
+                    </div>
+                    <div class="sb-props-numrow">
+                      <label class="sb-props-num">Szél% <input type="number" id="sbImageSizeW" min="0.5" max="100" step="0.5" /></label>
+                      <label class="sb-props-num">Mag% <input type="number" id="sbImageSizeH" min="0.5" max="100" step="0.5" /></label>
+                    </div>
+                  </div>
 
-              <section class="sb-props-section">
-                <h5 class="sb-props-heading">Oldal háttere</h5>
-                <label class="sb-props-label">
-                  Háttérszín
-                  <input type="color" id="sbPropsPageBg" value="#faf6f0" aria-label="Oldal háttérszín" />
-                </label>
-              </section>
+                  <div class="sb-props-group" id="sbToolbarDecorationGroup" hidden>
+                    <label class="sb-props-num">Méret% <input type="number" id="sbDecoSize" min="1" max="100" step="0.5" /></label>
+                  </div>
+                </div>
+              </details>
 
-              <section class="sb-props-section sb-props-section--danger">
-                <button type="button" class="btn btn-sm btn-danger btn-ghost" id="btnSbCurPageDelete">Oldal törlése</button>
-              </section>
+              <details class="sb-editor-acc" id="sbPropsPanel" aria-label="Oldal tulajdonságai">
+                <summary class="sb-editor-acc-summary">Oldal tulajdonságai</summary>
+                <div class="sb-editor-acc-body">
+                  <section class="sb-props-section">
+                    <h5 class="sb-props-heading">Szöveg</h5>
+                    <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
+                    <p class="sb-props-note sb-props-note--danger" id="sbCurPageOverLimitMsg" role="alert" hidden></p>
+                    <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
+                  </section>
+
+                  <section class="sb-props-section">
+                    <h5 class="sb-props-heading">Illusztráció</h5>
+                    <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
+                    <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
+                    <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
+                  </section>
+
+                  <section class="sb-props-section">
+                    <h5 class="sb-props-heading">Hang</h5>
+                    <p id="sbCurPageAudStatus" class="sb-props-aud-status">Nincs feltöltve hang.</p>
+                    <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageAud">Hang feltöltése</button>
+                    <input type="file" id="sbCurPageAudFile" accept="audio/*,.mp3,.m4a,.ogg,.wav,.webm" hidden />
+                  </section>
+
+                  <section class="sb-props-section">
+                    <h5 class="sb-props-heading">Oldal háttere</h5>
+                    <label class="sb-props-label">
+                      Háttérszín
+                      <input type="color" id="sbPropsPageBg" value="#faf6f0" aria-label="Oldal háttérszín" />
+                    </label>
+                  </section>
+
+                  <section class="sb-props-section sb-props-section--danger">
+                    <button type="button" class="btn btn-sm btn-danger btn-ghost" id="btnSbCurPageDelete">Oldal törlése</button>
+                  </section>
+                </div>
+              </details>
             </aside>
+
+            <div class="sb-editor-preview-col">
+              <div id="sbCanvasWarnings" class="sb-canvas-warnings" hidden></div>
+              <div id="sbCanvasStage" class="storybook-v2-root sb-canvas-stage"></div>
+            </div>
           </div>
         </div>
 
@@ -2731,12 +2804,27 @@
           return stage ? stage.querySelector('[data-sb-obj-role="primary"] .sb-canvas-text') : null;
         }
 
+        // The empty-state message lives INSIDE #sbCanvasStage's own render output
+        // (not a separate sibling element) so there is only ever one place that
+        // decides what the stage shows — see sbRenderAll's hasPages check. A
+        // prior sibling-element version of this (#sbPageEmptyState) kept
+        // rendering even when pages existed: its own CSS rule set `display:flex`
+        // unconditionally, and an author-stylesheet `display` declaration always
+        // beats the [hidden] attribute's UA-stylesheet `display:none` regardless
+        // of specificity — the exact same class of bug already fixed elsewhere
+        // in this file for .sb-upload-overlay[hidden] and .sb-editor-mobile-hint[hidden].
+        // Rendering the message as this element's own innerHTML sidesteps the bug
+        // entirely: there's no second element with a competing display rule.
         function sbPaintObjectCanvas() {
           const stage = $("sbCanvasStage");
           if (!stage || !SBR) return;
           const draft = SbEditor.draft;
           if (!draft) {
-            stage.innerHTML = "";
+            stage.innerHTML =
+              '<div class="sb-canvas-empty">' +
+              '<p class="sb-canvas-empty-title">Még nincs oldal ebben a mesekönyvben.</p>' +
+              '<p class="sub" style="margin:0">Adj hozzá egyet a bal oldali "Oldalak" panelben.</p>' +
+              "</div>";
             sbUpdateCanvasWarnings();
             return;
           }
@@ -2913,13 +3001,20 @@
           sbPaintSelectionOverlay();
         }
 
+        // Populates the "Kijelölt elem tulajdonságai" accordion (§C) for whatever
+        // is currently selected — called after every selection change and after
+        // every drag/resize/rotate pointermove (via sbApplyObjectRectToDom ->
+        // sbPaintSelectionOverlay), so these fields double as the live numeric
+        // read-out for on-canvas dragging, not just controls of their own.
         function sbUpdateQuickToolbarState() {
-          const toolbar = $("sbQuickToolbar");
-          if (!toolbar) return;
           const obj = sbSelectedDraftObject();
           const isText = !!obj && obj.type === "text";
           const isImage = !!obj && obj.type === "image";
+          const isDecoration = !!obj && obj.type === "decoration";
           const isRotatable = !!obj && obj.type !== "text";
+
+          const noSelHint = $("sbNoSelectionHint");
+          if (noSelHint) noSelHint.hidden = !!obj;
 
           const textGroup = $("sbToolbarTextGroup");
           if (textGroup) textGroup.hidden = !isText;
@@ -2940,13 +3035,30 @@
             if (sizeSel) sizeSel.value = fmt.fontSize || "m";
             const colorInput = $("sbTextColor");
             if (colorInput) colorInput.value = fmt.color || "#3d2410";
+            sbSetNumberInputValue("sbTextPosX", obj.x);
+            sbSetNumberInputValue("sbTextPosY", obj.y);
+            sbSetNumberInputValue("sbTextSizeW", obj.w);
+            sbSetNumberInputValue("sbTextSizeH", obj.h);
           }
 
           const rotateGroup = $("sbToolbarRotateGroup");
           if (rotateGroup) rotateGroup.hidden = !isRotatable;
+          if (isRotatable) {
+            const rot = Number(obj.rotation) || 0;
+            sbSetNumberInputValue("sbObjRotationRange", rot);
+            sbSetNumberInputValue("sbObjRotationNumber", rot);
+            const opacityPct = Math.round((obj.opacity != null ? Number(obj.opacity) : 1) * 100);
+            sbSetNumberInputValue("sbObjOpacityRange", opacityPct);
+            const opacityLbl = $("sbObjOpacityValue");
+            if (opacityLbl) opacityLbl.textContent = opacityPct + "%";
+          }
 
           const imageGroup = $("sbToolbarImageGroup");
           if (imageGroup) imageGroup.hidden = !isImage;
+          if (isImage) {
+            sbSetNumberInputValue("sbImageSizeW", obj.w);
+            sbSetNumberInputValue("sbImageSizeH", obj.h);
+          }
           const lockBtn = $("btnSbToggleAspectLock");
           if (lockBtn) {
             const locked = !!(obj && obj.image && obj.image.aspectLocked !== false);
@@ -2954,11 +3066,26 @@
             lockBtn.title = locked ? "Képarány megtartása: be" : "Képarány megtartása: ki";
           }
 
+          const decoGroup = $("sbToolbarDecorationGroup");
+          if (decoGroup) decoGroup.hidden = !isDecoration;
+          if (isDecoration) {
+            sbSetNumberInputValue("sbDecoSize", obj.w);
+          }
+
           const deleteBtn = $("btnSbDeleteSelectedObject");
           if (deleteBtn)
             deleteBtn.disabled = !obj || (obj.type === "text" && obj.role === "primary") || obj.type === "image";
+        }
 
-          toolbar.hidden = !SbEditor.draft;
+        // Avoids stomping the value while the control has focus (e.g. mid-drag on
+        // a slider, or the user mid-typing in a number field) — this function is
+        // called on every pointermove during a canvas drag, so it must not fight
+        // whichever control the user is actively interacting with.
+        function sbSetNumberInputValue(id, value) {
+          const el = $(id);
+          if (!el || document.activeElement === el) return;
+          const rounded = Math.round(Number(value) * 100) / 100;
+          el.value = Number.isFinite(rounded) ? rounded : "";
         }
 
         // Percent-of-stage delta for a pointer move, independent of the stage's
@@ -2989,6 +3116,7 @@
           el.style.width = obj.w + "%";
           el.style.height = obj.h + "%";
           el.style.transform = obj.rotation ? "rotate(" + obj.rotation + "deg)" : "";
+          el.style.opacity = obj.opacity != null && obj.opacity < 1 ? String(obj.opacity) : "";
         }
 
         function sbWireObjectDragOnce() {
@@ -3267,6 +3395,18 @@
           sbSchedulePageAutosave();
         }
 
+        function sbAlignSelectedImage(side) {
+          const obj = sbSelectedDraftObject();
+          const stageRoot = $("sbCanvasStage");
+          if (!obj || obj.type !== "image" || !stageRoot) return;
+          sbPushHistorySnapshot();
+          if (side === "left") obj.x = 0;
+          else if (side === "right") obj.x = Math.max(0, 100 - obj.w);
+          else obj.x = Math.max(0, (100 - obj.w) / 2);
+          sbApplyObjectRectToDom(stageRoot, obj);
+          sbSchedulePageAutosave();
+        }
+
         function sbFitSelectedImage() {
           sbPushHistorySnapshot();
           sbFitSelectedImageCore();
@@ -3309,25 +3449,84 @@
           if (!obj || obj.type !== "image") return;
           sbPushHistorySnapshot();
           obj.rotation = 0;
+          obj.opacity = 1;
           sbFitSelectedImageCore();
           sbSchedulePageAutosave();
         }
 
-        function sbWireQuickToolbarOnce() {
-          const toolbar = $("sbQuickToolbar");
-          if (!toolbar || toolbar.dataset.sbWired === "1") return;
-          toolbar.dataset.sbWired = "1";
-          const rotateBy = (delta) => {
+        // Shared by every §C numeric/slider field (text position/size, image
+        // width/height, decoration size, rotation, opacity): one push-per-
+        // editing-session on focus (matching the contenteditable text pattern),
+        // live-apply on every input event. Reused for both <input type="number">
+        // and <input type="range"> since both fire the same events.
+        function sbWireNumericObjectField(id, applyFn) {
+          const el = $(id);
+          if (!el) return;
+          let pushed = false;
+          el.addEventListener("focus", () => {
+            pushed = false;
+          });
+          el.addEventListener("blur", () => {
+            pushed = false;
+          });
+          el.addEventListener("input", () => {
             const obj = sbSelectedDraftObject();
             if (!obj) return;
-            sbPushHistorySnapshot();
-            obj.rotation = sbNormalizeRotationDeg((Number(obj.rotation) || 0) + delta);
+            const v = parseFloat(el.value);
+            if (!Number.isFinite(v)) return;
+            if (!pushed) {
+              sbPushHistorySnapshot();
+              pushed = true;
+            }
+            applyFn(obj, v);
             const stageRoot = $("sbCanvasStage");
             if (stageRoot) sbApplyObjectRectToDom(stageRoot, obj);
             sbSchedulePageAutosave();
-          };
-          $("btnSbRotateLeft").addEventListener("click", () => rotateBy(-90));
-          $("btnSbRotateRight").addEventListener("click", () => rotateBy(90));
+          });
+        }
+
+        function sbWireQuickToolbarOnce() {
+          const root = sbEditorRootEl();
+          if (!root || root.dataset.sbQuickToolbarWired === "1") return;
+          root.dataset.sbQuickToolbarWired = "1";
+
+          sbWireNumericObjectField("sbTextPosX", (obj, v) => {
+            obj.x = Math.max(0, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbTextPosY", (obj, v) => {
+            obj.y = Math.max(0, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbTextSizeW", (obj, v) => {
+            obj.w = Math.max(0.5, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbTextSizeH", (obj, v) => {
+            obj.h = Math.max(0.5, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbImageSizeW", (obj, v) => {
+            obj.w = Math.max(0.5, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbImageSizeH", (obj, v) => {
+            obj.h = Math.max(0.5, Math.min(100, v));
+          });
+          sbWireNumericObjectField("sbDecoSize", (obj, v) => {
+            const s = Math.max(0.5, Math.min(100, v));
+            obj.w = s;
+            obj.h = s;
+          });
+          sbWireNumericObjectField("sbObjRotationRange", (obj, v) => {
+            obj.rotation = sbNormalizeRotationDeg(v);
+          });
+          sbWireNumericObjectField("sbObjRotationNumber", (obj, v) => {
+            obj.rotation = sbNormalizeRotationDeg(v);
+          });
+          sbWireNumericObjectField("sbObjOpacityRange", (obj, v) => {
+            obj.opacity = Math.max(0, Math.min(100, v)) / 100;
+            const lbl = $("sbObjOpacityValue");
+            if (lbl) lbl.textContent = Math.round(obj.opacity * 100) + "%";
+          });
+
+          $("btnSbImageAlignLeft").addEventListener("click", () => sbAlignSelectedImage("left"));
+          $("btnSbImageAlignRight").addEventListener("click", () => sbAlignSelectedImage("right"));
           $("btnSbToggleAspectLock").addEventListener("click", () => {
             const obj = sbSelectedDraftObject();
             if (!obj || obj.type !== "image") return;
@@ -3441,18 +3640,15 @@
           return false;
         }
 
-        // The single render function: derives empty-state/workspace/props-panel
-        // visibility purely from sbDetail.pages.length, validates the current
-        // selection, (re)builds the in-memory draft on a page switch, and paints
-        // the canvas. Every editor mutation should end by calling this.
+        // The single render function: derives empty-state/props-panel visibility
+        // purely from sbDetail.pages.length, validates the current selection,
+        // (re)builds the in-memory draft on a page switch, and paints the canvas
+        // (including its own empty-state — see sbPaintObjectCanvas). Every editor
+        // mutation should end by calling this.
         function sbRenderAll() {
           SbEditor.pages = (sbDetail && sbDetail.pages) || [];
           const hasPages = SbEditor.pages.length > 0;
-          const emptyState = $("sbPageEmptyState");
-          const workspace = $("sbCanvasWorkspace");
           const propsPanel = $("sbPropsPanel");
-          if (emptyState) emptyState.hidden = hasPages;
-          if (workspace) workspace.hidden = !hasPages;
           if (propsPanel) propsPanel.hidden = !hasPages;
           if (!hasPages) {
             SbEditor.selectedPageId = null;
@@ -6761,10 +6957,6 @@
           } catch (e) {
             showToast(humanError(e), "err");
           }
-        });
-
-        $("btnSbFirstPage").addEventListener("click", () => {
-          $("btnSbAddPage").click();
         });
 
         $("btnSbCurPageSave").addEventListener("click", async () => {

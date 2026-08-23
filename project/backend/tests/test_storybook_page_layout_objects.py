@@ -447,3 +447,51 @@ def test_public_get_returns_null_layout_json_when_untouched(client: TestClient) 
     pub = client.get(f"/storybooks/{book['slug']}")
     assert pub.status_code == 200, pub.text
     assert pub.json()["pages"][0]["layout_json"] is None
+
+
+@pytest.mark.parametrize("opacity", [0, 0.5, 1])
+def test_object_opacity_within_range_accepted(client: TestClient, opacity: float) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["opacity"] = opacity
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    assert row["layout_json"]["objects"][0]["opacity"] == opacity
+
+
+@pytest.mark.parametrize("opacity", [-0.01, 1.01, 2, -1])
+def test_object_opacity_outside_range_rejected(client: TestClient, opacity: float) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["opacity"] = opacity
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_object_opacity_omitted_defaults_fine(client: TestClient) -> None:
+    """opacity is optional — a layout without it (matching every page saved
+    before this field existed) must keep validating and saving fine."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    assert "opacity" not in layout["objects"][0]
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text

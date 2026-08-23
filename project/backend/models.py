@@ -846,6 +846,7 @@ def _storybook_layout_json_ok(v: dict) -> dict:
         _layout_number(obj.get("w"), "w", 0.5, 100)
         _layout_number(obj.get("h"), "h", 0.5, 100)
         _layout_number(obj.get("rotation", 0), "rotation", -180, 180)
+        _layout_number(obj.get("opacity", 1), "opacity", 0, 1)
 
         if obj_type == "text":
             role = obj.get("role")

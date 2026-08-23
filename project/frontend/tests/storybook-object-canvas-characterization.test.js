@@ -173,6 +173,52 @@ check("admin and public reader call the exact same exported function (by constru
   assert.equal(typeof SBR.resolvePageLayout, "function");
 });
 
+check("opacity < 1 renders as an inline style declaration", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 40, h: 40, rotation: 0, opacity: 0.5 },
+    ],
+  };
+  const page = { body_text: "x", image_url: "y.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("opacity:0.5;"), true);
+});
+
+["1", "1.0", undefined].forEach((opacity) => {
+  check("opacity=" + opacity + " omits the opacity declaration (no regression for existing pages)", () => {
+    const SBR = loadReaderModule();
+    const obj = { id: "img-1", type: "image", x: 0, y: 0, w: 40, h: 40, rotation: 0 };
+    if (opacity !== undefined) obj.opacity = Number(opacity);
+    const layout = {
+      version: 1,
+      objects: [
+        { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+        obj,
+      ],
+    };
+    const page = { body_text: "x", image_url: "y.png" };
+    const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+    assert.equal(html.includes("opacity:"), false);
+  });
+});
+
+check("rotation renders continuously — a non-90-multiple angle is never snapped to a step", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 40, h: 40, rotation: 37 },
+    ],
+  };
+  const page = { body_text: "x", image_url: "y.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  assert.equal(html.includes("transform:rotate(37deg);"), true);
+});
+
 if (failures > 0) {
   console.log(failures + " failure(s).");
   process.exit(1);
