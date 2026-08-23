@@ -350,6 +350,50 @@ check("z-order: text first renders before image", () => {
   assert.ok(html.indexOf("sbv2-obj--text") < html.indexOf("sbv2-obj--image"), "text markup precedes image markup");
 });
 
+check("z-order: arbitrary 3-item permutation (decoration, image, text) drives DOM order exactly", () => {
+  const SBR = loadReaderModule();
+  const layout = {
+    version: 1,
+    objects: [
+      { id: "deco-1", type: "decoration", x: 10, y: 10, w: 8, h: 8, rotation: 0, decoration: { glyph: "⭐" } },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+    ],
+  };
+  const page = { body_text: "x", image_url: "bg.png" };
+  const html = SBR.buildObjectCanvasHtml(layout, page, opts);
+  const decoIdx = html.indexOf("sbv2-obj--decoration");
+  const imgIdx = html.indexOf("sbv2-obj--image");
+  const textIdx = html.indexOf("sbv2-obj--text");
+  assert.ok(decoIdx < imgIdx && imgIdx < textIdx, "DOM order must be decoration, image, text — not sorted by type");
+});
+
+// --- V3.3: Layers panel — name is admin-only organizational metadata --------
+
+check("obj.name is a pure passthrough — present or absent, it never changes rendered HTML", () => {
+  const SBR = loadReaderModule();
+  const page = { body_text: "x", image_url: "y.png" };
+  const layoutWithout = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0 },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 40, h: 40, rotation: 0 },
+    ],
+  };
+  const layoutWith = {
+    version: 1,
+    objects: [
+      { id: "primary-text", type: "text", role: "primary", x: 0, y: 0, w: 50, h: 50, rotation: 0, name: "Cím" },
+      { id: "img-1", type: "image", x: 0, y: 0, w: 40, h: 40, rotation: 0, name: "Háttérkép" },
+    ],
+  };
+  const htmlWithout = SBR.buildObjectCanvasHtml(layoutWithout, page, opts);
+  const htmlWith = SBR.buildObjectCanvasHtml(layoutWith, page, opts);
+  assert.equal(htmlWith, htmlWithout);
+  assert.equal(htmlWith.includes("Cím"), false);
+  assert.equal(htmlWith.includes("Háttérkép"), false);
+});
+
 if (failures > 0) {
   console.log(failures + " failure(s).");
   process.exit(1);

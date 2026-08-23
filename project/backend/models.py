@@ -784,6 +784,7 @@ STORYBOOK_LAYOUT_MAX_EXTRA_OBJECTS = 20
 STORYBOOK_LAYOUT_CAPTION_MAX_CHARS = 2000
 STORYBOOK_LAYOUT_GLYPH_MAX_CHARS = 8
 STORYBOOK_LAYOUT_RICH_HTML_MAX_CHARS = 4000
+STORYBOOK_LAYOUT_NAME_MAX_CHARS = 60
 
 _RICH_TEXT_ALLOWED_BARE_TAGS = {"strong", "em", "u", "mark"}
 _RICH_TEXT_SPAN_COLOR_RE = re.compile(r"^color:\s*#[0-9a-fA-F]{3,8}\s*;?$")
@@ -797,6 +798,16 @@ def _layout_number(v: object, field: str, lo: float, hi: float) -> float:
     if x < lo or x > hi:
         raise ValueError(f"A(z) '{field}' mezőnek {lo} és {hi} között kell lennie.")
     return x
+
+
+def _layout_object_name_ok(value: object) -> str | None:
+    """Optional per-object display name for the admin Layers panel — purely
+    organizational metadata, never rendered by buildObjectCanvasHtml."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or len(value) > STORYBOOK_LAYOUT_NAME_MAX_CHARS:
+        raise ValueError(f"A réteg neve legfeljebb {STORYBOOK_LAYOUT_NAME_MAX_CHARS} karakter lehet.")
+    return value
 
 
 def _layout_text_format_ok(fmt: object) -> None:
@@ -906,6 +917,7 @@ def _storybook_layout_json_ok(v: dict) -> dict:
         _layout_number(obj.get("h"), "h", 0.5, 100)
         _layout_number(obj.get("rotation", 0), "rotation", -180, 180)
         _layout_number(obj.get("opacity", 1), "opacity", 0, 1)
+        _layout_object_name_ok(obj.get("name"))
 
         if obj_type == "text":
             role = obj.get("role")

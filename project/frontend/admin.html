@@ -1476,6 +1476,75 @@
         cursor: not-allowed;
         opacity: 0.4;
       }
+      .sb-layers-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-top: 0.4rem;
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: 2px;
+      }
+      .sb-layer-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto auto auto;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.3rem 0.35rem;
+        border-radius: 10px;
+        border: 2px solid rgba(61, 36, 16, 0.1);
+        background: rgba(255, 255, 255, 0.65);
+      }
+      .sb-layer-row.is-selected {
+        border-color: var(--admin-accent);
+        box-shadow: 0 0 0 1px rgba(165, 90, 60, 0.25);
+      }
+      .sb-layer-icon {
+        font-size: 0.95rem;
+        line-height: 1;
+        text-align: center;
+        width: 1.2rem;
+      }
+      .sb-layer-name {
+        min-width: 0;
+        width: 100%;
+        border: none;
+        background: transparent;
+        font: inherit;
+        font-size: 0.78rem;
+        color: inherit;
+        padding: 0.15rem 0.2rem;
+        border-radius: 6px;
+        cursor: text;
+      }
+      .sb-layer-name:hover,
+      .sb-layer-name:focus {
+        background: rgba(255, 255, 255, 0.85);
+        outline: 1px solid rgba(61, 36, 16, 0.18);
+      }
+      .sb-layer-order {
+        font-size: 0.68rem;
+        color: var(--admin-muted);
+        white-space: nowrap;
+      }
+      .sb-layer-icon-btn {
+        cursor: pointer;
+        min-width: 1.6rem;
+        padding: 0.15rem 0.3rem;
+        border-radius: 7px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: rgba(255, 255, 255, 0.55);
+        font-size: 0.78rem;
+        line-height: 1.2;
+      }
+      .sb-layer-icon-btn:hover:not(:disabled) {
+        background: rgba(255, 248, 235, 0.9);
+        border-color: rgba(184, 140, 88, 0.45);
+      }
+      .sb-layer-icon-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
       .sb-quick-toolbar__group select {
         padding: 0.25rem 0.35rem;
         border-radius: 9px;
@@ -2440,6 +2509,18 @@
                 </div>
               </details>
 
+              <details class="sb-editor-acc" open>
+                <summary class="sb-editor-acc-summary">Rétegek</summary>
+                <div class="sb-editor-acc-body">
+                  <p class="sb-sidebar-hint">Legfelül = legelöl. A háttérbe küldött kép mögé kerülő szöveg innen mindig kijelölhető.</p>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Réteg sorrend (kijelölt elem)">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbLayerToFront" title="Kijelölt elem legelőre">⤒ Legelőre</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbLayerToBack" title="Kijelölt elem leghátra">⤓ Leghátra</button>
+                  </div>
+                  <div id="sbLayersList" class="sb-layers-list"></div>
+                </div>
+              </details>
+
               <details class="sb-editor-acc" id="sbPropsPanel" aria-label="Oldal tulajdonságai">
                 <summary class="sb-editor-acc-summary">Oldal tulajdonságai</summary>
                 <div class="sb-editor-acc-body">
@@ -2834,6 +2915,7 @@
               '<p class="sub" style="margin:0">Adj hozzá egyet a bal oldali "Oldalak" panelben.</p>' +
               "</div>";
             sbUpdateCanvasWarnings();
+            sbRenderLayersList();
             return;
           }
           const pageShape = { body_text: draft.bodyText, image_url: draft.imageUrl };
@@ -2848,6 +2930,7 @@
           if (canvasEl) canvasEl.style.backgroundColor = bg;
           sbPaintSelectionOverlay();
           sbUpdateCanvasWarnings();
+          sbRenderLayersList();
         }
 
         // Advisory (never blocking) geometry/content checks, recomputed on every
@@ -2961,12 +3044,14 @@
           if (!stage) {
             if (overlay) overlay.remove();
             sbUpdateQuickToolbarState();
+            sbUpdateLayersSelectionHighlight();
             return;
           }
           const obj = sbSelectedDraftObject();
           if (!obj) {
             if (overlay) overlay.remove();
             sbUpdateQuickToolbarState();
+            sbUpdateLayersSelectionHighlight();
             return;
           }
           if (!overlay) {
@@ -3001,12 +3086,249 @@
           overlay.style.height = h + "%";
           overlay.style.transform = rot ? "rotate(" + rot + "deg)" : "";
           sbUpdateQuickToolbarState();
+          sbUpdateLayersSelectionHighlight();
         }
 
         function sbSelectObject(id) {
           if (SbEditor.selectedObjectId === id) return;
           SbEditor.selectedObjectId = id;
           sbPaintSelectionOverlay();
+        }
+
+        // --- Layers panel -------------------------------------------------------
+        // Purely a second, always-reachable entry point into the *same*
+        // sbSelectObject/drag/resize/rotate machinery the canvas already uses —
+        // this is what lets an image be selected (and then manipulated) even
+        // while fully covered by an overlapping text box, without touching
+        // pointer-events or hit-testing anywhere.
+
+        const SB_LAYER_DECORATION_LABELS = {
+          "⭐": "Csillag",
+          "❤️": "Szív",
+          "🌸": "Virág",
+          "😊": "Mosoly",
+          "✨": "Csillogás",
+          "🌈": "Szivárvány",
+        };
+
+        // Names are computed on the fly and never persisted until the admin
+        // actually renames something (avoids layout_json churn from merely
+        // opening the panel). `obj.name`, once set, always wins.
+        function sbComputeLayerDisplayNames(objects) {
+          const list = objects || [];
+          const textCount = list.filter((o) => o.type === "text").length;
+          const glyphTotals = {};
+          list.forEach((o) => {
+            if (o.type !== "decoration") return;
+            const g = (o.decoration && o.decoration.glyph) || "";
+            glyphTotals[g] = (glyphTotals[g] || 0) + 1;
+          });
+          let textSeen = 0;
+          const glyphSeen = {};
+          return list.map((o) => {
+            if (typeof o.name === "string" && o.name.trim()) {
+              return { id: o.id, name: o.name.trim() };
+            }
+            if (o.type === "text") {
+              textSeen += 1;
+              return { id: o.id, name: textCount > 1 ? "Szöveg " + textSeen : "Szöveg" };
+            }
+            if (o.type === "image") {
+              return { id: o.id, name: "Kép" };
+            }
+            const glyph = (o.decoration && o.decoration.glyph) || "";
+            const label = SB_LAYER_DECORATION_LABELS[glyph] || "Dekoráció";
+            glyphSeen[glyph] = (glyphSeen[glyph] || 0) + 1;
+            const name = glyphTotals[glyph] > 1 ? label + " " + glyphSeen[glyph] : label;
+            return { id: o.id, name: name };
+          });
+        }
+
+        function sbLayerIcon(obj) {
+          if (obj.type === "text") return obj.role === "primary" ? "📝" : "📄";
+          if (obj.type === "image") return "🖼️";
+          return (obj.decoration && obj.decoration.glyph) || "⭐";
+        }
+
+        // Mirrors sbDeleteSelectedObject's protection rule exactly — the primary
+        // text and the page's image are never deletable from anywhere.
+        function sbLayerDeleteDisabled(obj) {
+          if (!obj) return true;
+          if (obj.type === "text" && obj.role === "primary") return true;
+          if (obj.type === "image") return true;
+          return false;
+        }
+
+        // Full rebuild — call after anything that changes the object set, order,
+        // or names. Displayed top-to-bottom as front-to-back (array order
+        // reversed), matching "legfelül = legelöl" in the panel's own hint text.
+        function sbRenderLayersList() {
+          const list = $("sbLayersList");
+          if (!list) return;
+          const objects = (SbEditor.draft && SbEditor.draft.objects) || [];
+          if (!objects.length) {
+            list.innerHTML = "";
+            return;
+          }
+          const names = sbComputeLayerDisplayNames(objects);
+          const nameById = {};
+          names.forEach((n) => {
+            nameById[n.id] = n.name;
+          });
+          const total = objects.length;
+          const rows = objects.map((obj, idx) => ({ obj: obj, idx: idx })).reverse();
+          list.innerHTML = rows
+            .map(({ obj, idx }) => {
+              const selected = obj.id === SbEditor.selectedObjectId;
+              const delDisabled = sbLayerDeleteDisabled(obj) ? "disabled" : "";
+              return (
+                '<div class="sb-layer-row' +
+                (selected ? " is-selected" : "") +
+                '" data-sb-layer-id="' +
+                escapeHtml(obj.id) +
+                '">' +
+                '<span class="sb-layer-icon">' +
+                escapeHtml(sbLayerIcon(obj)) +
+                "</span>" +
+                '<input type="text" class="sb-layer-name" maxlength="60" data-sb-layer-name="' +
+                escapeHtml(obj.id) +
+                '" value="' +
+                escapeHtml(nameById[obj.id] || "") +
+                '" aria-label="Réteg neve" />' +
+                '<span class="sb-layer-order">#' +
+                (idx + 1) +
+                "/" +
+                total +
+                "</span>" +
+                '<button type="button" class="sb-layer-icon-btn" data-sb-layer-up="' +
+                escapeHtml(obj.id) +
+                '" title="Feljebb (előrébb)" ' +
+                (idx === total - 1 ? "disabled" : "") +
+                ">↑</button>" +
+                '<button type="button" class="sb-layer-icon-btn" data-sb-layer-down="' +
+                escapeHtml(obj.id) +
+                '" title="Lejjebb (hátrébb)" ' +
+                (idx === 0 ? "disabled" : "") +
+                ">↓</button>" +
+                '<button type="button" class="sb-layer-icon-btn sb-layer-del" data-sb-layer-del="' +
+                escapeHtml(obj.id) +
+                '" title="Törlés" ' +
+                delDisabled +
+                ">🗑</button>" +
+                "</div>"
+              );
+            })
+            .join("");
+        }
+
+        // Cheap per-frame update — safe to call on every drag/resize/rotate
+        // pointermove (via sbPaintSelectionOverlay) since it never rebuilds HTML.
+        function sbUpdateLayersSelectionHighlight() {
+          const list = $("sbLayersList");
+          if (!list) return;
+          const selectedId = SbEditor.selectedObjectId;
+          list.querySelectorAll(".sb-layer-row").forEach((row) => {
+            row.classList.toggle("is-selected", row.getAttribute("data-sb-layer-id") === selectedId);
+          });
+        }
+
+        // direction: "up"/"down" move one step toward front/back respectively
+        // (matching the panel's front-to-back-top-to-bottom display); "front"/
+        // "back" jump to the array ends. Array order is the ONLY z-order system
+        // (see buildObjectCanvasHtml) — no separate zIndex field is written.
+        function sbMoveLayer(id, direction) {
+          if (!SbEditor.draft) return;
+          const objects = SbEditor.draft.objects;
+          const idx = objects.findIndex((o) => o.id === id);
+          if (idx < 0) return;
+          let newIdx = idx;
+          if (direction === "up") newIdx = Math.min(objects.length - 1, idx + 1);
+          else if (direction === "down") newIdx = Math.max(0, idx - 1);
+          else if (direction === "front") newIdx = objects.length - 1;
+          else if (direction === "back") newIdx = 0;
+          if (newIdx === idx) return;
+          sbPushHistorySnapshot();
+          const [obj] = objects.splice(idx, 1);
+          objects.splice(newIdx, 0, obj);
+          sbPaintObjectCanvas();
+          sbSchedulePageAutosave();
+        }
+
+        function sbRenameLayerObject(id, rawValue) {
+          if (!SbEditor.draft) return;
+          const obj = SbEditor.draft.objects.find((o) => o.id === id);
+          if (!obj) return;
+          const trimmed = String(rawValue || "").trim().slice(0, 60);
+          obj.name = trimmed || undefined;
+          sbSchedulePageAutosave();
+        }
+
+        function sbDeleteLayerObject(id) {
+          if (!SbEditor.draft) return;
+          const obj = SbEditor.draft.objects.find((o) => o.id === id);
+          if (sbLayerDeleteDisabled(obj)) return;
+          sbPushHistorySnapshot();
+          SbEditor.draft.objects = SbEditor.draft.objects.filter((o) => o.id !== id);
+          if (SbEditor.selectedObjectId === id) SbEditor.selectedObjectId = null;
+          sbPaintObjectCanvas();
+          sbSchedulePageAutosave();
+        }
+
+        function sbWireLayersPanelOnce() {
+          const list = $("sbLayersList");
+          if (!list || list.dataset.sbLayersWired === "1") return;
+          list.dataset.sbLayersWired = "1";
+
+          list.addEventListener("click", (e) => {
+            const upBtn = e.target.closest("[data-sb-layer-up]");
+            if (upBtn) {
+              sbMoveLayer(upBtn.getAttribute("data-sb-layer-up"), "up");
+              return;
+            }
+            const downBtn = e.target.closest("[data-sb-layer-down]");
+            if (downBtn) {
+              sbMoveLayer(downBtn.getAttribute("data-sb-layer-down"), "down");
+              return;
+            }
+            const delBtn = e.target.closest("[data-sb-layer-del]");
+            if (delBtn) {
+              sbDeleteLayerObject(delBtn.getAttribute("data-sb-layer-del"));
+              return;
+            }
+            if (e.target.classList.contains("sb-layer-name")) return;
+            const row = e.target.closest(".sb-layer-row");
+            if (row) sbSelectObject(row.getAttribute("data-sb-layer-id"));
+          });
+
+          let renamePushed = false;
+          list.addEventListener("focusin", (e) => {
+            if (!e.target.classList || !e.target.classList.contains("sb-layer-name")) return;
+            renamePushed = false;
+          });
+          list.addEventListener("input", (e) => {
+            if (!e.target.classList || !e.target.classList.contains("sb-layer-name")) return;
+            if (!renamePushed) {
+              sbPushHistorySnapshot();
+              renamePushed = true;
+            }
+            sbRenameLayerObject(e.target.getAttribute("data-sb-layer-name"), e.target.value);
+          });
+          list.addEventListener(
+            "focusout",
+            (e) => {
+              if (!e.target.classList || !e.target.classList.contains("sb-layer-name")) return;
+              renamePushed = false;
+              sbRenderLayersList(); // re-derive default name/order badge if cleared
+            },
+            true
+          );
+
+          $("btnSbLayerToFront").addEventListener("click", () => {
+            if (SbEditor.selectedObjectId) sbMoveLayer(SbEditor.selectedObjectId, "front");
+          });
+          $("btnSbLayerToBack").addEventListener("click", () => {
+            if (SbEditor.selectedObjectId) sbMoveLayer(SbEditor.selectedObjectId, "back");
+          });
         }
 
         // Populates the "Kijelölt elem tulajdonságai" accordion (§C) for whatever
@@ -3440,7 +3762,11 @@
         // sbFitSelectedImageCore's 92%-safe-zone (that function is for the
         // separate "fit within a safe area" button); this reaches the actual
         // page edges (0/0/100/100), which the backend already permits (x/y in
-        // [0,100], w/h in [0.5,100] — no schema change needed).
+        // [0,100], w/h in [0.5,100] — no schema change needed). Geometry +
+        // rotation only — does NOT touch image.fit (previously force-set it
+        // to "cover", silently overwriting whatever fit the admin had already
+        // chosen) or array order, so this stays independent/composable with
+        // the Cover/Contain and Send-to-Background controls.
         function sbFillPageSelectedImage() {
           const obj = sbSelectedDraftObject();
           const stageRoot = $("sbCanvasStage");
@@ -3451,8 +3777,6 @@
           obj.w = 100;
           obj.h = 100;
           obj.rotation = 0;
-          obj.image = obj.image || {};
-          obj.image.fit = "cover";
           sbApplyObjectRectToDom(stageRoot, obj);
           sbUpdateQuickToolbarState();
           sbSchedulePageAutosave();
@@ -3705,6 +4029,11 @@
           const savedObjs = (SBR.resolvePageLayout(pSaved).objects || []);
           const draftObjs = SbEditor.draft.objects || [];
           if (savedObjs.length !== draftObjs.length) return true;
+          // Stacking is pure array order (see buildObjectCanvasHtml) — a
+          // reorder-only change (Send to Background, Layers move up/down/
+          // front/back) touches no object's own fields, so without this check
+          // it would silently never be detected as needing a save.
+          if (draftObjs.map((o) => o.id).join(",") !== savedObjs.map((o) => o.id).join(",")) return true;
           const tol = 0.35;
           for (const d of draftObjs) {
             const s = savedObjs.find((o) => o.id === d.id);
@@ -3750,6 +4079,14 @@
             SbEditor.selectedObjectId = null;
             const hid = $("sbCurPageBody");
             if (hid) hid.value = SbEditor.draft.bodyText;
+            // Root cause of the Back-button "does nothing" bug: this input was
+            // never synced to the actual page's saved background, so it kept
+            // whatever a *previous* page left it at (or the HTML default),
+            // making sbPageBgDirtyVsServer() report a false positive the
+            // instant a page's real background wasn't #faf6f0 — raising an
+            // unsaved-changes confirm() on every single Back click.
+            const bgInput = $("sbPropsPageBg");
+            if (bgInput) bgInput.value = sbPageCanvasBg(p);
           }
           sbPaintObjectCanvas();
           sbApplyImagePlacementFromPage(p);
@@ -7339,6 +7676,7 @@
         sbWireCanvasStageOnce();
         sbWireObjectDragOnce();
         sbWireQuickToolbarOnce();
+        sbWireLayersPanelOnce();
         const sbPropsPageBgEl = $("sbPropsPageBg");
         if (sbPropsPageBgEl) {
           sbPropsPageBgEl.addEventListener("input", () => {

@@ -670,3 +670,121 @@ def test_uploading_image_to_existing_text_only_layout_inserts_behind_text(client
     object_types = [o["type"] for o in row["layout_json"]["objects"]]
     assert object_types[0] == "image"
     assert "text" in object_types[1:]
+
+
+# --- V3.3: Layers panel — name field + array-order persistence ---------------
+
+
+@pytest.mark.parametrize("name", ["Háttérkép", "A" * 60, ""])
+def test_object_name_within_limit_round_trips(client: TestClient, name: str) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["name"] = name
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    assert row["layout_json"]["objects"][0]["name"] == name
+
+
+def test_object_name_oversized_rejected(client: TestClient) -> None:
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"][0]["name"] = "A" * 61
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_object_name_omitted_defaults_fine(client: TestClient) -> None:
+    """name is optional — a layout without it (every object before the Layers
+    panel existed) must keep validating and saving fine."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    assert "name" not in layout["objects"][0]
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_object_array_order_round_trips_exactly_as_submitted(client: TestClient) -> None:
+    """Stacking is pure array order (see buildObjectCanvasHtml) — the server
+    must never reorder objects on save; GET must return exactly the order
+    that was PATCHed, which is what the Layers panel's move up/down/front/
+    back buttons and Send to Background rely on to persist at all."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    _upload_page_image(client, book["id"], page["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"].append(
+        {"id": "image-1", "type": "image", "x": 0, "y": 0, "w": 100, "h": 100, "rotation": 0, "image": {"fit": "cover", "aspectLocked": True}}
+    )
+    layout["objects"].append(
+        {"id": "deco-1", "type": "decoration", "x": 10, "y": 10, "w": 8, "h": 8, "rotation": 0, "decoration": {"glyph": "⭐"}}
+    )
+    # Submit as [image, text, decoration] — deliberately not the order the
+    # objects were created in, to prove the server preserves an arbitrary
+    # reorder rather than re-sorting by type or creation time.
+    reordered = [layout["objects"][1], layout["objects"][0], layout["objects"][2]]
+    layout["objects"] = reordered
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    row = next(p for p in r.json()["pages"] if p["id"] == page["id"])
+    assert [o["id"] for o in row["layout_json"]["objects"]] == ["image-1", "primary-text", "deco-1"]
+
+    got = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    row2 = next(p for p in got.json()["pages"] if p["id"] == page["id"])
+    assert [o["id"] for o in row2["layout_json"]["objects"]] == ["image-1", "primary-text", "deco-1"]
+
+
+def test_fill_page_patch_changes_only_geometry_leaves_fit_untouched(client: TestClient) -> None:
+    """Regression lock for the V3.3 Fill Page bug fix: a PATCH that changes
+    only an image's x/y/w/h/rotation (as sbFillPageSelectedImage now does)
+    must not be accompanied by any change to a pre-set image.fit — the
+    server has no opinion on this, it simply must not silently invent one."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    _upload_page_image(client, book["id"], page["id"], headers)
+    layout = _minimal_layout()
+    layout["objects"].append(
+        {"id": "image-1", "type": "image", "x": 55, "y": 5, "w": 40, "h": 50, "rotation": 12, "image": {"fit": "contain", "aspectLocked": True}}
+    )
+    r1 = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r1.status_code == 200, r1.text
+
+    layout["objects"][1].update({"x": 0, "y": 0, "w": 100, "h": 100, "rotation": 0})
+    r2 = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r2.status_code == 200, r2.text
+    row = next(p for p in r2.json()["pages"] if p["id"] == page["id"])
+    img = next(o for o in row["layout_json"]["objects"] if o["type"] == "image")
+    assert (img["x"], img["y"], img["w"], img["h"], img["rotation"]) == (0, 0, 100, 100, 0)
+    assert img["image"]["fit"] == "contain"
