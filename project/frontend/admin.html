@@ -7663,7 +7663,18 @@
             );
             sbShowUploadUi(false, 0);
             t.value = "";
+            // The upload endpoint auto-inserts/repairs the page's V3 image object
+            // server-side (_ensure_image_object_in_layout) — but sbRenderAll()
+            // only rebuilds SbEditor.draft when the SELECTED PAGE changes
+            // (SbEditor.draft.pageId !== p.id), so reloading while staying on
+            // the same page left the just-synced image object stuck in
+            // sbDetail, never copied into the draft the canvas/Layers actually
+            // read from. Clearing the draft first forces sbRenderAll() to
+            // rebuild it fresh from the reloaded server data.
+            SbEditor.draft = null;
             await sbReloadDetail();
+            const imgObj = SbEditor.draft && SbEditor.draft.objects.find((o) => o.type === "image");
+            if (imgObj) sbSelectObject(imgObj.id);
             showToast("Sikeresen mentve.", "ok");
           } catch (err) {
             sbShowUploadUi(false, 0);
