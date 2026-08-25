@@ -672,6 +672,97 @@ def test_uploading_image_to_existing_text_only_layout_inserts_behind_text(client
     assert "text" in object_types[1:]
 
 
+# --- V3.4 hotfix: +Kép shortcut / image-object repair on upload --------------
+
+
+def test_repeated_image_upload_does_not_duplicate_image_object(client: TestClient) -> None:
+    """The reported "+Kép" bug's underlying repair helper must stay
+    idempotent — replacing an already-uploaded image must never leave two
+    image objects in layout_json, and the object identity should be stable
+    across the replace (proves it's a no-op repair, not a reset)."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    layout = _minimal_layout()
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+    _upload_page_image(client, book["id"], page["id"], headers)
+    r1 = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    objs1 = next(p for p in r1.json()["pages"] if p["id"] == page["id"])["layout_json"]["objects"]
+    image_objs1 = [o for o in objs1 if o["type"] == "image"]
+    assert len(image_objs1) == 1
+    first_image_id = image_objs1[0]["id"]
+
+    _upload_page_image(client, book["id"], page["id"], headers)
+    r2 = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    objs2 = next(p for p in r2.json()["pages"] if p["id"] == page["id"])["layout_json"]["objects"]
+    image_objs2 = [o for o in objs2 if o["type"] == "image"]
+    assert len(image_objs2) == 1
+    assert image_objs2[0]["id"] == first_image_id
+
+
+def test_existing_image_object_position_preserved_on_replace(client: TestClient) -> None:
+    """An admin-customized image position/fit must survive an image
+    replacement — the repair helper only inserts a default object when NONE
+    exists, it must never reset one that's already there."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+    _upload_page_image(client, book["id"], page["id"], headers)
+
+    layout = _minimal_layout()
+    layout["objects"].append(
+        {
+            "id": "image-custom",
+            "type": "image",
+            "x": 12,
+            "y": 34,
+            "w": 56,
+            "h": 78,
+            "rotation": 15,
+            "image": {"fit": "cover", "aspectLocked": False},
+        }
+    )
+    r = client.patch(
+        f"/admin/storybooks/{book['id']}/pages/{page['id']}",
+        json={"layout_json": layout},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+    _upload_page_image(client, book["id"], page["id"], headers)
+
+    got = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    row = next(p for p in got.json()["pages"] if p["id"] == page["id"])
+    image_objs = [o for o in row["layout_json"]["objects"] if o["type"] == "image"]
+    assert len(image_objs) == 1
+    img = image_objs[0]
+    assert img["id"] == "image-custom"
+    assert (img["x"], img["y"], img["w"], img["h"], img["rotation"]) == (12, 34, 56, 78, 15)
+    assert img["image"]["fit"] == "cover"
+
+
+def test_image_upload_response_url_matches_persisted_page_image_url(client: TestClient) -> None:
+    """The uploaded file's URL is the page-level image_url the renderer
+    actually draws from (the layout object itself carries no url field) —
+    confirms the upload response and the persisted page stay in sync."""
+    headers = admin_headers(role="owner")
+    book = _create_book(client, headers)
+    page = _add_page(client, book["id"], headers)
+
+    upload = _upload_page_image(client, book["id"], page["id"], headers)
+    assert upload["url"]
+
+    got = client.get(f"/admin/storybooks/{book['id']}", headers=headers)
+    row = next(p for p in got.json()["pages"] if p["id"] == page["id"])
+    assert row["image_url"] == upload["url"]
+
+
 # --- V3.3: Layers panel — name field + array-order persistence ---------------
 
 
