@@ -3811,12 +3811,13 @@
           return (obj.decoration && obj.decoration.glyph) || "⭐";
         }
 
-        // Primary story text is structurally required. Images remain deletable
-        // through the existing server-side image removal flow.
+        // Every canvas object is removable. Images use the existing
+        // server-side removal flow so persisted media stays in sync.
+        // Every real canvas object may be removed.
+        // Images use the existing server-side image removal flow so
+        // image_url, uploaded file and layout_json stay in sync.
         function sbLayerDeleteDisabled(obj) {
-          if (!obj) return true;
-          if (obj.type === "text" && obj.role === "primary") return true;
-          return false;
+          return !obj;
         }
 
         // Full rebuild — call after anything that changes the object set, order,
@@ -3925,15 +3926,31 @@
 
         function sbDeleteLayerObject(id) {
           if (!SbEditor.draft) return;
+
           const obj = SbEditor.draft.objects.find((o) => o.id === id);
-          if (sbLayerDeleteDisabled(obj)) return;
+          if (!obj) return;
+
+          // Image deletion must also clear page.image_url and the uploaded
+          // file, therefore reuse the existing DELETE /image flow.
           if (obj.type === "image") {
             $("btnSbCurPageRemoveImg").click();
             return;
           }
+
           sbPushHistorySnapshot();
+
+          // Primary story text is backed by page.body_text as well as the
+          // layout object. Clear both so it stays deleted after reload.
+          if (obj.type === "text" && obj.role === "primary") {
+            SbEditor.draft.bodyText = "";
+            const hid = $("sbCurPageBody");
+            if (hid) hid.value = "";
+            sbUpdateCharCounter();
+          }
+
           SbEditor.draft.objects = SbEditor.draft.objects.filter((o) => o.id !== id);
           if (SbEditor.selectedObjectId === id) SbEditor.selectedObjectId = null;
+
           sbPaintObjectCanvas();
           sbSchedulePageAutosave();
         }
@@ -4106,7 +4123,7 @@
           }
 
           const deleteBtn = $("btnSbDeleteSelectedObject");
-          if (deleteBtn) deleteBtn.disabled = !obj || (obj.type === "text" && obj.role === "primary");
+          if (deleteBtn) deleteBtn.disabled = !obj;
 
           // V3.5: the right-dock "Tulajdonságok" section mirrors the X/Y/W/H
           // fields that used to live inline in the context toolbar — same
@@ -4402,16 +4419,25 @@
         function sbDeleteSelectedObject() {
           const obj = sbSelectedDraftObject();
           if (!obj || !SbEditor.draft) return;
-          if (obj.type === "text" && obj.role === "primary") return; // never deletable
-          // Reuse the confirmed API removal so keyboard, rail and Layers-panel
-          // deletion all clear image_url and the uploaded file consistently.
+
+          // Reuse the existing page-image deletion route.
           if (obj.type === "image") {
             $("btnSbCurPageRemoveImg").click();
             return;
           }
+
           sbPushHistorySnapshot();
+
+          if (obj.type === "text" && obj.role === "primary") {
+            SbEditor.draft.bodyText = "";
+            const hid = $("sbCurPageBody");
+            if (hid) hid.value = "";
+            sbUpdateCharCounter();
+          }
+
           SbEditor.draft.objects = SbEditor.draft.objects.filter((o) => o.id !== obj.id);
           SbEditor.selectedObjectId = null;
+
           sbPaintObjectCanvas();
           sbSchedulePageAutosave();
         }
