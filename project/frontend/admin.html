@@ -1075,9 +1075,6 @@
         color: #fff;
         border-color: var(--admin-accent-dark);
       }
-      .sb-editor-split {
-        margin-top: 0.5rem;
-      }
       /* —— Storybook „alkotó” (Canva-szerű) workspace —— */
       .sb-creator-root {
         margin-top: 0;
@@ -1088,14 +1085,25 @@
       }
       .sb-creator-topbar {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 0.65rem 1rem;
-        margin-bottom: 0.75rem;
-        padding: 0.65rem 0.85rem;
-        border-radius: 14px;
-        border: 1px solid rgba(61, 36, 16, 0.12);
-        background: linear-gradient(135deg, rgba(255, 252, 248, 0.95), rgba(245, 238, 228, 0.88));
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--sb-ed-radius-lg, 14px);
+        border: 1px solid var(--sb-ed-border, rgba(61, 36, 16, 0.12));
+        background: var(--sb-ed-surface, #fbfaf8);
+      }
+      .sb-ed-topbar-link {
+        flex: 0 0 auto;
+        border: none;
+        background: transparent;
+        padding: 0.3rem 0.2rem;
+        font-size: 0.82rem;
+        color: var(--admin-muted);
+        cursor: pointer;
+      }
+      .sb-ed-topbar-link:hover {
+        color: var(--admin-accent-dark);
       }
       .sb-creator-badge {
         flex: 0 0 auto;
@@ -1103,22 +1111,89 @@
       .sb-creator-topbar-center {
         flex: 1 1 200px;
         min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
       }
+      .sb-ed-title-edit-ico {
+        flex: 0 0 auto;
+        font-size: 0.85rem;
+        color: var(--admin-muted);
+      }
+      /* Reads as static bold text until the admin actually focuses it — no
+         permanent input-box chrome cluttering the top bar. */
       .sb-creator-title-input {
-        width: 100%;
-        font-size: 1.15rem;
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 1.05rem;
         font-weight: 700;
-        padding: 0.45rem 0.65rem;
-        border-radius: 10px;
-        border: 1px solid rgba(61, 36, 16, 0.15);
-        background: rgba(255, 255, 255, 0.92);
+        padding: 0.3rem 0.4rem;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
         color: var(--admin-accent-dark);
       }
+      .sb-creator-title-input:hover {
+        background: var(--sb-ed-muted-bg, rgba(61, 36, 16, 0.05));
+      }
+      .sb-creator-title-input:focus {
+        border-color: var(--sb-ed-border, rgba(61, 36, 16, 0.15));
+        background: #fff;
+      }
       .sb-creator-topbar-actions {
+        flex: 0 0 auto;
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
         align-items: center;
+        gap: 0.35rem;
+      }
+      .sb-ed-topbar-icon-btn {
+        width: 2rem;
+        height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        font-size: 1rem;
+        color: var(--admin-accent-dark);
+        cursor: pointer;
+        list-style: none;
+      }
+      .sb-ed-topbar-icon-btn::-webkit-details-marker {
+        display: none;
+      }
+      .sb-ed-topbar-icon-btn:hover:not(:disabled) {
+        background: var(--sb-ed-hover-bg, rgba(184, 140, 88, 0.14));
+      }
+      .sb-ed-topbar-icon-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.35;
+      }
+      .sb-ed-overflow-menu {
+        position: relative;
+      }
+      .sb-ed-overflow-menu[open] > .sb-ed-topbar-icon-btn {
+        background: var(--sb-ed-hover-bg, rgba(184, 140, 88, 0.14));
+      }
+      .sb-ed-overflow-body {
+        position: absolute;
+        top: calc(100% + 0.4rem);
+        right: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 200px;
+        padding: 0.5rem;
+        border-radius: 10px;
+        border: 1px solid var(--sb-ed-border, rgba(61, 36, 16, 0.18));
+        background: #fffdf9;
+        box-shadow: 0 12px 32px rgba(40, 30, 20, 0.22);
+      }
+      .sb-ed-overflow-body .btn {
+        justify-content: flex-start;
+        width: 100%;
       }
       .sb-creator-subbar {
         display: flex;
@@ -1128,6 +1203,18 @@
         padding: 0.75rem 1rem;
         margin-bottom: 1rem;
         border-radius: 14px;
+      }
+      /* The metadata subbar deliberately stays in the DOM for the existing
+         save/load wiring. Its authoring-view `hidden` attribute must win over
+         the component's display:flex rule, otherwise it steals ~130px from
+         the actual page canvas. */
+      .sb-creator-subbar[hidden] {
+        display: none !important;
+      }
+      /* Contextual editor controls rely on the native hidden property. Their
+         flex/grid component rules must never make inactive groups visible. */
+      #sbEditorRoot [hidden] {
+        display: none !important;
       }
       .sb-creator-desc-label {
         flex: 1 1 280px;
@@ -1174,17 +1261,318 @@
         object-fit: cover;
         display: block;
       }
-      .sb-editor-split {
-        display: grid;
-        grid-template-columns: 340px minmax(0, 1fr);
-        gap: 1rem;
-        align-items: start;
+      /* V3.5: professional visual-editor layout — narrow tool rail, dominant
+         canvas, contextual toolbar, right dock (Layers + Properties), bottom
+         horizontal page strip. Replaces the old 2-column accordion stack. */
+      /* V3.6: one coherent visual system for the whole editor shell — shared
+         sizing/spacing/radius/hover tokens reused by the rail, the context
+         toolbar, the dock, and the page strip, so every control reads as
+         belonging to the same tool rather than four differently-styled areas
+         glued together. Mesencsi's own warm palette (--admin-accent*) is kept
+         throughout — only the UX hierarchy is borrowed from reference editors,
+         not their literal color scheme. */
+      :root {
+        --sb-ed-radius: 10px;
+        --sb-ed-radius-lg: 14px;
+        --sb-ed-btn: 2.15rem;
+        --sb-ed-border: rgba(61, 36, 16, 0.12);
+        --sb-ed-surface: #fbfaf8;
+        --sb-ed-muted-bg: rgba(61, 36, 16, 0.05);
+        --sb-ed-hover-bg: rgba(184, 140, 88, 0.14);
       }
-      .sb-editor-left {
+      .sb-ed-body {
+        display: grid;
+        grid-template-columns: 68px minmax(0, 1fr) 300px;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 0.6rem;
+        align-items: stretch;
+        height: calc(100vh - 230px);
+        min-height: 460px;
+      }
+      /* -- shared icon-button look, reused by rail/toolbar/dock/strip -- */
+      .sb-ed-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--sb-ed-btn);
+        height: var(--sb-ed-btn);
+        border-radius: var(--sb-ed-radius);
+        border: 1px solid transparent;
+        background: transparent;
+        font-size: 1rem;
+        color: var(--admin-accent-dark);
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+      }
+      .sb-ed-icon-btn:hover:not(:disabled) {
+        background: var(--sb-ed-hover-bg);
+      }
+      .sb-ed-icon-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.35;
+      }
+      .sb-ed-icon-btn[aria-pressed="true"],
+      .sb-ed-icon-btn.is-active {
+        background: var(--admin-accent-dark, #8a5a2c);
+        border-color: var(--admin-accent-dark, #8a5a2c);
+        color: #fff;
+      }
+
+      .sb-ed-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.35rem;
+        padding: 0.55rem 0.3rem;
+        border-radius: var(--sb-ed-radius-lg);
+        border: 1px solid var(--sb-ed-border);
+        background: var(--sb-ed-surface);
+        overflow-y: auto;
+        min-height: 0;
+      }
+      .sb-ed-rail-group {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+      }
+      .sb-ed-rail-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+      }
+      .sb-ed-rail-sep {
+        height: 1px;
+        margin: 0.2rem 0.3rem;
+        background: var(--sb-ed-border);
+      }
+      .sb-ed-rail-btn {
+        width: 2.15rem;
+        height: 2.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--sb-ed-radius);
+        border: 1px solid transparent;
+        background: transparent;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--admin-accent-dark);
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .sb-ed-rail-btn:hover:not(:disabled) {
+        background: var(--sb-ed-hover-bg);
+      }
+      .sb-ed-rail-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.35;
+      }
+      .sb-ed-rail-btn--danger:hover:not(:disabled) {
+        background: rgba(220, 90, 70, 0.14);
+      }
+      .sb-ed-rail-label {
+        font-size: 0.62rem;
+        line-height: 1;
+        color: var(--admin-muted);
+        white-space: nowrap;
+      }
+      .sb-ed-rail-select {
+        width: 2.15rem;
+        height: 2.15rem;
+        border-radius: var(--sb-ed-radius);
+        border: 1px solid transparent;
+        background: transparent;
+        text-align: center;
+        text-align-last: center;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      .sb-ed-rail-select:hover {
+        background: var(--sb-ed-hover-bg);
+      }
+
+      .sb-ed-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 0;
+        min-height: 0;
+      }
+      /* One unified toolbar strip — logical clusters are separated by a thin
+         divider instead of each control keeping its own bordered pill, which
+         is what made the old version read as several floating mini-groups. */
+      .sb-ed-context-toolbar {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.9rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: var(--sb-ed-radius-lg);
+        border: 1px solid var(--sb-ed-border);
+        background: var(--sb-ed-surface);
+      }
+      .sb-ed-context-toolbar .sb-quick-toolbar__group {
+        position: relative;
+        padding-right: 0.5rem;
+      }
+      .sb-ed-context-toolbar .sb-quick-toolbar__group:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 15%;
+        bottom: 15%;
+        right: 0;
+        width: 1px;
+        background: var(--sb-ed-border);
+      }
+      .sb-ed-canvas-workspace {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        min-height: 0;
+      }
+      /* Filmstrip — visually separated from the canvas above it by its own
+         surface tone + top border, instead of blending into the workspace. */
+      .sb-ed-page-strip {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.6rem;
+        border-radius: var(--sb-ed-radius-lg);
+        border: 1px solid var(--sb-ed-border);
+        border-top: 2px solid var(--sb-ed-border);
+        background: var(--sb-ed-muted-bg);
+      }
+      .sb-ed-page-strip-add {
+        flex: 0 0 auto;
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: var(--sb-ed-radius);
+        border: 1px dashed rgba(61, 36, 16, 0.3);
+        background: var(--sb-ed-surface);
+        font-size: 1.2rem;
+        line-height: 1;
+        color: var(--admin-accent-dark);
+        cursor: pointer;
+      }
+      .sb-ed-page-strip-add:hover {
+        background: var(--sb-ed-hover-bg);
+        border-color: rgba(184, 140, 88, 0.5);
+      }
+      .sb-ed-page-settings {
+        flex: 0 0 auto;
+        position: relative;
+      }
+      .sb-ed-gear-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: var(--sb-ed-radius);
+        border: 1px solid var(--sb-ed-border);
+        background: var(--sb-ed-surface);
+        font-size: 1.05rem;
+        cursor: pointer;
+        list-style: none;
+      }
+      .sb-ed-gear-btn:hover {
+        background: var(--sb-ed-hover-bg);
+      }
+      .sb-ed-gear-btn::-webkit-details-marker {
+        display: none;
+      }
+      .sb-ed-page-settings[open] > .sb-ed-gear-btn {
+        background: var(--admin-accent-dark, #8a5a2c);
+        color: #fff;
+        border-color: var(--admin-accent-dark, #8a5a2c);
+      }
+      .sb-ed-page-settings .sb-editor-acc-body {
+        position: absolute;
+        bottom: calc(100% + 0.4rem);
+        right: 0;
+        z-index: 20;
+        width: 260px;
+        max-height: 70vh;
+        overflow-y: auto;
+        border-radius: 12px;
+        border: 1px solid rgba(61, 36, 16, 0.18);
+        background: #fffdf9;
+        box-shadow: 0 12px 32px rgba(40, 30, 20, 0.22);
+        padding: 0.75rem 0.85rem;
+      }
+      .sb-ed-dock {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        border-radius: var(--sb-ed-radius-lg);
+        border: 1px solid var(--sb-ed-border);
+        background: var(--sb-ed-surface);
+        overflow: hidden;
+      }
+      .sb-ed-dock-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem 0.35rem;
+        border-bottom: 1px solid var(--sb-ed-border);
+      }
+      .sb-ed-dock-toggle {
+        width: 1.8rem;
+        height: 1.8rem;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: var(--admin-accent-dark);
+      }
+      .sb-ed-dock-toggle:hover {
+        background: var(--sb-ed-hover-bg);
+      }
+      .sb-ed-dock-body {
+        flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         gap: 0.6rem;
+        padding: 0.6rem 0.75rem 0.75rem;
+        overflow-y: auto;
         min-height: 0;
+      }
+      .sb-ed-dock-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--sb-ed-border);
+      }
+      .sb-ed-dock-section:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      .sb-ed-dock-heading {
+        margin: 0;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-muted);
+      }
+      .sb-ed-body.sb-ed-dock-collapsed {
+        grid-template-columns: 68px minmax(0, 1fr) 44px;
+      }
+      .sb-ed-dock-collapsed .sb-ed-dock-body {
+        display: none;
+      }
+      .sb-ed-dock-collapsed .sb-ed-dock-toggle {
+        transform: scaleX(-1);
       }
       .sb-editor-acc {
         border-radius: 12px;
@@ -1217,15 +1605,6 @@
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
-      }
-      .sb-editor-preview-col {
-        position: sticky;
-        top: 0.75rem;
-        align-self: start;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        min-width: 0;
       }
       .sb-props-group {
         display: flex;
@@ -1276,13 +1655,209 @@
         background: rgba(255, 255, 255, 0.75);
         font: inherit;
       }
-      @media (max-width: 1100px) {
-        .sb-editor-split {
-          grid-template-columns: 1fr;
+      /* V3.7: immersive authoring shell. The storybook editor is a focused
+         application inside the admin, so it should use the viewport instead
+         of inheriting the narrow, padded content-card proportions. */
+      #view-storybooks-admin.sb-editor-active {
+        position: fixed;
+        inset: 10px;
+        z-index: 80;
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid rgba(61, 36, 16, 0.12);
+        border-radius: 18px;
+        background: #f7f7f8;
+        box-shadow: 0 22px 70px rgba(28, 20, 14, 0.3);
+      }
+      #view-storybooks-admin.sb-editor-active #sbEditorRoot {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-creator-topbar {
+        flex: 0 0 64px;
+        min-height: 64px;
+        margin: 0;
+        padding: 0 1rem;
+        border: 0;
+        border-bottom: 1px solid var(--sb-ed-border);
+        border-radius: 0;
+        background: rgba(255, 255, 255, 0.98);
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-body {
+        flex: 1 1 auto;
+        grid-template-columns: 76px minmax(0, 1fr) 340px;
+        height: auto;
+        min-height: 0;
+        gap: 0;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-rail {
+        padding: 0.75rem 0.4rem;
+        border: 0;
+        border-right: 1px solid var(--sb-ed-border);
+        border-radius: 0;
+        background: #fff;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-main {
+        gap: 0;
+        background: #f4f5f7;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar {
+        flex: 0 0 58px;
+        min-height: 58px;
+        flex-wrap: nowrap;
+        gap: 0.45rem;
+        padding: 0.45rem 0.75rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border: 0;
+        border-bottom: 1px solid var(--sb-ed-border);
+        border-radius: 0;
+        background: #fff;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar .sb-props-group {
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar .sb-props-note {
+        margin: 0;
+        white-space: nowrap;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar .sb-props-slider-label {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar .sb-props-slider-row {
+        gap: 0.3rem;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-context-toolbar input[type="range"] {
+        width: 96px;
+        flex: 0 0 96px;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-canvas-workspace {
+        padding: 0;
+        background: #eef0f3;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-canvas-stage {
+        container-type: size;
+        padding: 0.4rem;
+        border-radius: 0;
+        background:
+          radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.9), transparent 42%),
+          #eef0f3;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-canvas-stage .sbv2-standard-page.sbv2-object-canvas {
+        width: min(calc(100cqw - 16px), calc((100cqh - 16px) * 0.75)) !important;
+        height: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-page-strip {
+        flex: 0 0 166px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        min-height: 0;
+        gap: 0;
+        padding: 0;
+        border: 0;
+        border-top: 1px solid var(--sb-ed-border);
+        border-radius: 0;
+        background: #fff;
+        transition: flex-basis 0.18s ease;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-page-strip.is-collapsed {
+        flex-basis: 38px;
+      }
+      .sb-ed-page-strip-toggle {
+        flex: 0 0 38px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        min-height: 38px;
+        padding: 0 0.85rem;
+        border: 0;
+        border-bottom: 1px solid var(--sb-ed-border);
+        background: #fff;
+        color: var(--admin-accent-dark);
+        font: inherit;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sb-ed-page-strip-toggle:hover {
+        background: var(--sb-ed-hover-bg);
+      }
+      .sb-ed-page-strip-chevron {
+        display: inline-block;
+        transition: transform 0.18s ease;
+      }
+      .sb-ed-page-strip.is-collapsed .sb-ed-page-strip-chevron {
+        transform: rotate(180deg);
+      }
+      .sb-ed-page-strip-body {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 0;
+        padding: 0.55rem 0.9rem;
+        overflow: hidden;
+      }
+      .sb-ed-page-strip.is-collapsed .sb-ed-page-strip-body {
+        display: none;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-page-thumb-list {
+        order: 1;
+        height: 100%;
+        padding: 0.1rem 0.15rem 0.35rem;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-page-strip-add {
+        order: 2;
+        align-self: center;
+        width: 84px;
+        height: 112px;
+        border-radius: 10px;
+        background: #fff;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-page-settings {
+        order: 3;
+        align-self: center;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-dock {
+        border: 0;
+        border-left: 1px solid var(--sb-ed-border);
+        border-radius: 0;
+        background: #fff;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-dock-header {
+        min-height: 52px;
+        padding: 0.65rem 0.85rem;
+      }
+      #view-storybooks-admin.sb-editor-active .sb-ed-body.sb-ed-dock-collapsed {
+        grid-template-columns: 76px minmax(0, 1fr) 44px;
+      }
+      @media (max-width: 1300px) {
+        #view-storybooks-admin.sb-editor-active .sb-ed-body {
+          grid-template-columns: 68px minmax(0, 1fr) 280px;
         }
-        .sb-editor-preview-col {
-          position: static;
-          order: -1;
+      }
+      /* Above the hard 768px editor gate (SB_EDITOR_MIN_WIDTH_PX), the dock
+         narrows automatically to keep the canvas dominant; the user can still
+         fully collapse it at any width via #btnSbToggleDock. */
+      @media (max-width: 1300px) {
+        .sb-ed-body {
+          grid-template-columns: 68px minmax(0, 1fr) 240px;
         }
       }
       /* Keskeny nézet: a szerkesztő DOM ne kapjon felesleges kompozitálást, ha véletlenül megnyílna */
@@ -1331,29 +1906,40 @@
         border-radius: 10px;
         font-weight: 600;
       }
+      /* V3.5: horizontal page strip — same row markup as before (sbRenderPageNavList
+         is unchanged), only the list axis and per-card layout flip from a tall
+         vertical list to a compact horizontal row of mini-cards. */
       .sb-page-thumb-list {
+        flex: 1;
+        min-width: 0;
         display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        overflow-y: auto;
-        max-height: 240px;
-        padding-right: 2px;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 0.45rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.15rem 0.15rem 0.3rem;
       }
       .sb-page-thumb {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        grid-template-rows: auto auto;
-        gap: 0.2rem 0.35rem;
-        align-items: start;
-        padding: 0.35rem;
-        border-radius: 12px;
-        border: 2px solid rgba(61, 36, 16, 0.1);
-        background: rgba(255, 255, 255, 0.75);
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+        flex: 0 0 auto;
+        width: 84px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.25rem;
+        border-radius: var(--sb-ed-radius);
+        border: 2px solid transparent;
+        background: transparent;
+        transition: border-color 0.15s ease;
+      }
+      .sb-page-thumb:hover {
+        background: rgba(255, 255, 255, 0.7);
       }
       .sb-page-thumb.is-selected {
         border-color: var(--admin-accent);
-        box-shadow: 0 0 0 1px rgba(165, 90, 60, 0.25);
+        background: rgba(255, 255, 255, 0.85);
       }
       .sb-page-thumb.is-dragging {
         opacity: 0.55;
@@ -1363,48 +1949,51 @@
         background: rgba(230, 242, 255, 0.5);
       }
       .sb-page-thumb__drag {
-        grid-row: 1 / span 2;
-        align-self: center;
+        position: absolute;
+        top: 0.15rem;
+        left: 0.15rem;
         cursor: grab;
         user-select: none;
-        padding: 0.2rem 0.15rem;
-        font-size: 0.85rem;
-        color: var(--admin-muted);
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
         line-height: 1;
+        opacity: 0;
+        transition: opacity 0.12s;
+      }
+      .sb-page-thumb:hover .sb-page-thumb__drag,
+      .sb-page-thumb.is-selected .sb-page-thumb__drag {
+        opacity: 1;
       }
       .sb-page-thumb__drag:active {
         cursor: grabbing;
       }
       .sb-page-thumb__pick {
-        grid-column: 2;
-        display: grid;
-        grid-template-columns: 32px 1fr;
-        gap: 0.4rem;
+        display: flex;
+        flex-direction: column;
         align-items: center;
+        gap: 0.2rem;
         width: 100%;
         margin: 0;
-        padding: 0.2rem;
+        padding: 0;
         border: none;
         border-radius: 8px;
         background: transparent;
         cursor: pointer;
-        text-align: left;
         font: inherit;
         color: inherit;
       }
-      .sb-page-thumb__pick:hover {
-        background: rgba(255, 255, 255, 0.5);
-      }
       .sb-page-thumb__viz {
-        width: 32px;
-        height: 42px;
-        border-radius: 6px;
+        width: 72px;
+        height: 96px;
+        border-radius: 8px;
         overflow: hidden;
         background: linear-gradient(145deg, #e8dfd4, #f5ebe0);
         display: flex;
         align-items: center;
         justify-content: center;
         border: 1px solid rgba(61, 36, 16, 0.12);
+        box-shadow: 0 2px 6px rgba(40, 30, 20, 0.1);
       }
       .sb-page-thumb__viz img {
         width: 100%;
@@ -1413,20 +2002,26 @@
         display: block;
       }
       .sb-page-thumb__ph {
-        font-size: 1.1rem;
+        font-size: 1.3rem;
         font-weight: 800;
         color: rgba(61, 36, 16, 0.28);
       }
       .sb-page-thumb__lbl {
-        font-size: 0.8rem;
+        font-size: 0.68rem;
         font-weight: 600;
         color: var(--admin-accent-dark);
+        white-space: nowrap;
       }
       .sb-page-thumb__tools {
-        grid-column: 2;
         display: flex;
-        gap: 0.2rem;
-        justify-content: flex-end;
+        gap: 0.15rem;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.12s;
+      }
+      .sb-page-thumb:hover .sb-page-thumb__tools,
+      .sb-page-thumb.is-selected .sb-page-thumb__tools {
+        opacity: 1;
       }
       .sb-canvas-empty {
         flex: 1;
@@ -1455,17 +2050,18 @@
       .sb-quick-toolbar-btn {
         cursor: pointer;
         min-width: 2rem;
+        height: 2rem;
         padding: 0.28rem 0.4rem;
-        border-radius: 9px;
-        border: 1px solid rgba(61, 36, 16, 0.18);
-        background: rgba(255, 255, 255, 0.55);
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
         font-size: 1rem;
         line-height: 1.2;
-        transition: background 0.15s, opacity 0.15s;
+        color: var(--admin-accent-dark);
+        transition: background 0.12s, opacity 0.12s;
       }
       .sb-quick-toolbar-btn:hover:not(:disabled) {
-        background: rgba(255, 248, 235, 0.9);
-        border-color: rgba(184, 140, 88, 0.45);
+        background: var(--sb-ed-hover-bg, rgba(184, 140, 88, 0.14));
       }
       .sb-quick-toolbar-btn[aria-pressed="true"] {
         background: var(--admin-accent-dark, #8a5a2c);
@@ -1490,14 +2086,17 @@
         grid-template-columns: auto 1fr auto auto auto auto;
         align-items: center;
         gap: 0.3rem;
-        padding: 0.3rem 0.35rem;
-        border-radius: 10px;
-        border: 2px solid rgba(61, 36, 16, 0.1);
-        background: rgba(255, 255, 255, 0.65);
+        padding: 0.35rem 0.4rem;
+        border-radius: var(--sb-ed-radius);
+        border: 1px solid transparent;
+        background: transparent;
+      }
+      .sb-layer-row:hover {
+        background: var(--sb-ed-muted-bg);
       }
       .sb-layer-row.is-selected {
-        border-color: var(--admin-accent);
-        box-shadow: 0 0 0 1px rgba(165, 90, 60, 0.25);
+        background: var(--sb-ed-hover-bg);
+        border-color: rgba(184, 140, 88, 0.35);
       }
       .sb-layer-icon {
         font-size: 0.95rem;
@@ -1527,23 +2126,35 @@
         color: var(--admin-muted);
         white-space: nowrap;
       }
+      /* Reorder/delete stay out of the way until the row is hovered/selected —
+         a plain always-visible button cluster per row is what made Layers feel
+         like a form list instead of a design-tool layer panel. */
       .sb-layer-icon-btn {
         cursor: pointer;
-        min-width: 1.6rem;
+        min-width: 1.5rem;
         padding: 0.15rem 0.3rem;
         border-radius: 7px;
-        border: 1px solid rgba(61, 36, 16, 0.18);
-        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid transparent;
+        background: transparent;
         font-size: 0.78rem;
         line-height: 1.2;
+        opacity: 0;
+        transition: opacity 0.12s, background 0.12s;
+      }
+      .sb-layer-row:hover .sb-layer-icon-btn,
+      .sb-layer-row.is-selected .sb-layer-icon-btn,
+      .sb-layer-icon-btn:focus-visible {
+        opacity: 1;
       }
       .sb-layer-icon-btn:hover:not(:disabled) {
-        background: rgba(255, 248, 235, 0.9);
-        border-color: rgba(184, 140, 88, 0.45);
+        background: rgba(255, 255, 255, 0.85);
+      }
+      .sb-layer-row:hover .sb-layer-icon-btn:disabled,
+      .sb-layer-row.is-selected .sb-layer-icon-btn:disabled {
+        opacity: 0.3;
       }
       .sb-layer-icon-btn:disabled {
         cursor: not-allowed;
-        opacity: 0.4;
       }
       .sb-quick-toolbar__group select {
         padding: 0.25rem 0.35rem;
@@ -1584,11 +2195,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 1rem;
-        border-radius: 16px;
-        border: 1px solid rgba(61, 36, 16, 0.1);
-        background: linear-gradient(160deg, #e4e9ef 0%, #d8dce2 40%, #eceef2 100%);
-        min-height: 420px;
+        padding: 0.75rem;
+        border-radius: var(--sb-ed-radius-lg, 14px);
+        border: none;
+        background: #eef0f2;
+        min-height: 0;
+        overflow: auto;
       }
       /* Must override style.css's `.storybook-v2-root .sbv2-standard-page` rule,
          which sets `flex: 1 1 auto; width: 100%; height: 100%` for its normal
@@ -1598,7 +2210,14 @@
          stretched the card to the full (now much wider) preview column: a flex
          item's `flex-grow` overrides `width` as the main-axis sizing rule
          regardless of !important on width alone. Pinning `flex: 0 0 auto` stops
-         the growth so the width/aspect-ratio cap actually applies. */
+         the growth so the width/aspect-ratio cap actually applies.
+         V3.5: `width:auto` bounded only by max-width/max-height (no explicit
+         width) collapses to ~0 here — the object-canvas's own children are all
+         position:absolute, so the element has no intrinsic content size for a
+         flex row to size the main axis from. Width must stay explicit; if the
+         resulting height ever exceeds the workspace's bounded height, the
+         stage's own `overflow:auto` scrolls locally instead of growing the
+         whole page. */
       .sb-canvas-stage .sbv2-standard-page.sbv2-object-canvas {
         flex: 0 0 auto !important;
         width: min(100%, 460px) !important;
@@ -2356,9 +2975,9 @@
           <textarea id="sbCurPageBody" maxlength="50000" hidden aria-hidden="true"></textarea>
 
           <header class="sb-creator-topbar">
-            <button type="button" class="btn btn-ghost btn-sm" id="btnSbBackToList">← Vissza a listához</button>
-            <div id="sbEditorStatusBadge" class="sb-creator-badge" aria-live="polite"></div>
+            <button type="button" class="sb-ed-topbar-link" id="btnSbBackToList">← Vissza a könyvekhez</button>
             <div class="sb-creator-topbar-center">
+              <span class="sb-ed-title-edit-ico" aria-hidden="true">✎</span>
               <input
                 type="text"
                 id="sbTitle"
@@ -2368,11 +2987,20 @@
                 placeholder="Mesekönyv címe…"
                 aria-label="Mesekönyv címe"
               />
+              <div id="sbEditorStatusBadge" class="sb-creator-badge" aria-live="polite"></div>
             </div>
             <div class="sb-creator-topbar-actions">
-              <button type="button" class="btn btn-sm btn-ghost" id="btnSbPickCover" title="Borítókép">Borító</button>
-              <button type="button" class="btn btn-sm btn-ghost" id="btnSbRemoveCover" title="Borítókép törlése">Borító törlése</button>
+              <button type="button" class="sb-ed-topbar-icon-btn" id="btnSbUndoTop" aria-label="Visszavonás" title="Visszavonás" disabled>↶</button>
+              <button type="button" class="sb-ed-topbar-icon-btn" id="btnSbRedoTop" aria-label="Mégis" title="Mégis" disabled>↷</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btnSbEdPreview">Preview</button>
               <button type="button" class="btn btn-sm" id="btnSbSaveBook">Mentés</button>
+              <details class="sb-ed-overflow-menu">
+                <summary class="sb-ed-topbar-icon-btn" title="További lehetőségek" aria-label="További lehetőségek">⋮</summary>
+                <div class="sb-ed-overflow-body">
+                  <button type="button" class="btn btn-sm btn-ghost" id="btnSbPickCover" title="Borítókép">Borítókép feltöltése</button>
+                  <button type="button" class="btn btn-sm btn-ghost" id="btnSbRemoveCover" title="Borítókép törlése">Borítókép törlése</button>
+                </div>
+              </details>
               <input type="file" id="sbCoverFile" accept="image/*" hidden />
             </div>
           </header>
@@ -2397,165 +3025,193 @@
             </div>
           </div>
 
-          <div class="sb-editor-split">
-            <aside class="sb-editor-left" aria-label="Szerkesztő vezérlők">
-              <details class="sb-editor-acc" open>
-                <summary class="sb-editor-acc-summary">Oldalak</summary>
-                <div class="sb-editor-acc-body">
-                  <p class="sb-sidebar-hint">A <span class="sb-dnd-ico" aria-hidden="true">⠿</span> jellel húzhatod az oldalakat új sorrendbe.</p>
-                  <button type="button" class="btn sb-btn-add-page" id="btnSbAddPage">+ Új oldal</button>
-                  <div id="sbPageNavList" class="sb-page-thumb-list"></div>
+          <div class="sb-ed-body">
+            <aside class="sb-ed-rail" aria-label="Eszközök">
+              <div class="sb-ed-rail-group" id="sbToolbarObjectsGroup">
+                <div class="sb-ed-rail-item">
+                  <button type="button" class="sb-ed-rail-btn" id="btnSbAddSecondaryText" aria-label="Szöveg hozzáadása" title="Szöveg hozzáadása">T</button>
+                  <span class="sb-ed-rail-label">Szöveg</span>
                 </div>
-              </details>
+                <div class="sb-ed-rail-item">
+                  <button type="button" class="sb-ed-rail-btn" id="btnSbAddImageShortcut" aria-label="Kép feltöltése vagy csere" title="Kép feltöltése vagy csere">🖼</button>
+                  <span class="sb-ed-rail-label">Kép</span>
+                </div>
+                <div class="sb-ed-rail-item">
+                  <select id="sbAddDecorationSelect" class="sb-ed-rail-select" aria-label="Dekoráció hozzáadása" title="Dekoráció hozzáadása">
+                    <option value="" selected>✨</option>
+                    <option value="⭐">⭐ Csillag</option>
+                    <option value="❤️">❤️ Szív</option>
+                    <option value="🌸">🌸 Virág</option>
+                    <option value="😊">😊 Mosoly</option>
+                    <option value="✨">✨ Csillogás</option>
+                    <option value="🌈">🌈 Szivárvány</option>
+                  </select>
+                  <span class="sb-ed-rail-label">Dekor</span>
+                </div>
+              </div>
+              <div class="sb-ed-rail-sep" role="separator"></div>
+              <div class="sb-ed-rail-group" id="sbToolbarHistoryGroup">
+                <div class="sb-ed-rail-item">
+                  <button type="button" class="sb-ed-rail-btn" id="btnSbUndo" aria-label="Visszavonás" title="Visszavonás" disabled>↶</button>
+                  <span class="sb-ed-rail-label">Vissza</span>
+                </div>
+                <div class="sb-ed-rail-item">
+                  <button type="button" class="sb-ed-rail-btn" id="btnSbRedo" aria-label="Mégis" title="Mégis" disabled>↷</button>
+                  <span class="sb-ed-rail-label">Mégis</span>
+                </div>
+              </div>
+              <div class="sb-ed-rail-sep" role="separator"></div>
+              <div class="sb-ed-rail-item">
+                <button type="button" class="sb-ed-rail-btn sb-ed-rail-btn--danger" id="btnSbDeleteSelectedObject" aria-label="Kijelölt elem törlése" title="Kijelölt elem törlése" disabled>🗑</button>
+                <span class="sb-ed-rail-label">Törlés</span>
+              </div>
+            </aside>
 
-              <details class="sb-editor-acc" open>
-                <summary class="sb-editor-acc-summary">Szerkesztés</summary>
-                <div class="sb-editor-acc-body">
-                  <div class="sb-quick-toolbar__group" role="group" aria-label="Visszavonás" id="sbToolbarHistoryGroup">
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbUndo" aria-label="Visszavonás" title="Visszavonás" disabled>↶</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbRedo" aria-label="Mégis" title="Mégis" disabled>↷</button>
-                  </div>
-                  <div class="sb-quick-toolbar__group" role="group" aria-label="Elemek" id="sbToolbarObjectsGroup">
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAddSecondaryText" aria-label="Felirat hozzáadása" title="Felirat hozzáadása">+Szöveg</button>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbAddImageShortcut" aria-label="Kép feltöltése vagy csere" title="Kép feltöltése vagy csere">+Kép</button>
-                    <select id="sbAddDecorationSelect" aria-label="Dekoráció hozzáadása" title="Dekoráció hozzáadása">
-                      <option value="" selected>+ Dekoráció</option>
-                      <option value="⭐">⭐ Csillag</option>
-                      <option value="❤️">❤️ Szív</option>
-                      <option value="🌸">🌸 Virág</option>
-                      <option value="😊">😊 Mosoly</option>
-                      <option value="✨">✨ Csillogás</option>
-                      <option value="🌈">🌈 Szivárvány</option>
+            <div class="sb-ed-main">
+              <div class="sb-ed-context-toolbar" id="sbEdContextToolbar" aria-label="Kijelölt elem eszköztár">
+                <p id="sbNoSelectionHint" class="sb-props-note">Válassz ki egy elemet a szerkesztéshez.</p>
+
+                <div class="sb-props-group" id="sbToolbarTextGroup" hidden>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg formázása">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextBold" aria-pressed="false" aria-label="Félkövér" title="Félkövér"><strong>B</strong></button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextItalic" aria-pressed="false" aria-label="Dőlt" title="Dőlt"><em>I</em></button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextUnderline" aria-pressed="false" aria-label="Aláhúzott" title="Aláhúzott"><span style="text-decoration: underline">A</span></button>
+                    <select id="sbTextFontSize" aria-label="Betűméret" title="Betűméret">
+                      <option value="s">S</option>
+                      <option value="m" selected>M</option>
+                      <option value="l">L</option>
+                      <option value="xl">XL</option>
                     </select>
-                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbDeleteSelectedObject" aria-label="Kijelölt elem törlése" title="Kijelölt elem törlése" disabled>🗑</button>
                   </div>
-
-                  <p id="sbNoSelectionHint" class="sb-props-note">Válassz ki egy elemet a szerkesztéshez.</p>
-
-                  <div class="sb-props-group" id="sbToolbarTextGroup" hidden>
-                    <div class="sb-quick-toolbar__group" role="group" aria-label="Szöveg formázása">
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextBold" aria-pressed="false" aria-label="Félkövér" title="Félkövér"><strong>B</strong></button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextItalic" aria-pressed="false" aria-label="Dőlt" title="Dőlt"><em>I</em></button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextUnderline" aria-pressed="false" aria-label="Aláhúzott" title="Aláhúzott"><span style="text-decoration: underline">A</span></button>
-                      <select id="sbTextFontSize" aria-label="Betűméret" title="Betűméret">
-                        <option value="s">S</option>
-                        <option value="m" selected>M</option>
-                        <option value="l">L</option>
-                        <option value="xl">XL</option>
-                      </select>
-                    </div>
-                    <div class="sb-quick-toolbar__group" role="group" aria-label="Igazítás">
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignLeft" aria-pressed="false" aria-label="Balra igazítás" title="Balra">⇤</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignCenter" aria-pressed="false" aria-label="Középre igazítás" title="Középre">⇔</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignRight" aria-pressed="false" aria-label="Jobbra igazítás" title="Jobbra">⇥</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextHighlight" aria-pressed="false" aria-label="Kiemelés be- vagy kikapcsolása" title="Kiemelés">🖍</button>
-                      <input type="color" id="sbTextColor" class="sb-quick-toolbar-color" aria-label="Szövegszín" title="Szövegszín" value="#3d2410" />
-                    </div>
-                    <div class="sb-props-numrow">
-                      <label class="sb-props-num">X% <input type="number" id="sbTextPosX" min="0" max="100" step="0.5" /></label>
-                      <label class="sb-props-num">Y% <input type="number" id="sbTextPosY" min="0" max="100" step="0.5" /></label>
-                      <label class="sb-props-num">Szél% <input type="number" id="sbTextSizeW" min="0.5" max="100" step="0.5" /></label>
-                      <label class="sb-props-num">Mag% <input type="number" id="sbTextSizeH" min="0.5" max="100" step="0.5" /></label>
-                    </div>
-                  </div>
-
-                  <div class="sb-props-group" id="sbToolbarRotateGroup" hidden>
-                    <label class="sb-props-slider-label">
-                      Forgatás
-                      <span class="sb-props-slider-row">
-                        <input type="range" id="sbObjRotationRange" min="-180" max="180" step="1" value="0" aria-label="Forgatás" />
-                        <input type="number" id="sbObjRotationNumber" min="-180" max="180" step="1" value="0" aria-label="Forgatás fokban" />°
-                      </span>
-                    </label>
-                    <label class="sb-props-slider-label">
-                      Átlátszóság
-                      <span class="sb-props-slider-row">
-                        <input type="range" id="sbObjOpacityRange" min="0" max="100" step="1" value="100" aria-label="Átlátszóság" />
-                        <span id="sbObjOpacityValue">100%</span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <div class="sb-props-group" id="sbToolbarImageGroup" hidden>
-                    <div class="sb-quick-toolbar__group" role="group" aria-label="Kép igazítás">
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignLeft" aria-label="Kép balra" title="Balra">⇤</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageCenter" aria-label="Kép középre helyezése" title="Középre">⇔</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignRight" aria-label="Kép jobbra" title="Jobbra">⇥</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFit" aria-label="Kép kitöltése a biztonságos területen" title="Kép kitöltése">⤢</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageReset" aria-label="Kép elrendezésének visszaállítása" title="Visszaállítás">⟲</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbToggleAspectLock" aria-pressed="true" aria-label="Képarány megtartása be- vagy kikapcsolása" title="Képarány megtartása: be">🔒</button>
-                    </div>
-                    <div class="sb-props-numrow">
-                      <label class="sb-props-num">Szél% <input type="number" id="sbImageSizeW" min="0.5" max="100" step="0.5" /></label>
-                      <label class="sb-props-num">Mag% <input type="number" id="sbImageSizeH" min="0.5" max="100" step="0.5" /></label>
-                    </div>
-                    <div class="sb-quick-toolbar__group" role="group" aria-label="Illesztési mód">
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitCover" aria-pressed="false" title="Kitöltés (levágással)">Kitöltés</button>
-                      <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitContain" aria-pressed="true" title="Illesztés (levágás nélkül)">Illesztés</button>
-                    </div>
-                  </div>
-
-                  <div class="sb-props-group" id="sbToolbarDecorationGroup" hidden>
-                    <label class="sb-props-num">Méret% <input type="number" id="sbDecoSize" min="1" max="100" step="0.5" /></label>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Igazítás">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignLeft" aria-pressed="false" aria-label="Balra igazítás" title="Balra">⇤</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignCenter" aria-pressed="false" aria-label="Középre igazítás" title="Középre">⇔</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextAlignRight" aria-pressed="false" aria-label="Jobbra igazítás" title="Jobbra">⇥</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbTextHighlight" aria-pressed="false" aria-label="Kiemelés be- vagy kikapcsolása" title="Kiemelés">🖍</button>
+                    <input type="color" id="sbTextColor" class="sb-quick-toolbar-color" aria-label="Szövegszín" title="Szövegszín" value="#3d2410" />
                   </div>
                 </div>
-              </details>
 
-              <details class="sb-editor-acc" open>
-                <summary class="sb-editor-acc-summary">Rétegek</summary>
-                <div class="sb-editor-acc-body">
+                <div class="sb-props-group" id="sbToolbarRotateGroup" hidden>
+                  <label class="sb-props-slider-label">
+                    Forgatás
+                    <span class="sb-props-slider-row">
+                      <input type="range" id="sbObjRotationRange" min="-180" max="180" step="1" value="0" aria-label="Forgatás" />
+                      <input type="number" id="sbObjRotationNumber" min="-180" max="180" step="1" value="0" aria-label="Forgatás fokban" />°
+                    </span>
+                  </label>
+                  <label class="sb-props-slider-label">
+                    Átlátszóság
+                    <span class="sb-props-slider-row">
+                      <input type="range" id="sbObjOpacityRange" min="0" max="100" step="1" value="100" aria-label="Átlátszóság" />
+                      <span id="sbObjOpacityValue">100%</span>
+                    </span>
+                  </label>
+                </div>
+
+                <div class="sb-props-group" id="sbToolbarImageGroup" hidden>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Kép igazítás">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignLeft" aria-label="Kép balra" title="Balra">⇤</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageCenter" aria-label="Kép középre helyezése" title="Középre">⇔</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageAlignRight" aria-label="Kép jobbra" title="Jobbra">⇥</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFit" aria-label="Kép kitöltése a biztonságos területen" title="Kép kitöltése">⤢</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageReset" aria-label="Kép elrendezésének visszaállítása" title="Visszaállítás">⟲</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbToggleAspectLock" aria-pressed="true" aria-label="Képarány megtartása be- vagy kikapcsolása" title="Képarány megtartása: be">🔒</button>
+                  </div>
+                  <div class="sb-quick-toolbar__group" role="group" aria-label="Illesztési mód">
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitCover" aria-pressed="false" title="Kitöltés (levágással)">Kitöltés</button>
+                    <button type="button" class="sb-quick-toolbar-btn" id="btnSbImageFitContain" aria-pressed="true" title="Illesztés (levágás nélkül)">Illesztés</button>
+                  </div>
+                </div>
+
+                <div class="sb-props-group" id="sbToolbarDecorationGroup" hidden>
+                  <label class="sb-props-num">Méret% <input type="number" id="sbDecoSize" min="1" max="100" step="0.5" /></label>
+                </div>
+              </div>
+
+              <div class="sb-ed-canvas-workspace">
+                <div id="sbCanvasWarnings" class="sb-canvas-warnings" hidden></div>
+                <div id="sbCanvasStage" class="storybook-v2-root sb-canvas-stage"></div>
+              </div>
+
+              <div class="sb-ed-page-strip is-collapsed" id="sbPageStrip" aria-label="Oldalak">
+                <button type="button" class="sb-ed-page-strip-toggle" id="btnSbTogglePageStrip" aria-expanded="false" aria-controls="sbPageStripBody">
+                  <span>Oldalak</span><span class="sb-ed-page-strip-chevron" aria-hidden="true">⌃</span>
+                </button>
+                <div class="sb-ed-page-strip-body" id="sbPageStripBody">
+                  <button type="button" class="sb-ed-page-strip-add" id="btnSbAddPage" aria-label="Új oldal hozzáadása" title="Új oldal hozzáadása">+</button>
+                  <div id="sbPageNavList" class="sb-page-thumb-list"></div>
+                  <details class="sb-editor-acc sb-editor-acc--popover sb-ed-page-settings" id="sbPropsPanel" aria-label="Oldal beállításai">
+                  <summary class="sb-ed-gear-btn" title="Oldal beállításai" aria-label="Oldal beállításai">⚙</summary>
+                  <div class="sb-editor-acc-body">
+                    <section class="sb-props-section">
+                      <h5 class="sb-props-heading">Szöveg</h5>
+                      <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
+                      <p class="sb-props-note sb-props-note--danger" id="sbCurPageOverLimitMsg" role="alert" hidden></p>
+                      <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
+                    </section>
+
+                    <section class="sb-props-section">
+                      <h5 class="sb-props-heading">Illusztráció</h5>
+                      <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
+                      <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
+                      <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
+                    </section>
+
+                    <section class="sb-props-section">
+                      <h5 class="sb-props-heading">Hang</h5>
+                      <p id="sbCurPageAudStatus" class="sb-props-aud-status">Nincs feltöltve hang.</p>
+                      <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageAud">Hang feltöltése</button>
+                      <input type="file" id="sbCurPageAudFile" accept="audio/*,.mp3,.m4a,.ogg,.wav,.webm" hidden />
+                    </section>
+
+                    <section class="sb-props-section sb-props-section--danger">
+                      <button type="button" class="btn btn-sm btn-danger btn-ghost" id="btnSbCurPageDelete">Oldal törlése</button>
+                    </section>
+                  </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            <aside class="sb-ed-dock" id="sbEdDock" aria-label="Rétegek és tulajdonságok">
+              <div class="sb-ed-dock-header">
+                <button type="button" class="sb-ed-dock-toggle" id="btnSbToggleDock" title="Panel összecsukása" aria-label="Panel összecsukása">»</button>
+              </div>
+              <div class="sb-ed-dock-body">
+                <section class="sb-ed-dock-section">
+                  <h5 class="sb-ed-dock-heading">Rétegek</h5>
                   <p class="sb-sidebar-hint">Legfelül = legelöl. A háttérbe küldött kép mögé kerülő szöveg innen mindig kijelölhető.</p>
                   <div class="sb-quick-toolbar__group" role="group" aria-label="Réteg sorrend (kijelölt elem)">
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbLayerToFront" title="Kijelölt elem legelőre">⤒ Legelőre</button>
                     <button type="button" class="sb-quick-toolbar-btn" id="btnSbLayerToBack" title="Kijelölt elem leghátra">⤓ Leghátra</button>
                   </div>
                   <div id="sbLayersList" class="sb-layers-list"></div>
-                </div>
-              </details>
+                </section>
 
-              <details class="sb-editor-acc" id="sbPropsPanel" aria-label="Oldal tulajdonságai">
-                <summary class="sb-editor-acc-summary">Oldal tulajdonságai</summary>
-                <div class="sb-editor-acc-body">
-                  <section class="sb-props-section">
-                    <h5 class="sb-props-heading">Szöveg</h5>
-                    <p class="sb-props-note" id="sbCurPageCharCounter" aria-live="polite">0 / 600</p>
-                    <p class="sb-props-note sb-props-note--danger" id="sbCurPageOverLimitMsg" role="alert" hidden></p>
-                    <button type="button" class="btn btn-sm" id="btnSbCurPageSave">Oldal mentése</button>
-                  </section>
+                <section class="sb-ed-dock-section" id="sbPropsDockSection" hidden>
+                  <h5 class="sb-ed-dock-heading">Tulajdonságok</h5>
+                  <div class="sb-props-numrow" id="sbPropsTextGroup" hidden>
+                    <label class="sb-props-num">X% <input type="number" id="sbTextPosX" min="0" max="100" step="0.5" /></label>
+                    <label class="sb-props-num">Y% <input type="number" id="sbTextPosY" min="0" max="100" step="0.5" /></label>
+                    <label class="sb-props-num">Szél% <input type="number" id="sbTextSizeW" min="0.5" max="100" step="0.5" /></label>
+                    <label class="sb-props-num">Mag% <input type="number" id="sbTextSizeH" min="0.5" max="100" step="0.5" /></label>
+                  </div>
+                  <div class="sb-props-numrow" id="sbPropsImageGroup" hidden>
+                    <label class="sb-props-num">Szél% <input type="number" id="sbImageSizeW" min="0.5" max="100" step="0.5" /></label>
+                    <label class="sb-props-num">Mag% <input type="number" id="sbImageSizeH" min="0.5" max="100" step="0.5" /></label>
+                  </div>
+                </section>
 
-                  <section class="sb-props-section">
-                    <h5 class="sb-props-heading">Illusztráció</h5>
-                    <button type="button" class="btn btn-sm" id="btnSbCurPageImg">Kép feltöltése vagy csere</button>
-                    <input type="file" id="sbCurPageImgFile" accept="image/*" hidden />
-                    <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageRemoveImg" hidden>Kép eltávolítása</button>
-                  </section>
-
-                  <section class="sb-props-section">
-                    <h5 class="sb-props-heading">Hang</h5>
-                    <p id="sbCurPageAudStatus" class="sb-props-aud-status">Nincs feltöltve hang.</p>
-                    <button type="button" class="btn btn-sm btn-ghost" id="btnSbCurPageAud">Hang feltöltése</button>
-                    <input type="file" id="sbCurPageAudFile" accept="audio/*,.mp3,.m4a,.ogg,.wav,.webm" hidden />
-                  </section>
-
-                  <section class="sb-props-section">
-                    <h5 class="sb-props-heading">Oldal háttere</h5>
-                    <label class="sb-props-label">
-                      Háttérszín
-                      <input type="color" id="sbPropsPageBg" value="#faf6f0" aria-label="Oldal háttérszín" />
-                    </label>
-                  </section>
-
-                  <section class="sb-props-section sb-props-section--danger">
-                    <button type="button" class="btn btn-sm btn-danger btn-ghost" id="btnSbCurPageDelete">Oldal törlése</button>
-                  </section>
-                </div>
-              </details>
+                <section class="sb-ed-dock-section">
+                  <h5 class="sb-ed-dock-heading">Háttér</h5>
+                  <label class="sb-props-label">
+                    Háttérszín
+                    <input type="color" id="sbPropsPageBg" value="#faf6f0" aria-label="Oldal háttérszín" />
+                  </label>
+                </section>
+              </div>
             </aside>
-
-            <div class="sb-editor-preview-col">
-              <div id="sbCanvasWarnings" class="sb-canvas-warnings" hidden></div>
-              <div id="sbCanvasStage" class="storybook-v2-root sb-canvas-stage"></div>
-            </div>
           </div>
         </div>
 
@@ -2751,6 +3407,12 @@
         let sbSelectedPageId = null;
         let sbEditorIsOpen = false;
         let sbReaderIsOpen = false;
+        // Set right before opening the reader FROM the editor's own "Preview"
+        // button, so its back button returns to the editor instead of the
+        // book list — the only other entry point (the list view's own
+        // "Előnézet / Olvasás") leaves this false and keeps the original
+        // back-to-list behavior.
+        let sbReaderOpenedFromEditor = false;
         let sbReaderBook = null;
         let sbReaderSpreadIndex = 0;
         let sbReaderAnimating = false;
@@ -2837,10 +3499,17 @@
 
         function sbUpdateHistoryButtons() {
           const h = SbEditor.history;
-          const undoBtn = $("btnSbUndo");
-          const redoBtn = $("btnSbRedo");
-          if (undoBtn) undoBtn.disabled = !h || h.past.length === 0;
-          if (redoBtn) redoBtn.disabled = !h || h.future.length === 0;
+          const undoDisabled = !h || h.past.length === 0;
+          const redoDisabled = !h || h.future.length === 0;
+          // Undo/redo are reachable from both the left rail and the compact
+          // top-bar shortcut — both call the exact same sbUndo/sbRedo, this
+          // just keeps both entry points' disabled state in sync.
+          [$("btnSbUndo"), $("btnSbUndoTop")].forEach((btn) => {
+            if (btn) btn.disabled = undoDisabled;
+          });
+          [$("btnSbRedo"), $("btnSbRedoTop")].forEach((btn) => {
+            if (btn) btn.disabled = redoDisabled;
+          });
         }
 
         function sbApplyHistoryState(state) {
@@ -3142,12 +3811,11 @@
           return (obj.decoration && obj.decoration.glyph) || "⭐";
         }
 
-        // Mirrors sbDeleteSelectedObject's protection rule exactly — the primary
-        // text and the page's image are never deletable from anywhere.
+        // Primary story text is structurally required. Images remain deletable
+        // through the existing server-side image removal flow.
         function sbLayerDeleteDisabled(obj) {
           if (!obj) return true;
           if (obj.type === "text" && obj.role === "primary") return true;
-          if (obj.type === "image") return true;
           return false;
         }
 
@@ -3259,6 +3927,10 @@
           if (!SbEditor.draft) return;
           const obj = SbEditor.draft.objects.find((o) => o.id === id);
           if (sbLayerDeleteDisabled(obj)) return;
+          if (obj.type === "image") {
+            $("btnSbCurPageRemoveImg").click();
+            return;
+          }
           sbPushHistorySnapshot();
           SbEditor.draft.objects = SbEditor.draft.objects.filter((o) => o.id !== id);
           if (SbEditor.selectedObjectId === id) SbEditor.selectedObjectId = null;
@@ -3320,6 +3992,23 @@
           });
           $("btnSbLayerToBack").addEventListener("click", () => {
             if (SbEditor.selectedObjectId) sbMoveLayer(SbEditor.selectedObjectId, "back");
+          });
+        }
+
+        function sbWireEditorDeleteKeysOnce() {
+          if (document.documentElement.dataset.sbEditorDeleteKeysWired === "1") return;
+          document.documentElement.dataset.sbEditorDeleteKeysWired = "1";
+          document.addEventListener("keydown", (e) => {
+            if (!sbEditorIsOpen || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+            if (e.key !== "Delete" && e.key !== "Backspace") return;
+            const target = e.target;
+            const tag = (target && target.tagName) || "";
+            if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(tag)) return;
+            if (target && target.isContentEditable) return;
+            const obj = sbSelectedDraftObject();
+            if (!obj || sbLayerDeleteDisabled(obj)) return;
+            e.preventDefault();
+            sbDeleteSelectedObject();
           });
         }
 
@@ -3417,8 +4106,19 @@
           }
 
           const deleteBtn = $("btnSbDeleteSelectedObject");
-          if (deleteBtn)
-            deleteBtn.disabled = !obj || (obj.type === "text" && obj.role === "primary") || obj.type === "image";
+          if (deleteBtn) deleteBtn.disabled = !obj || (obj.type === "text" && obj.role === "primary");
+
+          // V3.5: the right-dock "Tulajdonságok" section mirrors the X/Y/W/H
+          // fields that used to live inline in the context toolbar — same
+          // isText/isImage split as the groups above, just a second physical
+          // location for the same underlying inputs (sbTextPosX etc. are moved,
+          // not duplicated — see the dock markup).
+          const propsTextGroup = $("sbPropsTextGroup");
+          if (propsTextGroup) propsTextGroup.hidden = !isText;
+          const propsImageGroup = $("sbPropsImageGroup");
+          if (propsImageGroup) propsImageGroup.hidden = !isImage;
+          const propsDockSection = $("sbPropsDockSection");
+          if (propsDockSection) propsDockSection.hidden = !isText && !isImage;
         }
 
         // Avoids stomping the value while the control has focus (e.g. mid-drag on
@@ -3703,10 +4403,12 @@
           const obj = sbSelectedDraftObject();
           if (!obj || !SbEditor.draft) return;
           if (obj.type === "text" && obj.role === "primary") return; // never deletable
-          // Images are removed only via the sidebar's "Kép eltávolítása", which also
-          // clears image_url and the uploaded file server-side — deleting the object
-          // here would orphan image_url with no visible way to render or clear it.
-          if (obj.type === "image") return;
+          // Reuse the confirmed API removal so keyboard, rail and Layers-panel
+          // deletion all clear image_url and the uploaded file consistently.
+          if (obj.type === "image") {
+            $("btnSbCurPageRemoveImg").click();
+            return;
+          }
           sbPushHistorySnapshot();
           SbEditor.draft.objects = SbEditor.draft.objects.filter((o) => o.id !== obj.id);
           SbEditor.selectedObjectId = null;
@@ -3899,6 +4601,9 @@
           $("btnSbImageReset").addEventListener("click", sbResetSelectedImage);
           $("btnSbUndo").addEventListener("click", sbUndo);
           $("btnSbRedo").addEventListener("click", sbRedo);
+          // Compact top-bar shortcuts — same handlers as the rail buttons.
+          $("btnSbUndoTop").addEventListener("click", sbUndo);
+          $("btnSbRedoTop").addEventListener("click", sbRedo);
           // Bold/italic/underline/highlight/color are selection-based (act on
           // the live DOM Selection via execCommand — see sbApplyRichTextCommand)
           // rather than whole-object toggles. mousedown preventDefault keeps
@@ -4406,6 +5111,8 @@
             const list = sbListRootEl();
             const ed = sbEditorRootEl();
             const rd = $("sbReaderRoot");
+            const view = $("view-storybooks-admin");
+            if (view) view.classList.remove("sb-editor-active");
             if (list) list.hidden = true;
             if (ed) ed.hidden = true;
             if (rd) rd.hidden = false;
@@ -4420,6 +5127,16 @@
         }
 
         function sbCloseReaderToList() {
+          if (sbReaderOpenedFromEditor) {
+            sbReaderOpenedFromEditor = false;
+            const rd = $("sbReaderRoot");
+            const ed = sbEditorRootEl();
+            if (rd) rd.hidden = true;
+            if (ed) ed.hidden = false;
+            sbReaderIsOpen = false;
+            sbEditorIsOpen = true;
+            return;
+          }
           sbShowListView();
           loadStorybooksAdmin();
         }
@@ -6047,6 +6764,8 @@
           const list = sbListRootEl();
           const ed = sbEditorRootEl();
           const rd = $("sbReaderRoot");
+          const view = $("view-storybooks-admin");
+          if (view) view.classList.remove("sb-editor-active");
           if (list) list.hidden = false;
           if (ed) ed.hidden = true;
           if (rd) rd.hidden = true;
@@ -6114,6 +6833,8 @@
           const list = sbListRootEl();
           const ed = sbEditorRootEl();
           const rd = $("sbReaderRoot");
+          const view = $("view-storybooks-admin");
+          if (view) view.classList.add("sb-editor-active");
           if (list) list.hidden = true;
           if (ed) ed.hidden = false;
           if (rd) rd.hidden = true;
@@ -7632,6 +8353,47 @@
         sbWireObjectDragOnce();
         sbWireQuickToolbarOnce();
         sbWireLayersPanelOnce();
+        sbWireEditorDeleteKeysOnce();
+        const sbEdPreviewBtn = $("btnSbEdPreview");
+        if (sbEdPreviewBtn) {
+          sbEdPreviewBtn.addEventListener("click", () => {
+            const bookId = parseInt($("sbBookId").value, 10);
+            sbReaderOpenedFromEditor = true;
+            sbOpenReaderFromList(bookId);
+          });
+        }
+        const sbToggleDockBtn = $("btnSbToggleDock");
+        if (sbToggleDockBtn) {
+          sbToggleDockBtn.addEventListener("click", () => {
+            const body = sbToggleDockBtn.closest(".sb-ed-body");
+            if (!body) return;
+            const collapsed = body.classList.toggle("sb-ed-dock-collapsed");
+            sbToggleDockBtn.setAttribute("aria-label", collapsed ? "Panel kinyitása" : "Panel összecsukása");
+            sbToggleDockBtn.title = collapsed ? "Panel kinyitása" : "Panel összecsukása";
+          });
+        }
+        const sbPageStrip = $("sbPageStrip");
+        const sbTogglePageStripBtn = $("btnSbTogglePageStrip");
+        if (sbPageStrip && sbTogglePageStripBtn) {
+          const sbSetPageStripCollapsed = (collapsed) => {
+            sbPageStrip.classList.toggle("is-collapsed", collapsed);
+            sbTogglePageStripBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            sbTogglePageStripBtn.title = collapsed ? "Oldalak megnyitása" : "Oldalak összecsukása";
+            const props = $("sbPropsPanel");
+            if (collapsed && props) props.open = false;
+            try {
+              sessionStorage.setItem("mesencsi_sb_page_strip_collapsed", collapsed ? "1" : "0");
+            } catch (_) {}
+          };
+          let initiallyCollapsed = true;
+          try {
+            initiallyCollapsed = sessionStorage.getItem("mesencsi_sb_page_strip_collapsed") !== "0";
+          } catch (_) {}
+          sbSetPageStripCollapsed(initiallyCollapsed);
+          sbTogglePageStripBtn.addEventListener("click", () => {
+            sbSetPageStripCollapsed(!sbPageStrip.classList.contains("is-collapsed"));
+          });
+        }
         const sbPropsPageBgEl = $("sbPropsPageBg");
         if (sbPropsPageBgEl) {
           sbPropsPageBgEl.addEventListener("input", () => {
