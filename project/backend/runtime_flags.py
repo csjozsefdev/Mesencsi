@@ -29,18 +29,39 @@ def barion_payments_enabled() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def auth_email_hosted_environment() -> bool:
+    """
+    True when this process should be treated as a hosted/production deployment for
+    auth-email purposes (registration verification, password reset).
+
+    ``mesencsi_production()`` alone only recognizes a literally-set ``MESENCSI_PRODUCTION``.
+    A real deployment (e.g. a VPS) may instead only set the broader hosted-deployment
+    signals used elsewhere in the codebase (``ENVIRONMENT``/``ENV`` = staging|production|
+    prod|live, ``RENDER=true``, ``GRAFI_PRODUCTION``). Without this merge, such a
+    deployment would silently swallow verification-email failures as if it were local
+    dev, and would keep logging raw verification links/tokens as "local dev" diagnostics.
+    Imported lazily to avoid a hard import-time dependency from this low-level module.
+    """
+    if mesencsi_production():
+        return True
+    from grafi_core.email.config import hosted_deployment
+
+    return hosted_deployment()
+
+
 def auth_email_requires_working_smtp() -> bool:
-    """Shop verification/reset mail: strict SMTP only when ``MESENCSI_PRODUCTION`` (not merely RENDER)."""
-    return mesencsi_production()
+    """Shop verification/reset mail: strict SMTP whenever this is a hosted/production deployment."""
+    return auth_email_hosted_environment()
 
 
 def dev_log_auth_email_links_always() -> bool:
     """
     Local QA: print verification/reset URLs in the terminal even when SMTP send succeeds.
 
-    Only when ``MESENCSI_PRODUCTION`` is false. Set ``MESENCSI_DEV_LOG_AUTH_EMAIL_LINKS=true`` in .env.
+    Only when this is not a hosted/production deployment. Set
+    ``MESENCSI_DEV_LOG_AUTH_EMAIL_LINKS=true`` in .env.
     """
-    if mesencsi_production():
+    if auth_email_hosted_environment():
         return False
     v = (os.environ.get("MESENCSI_DEV_LOG_AUTH_EMAIL_LINKS") or "").strip().lower()
     return v in ("1", "true", "yes", "on")

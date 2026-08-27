@@ -12,6 +12,7 @@ from email_config import (
     smtp_from_is_brevo_relay_login,
     smtp_config_issues,
     smtp_provider_label,
+    smtp_rackhost_user_misconfigured,
     smtp_resend_user_misconfigured,
     smtp_mode,
     smtp_config_diagnostic,
@@ -87,6 +88,38 @@ def test_brevo_verified_sender_from_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SMTP_PASSWORD", "key")
     monkeypatch.setenv("SMTP_FROM", "noreply@mesencsi.hu")
     assert smtp_brevo_from_misconfigured() is False
+
+
+def test_rackhost_provider_detected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.rackhost.hu")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USER", "no-reply@mesencsi.hu")
+    monkeypatch.setenv("SMTP_PASSWORD", "pw")
+    monkeypatch.setenv("SMTP_FROM", "no-reply@mesencsi.hu")
+    assert smtp_provider_label() == "rackhost"
+    assert smtp_rackhost_user_misconfigured() is False
+    assert smtp_config_issues() == []
+    diag = smtp_config_diagnostic()
+    assert diag["smtp_transport_mode"] == "ssl"
+
+
+def test_rackhost_user_must_be_full_email_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.rackhost.hu")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USER", "no-reply")
+    monkeypatch.setenv("SMTP_PASSWORD", "pw")
+    monkeypatch.setenv("SMTP_FROM", "no-reply@mesencsi.hu")
+    assert smtp_rackhost_user_misconfigured() is True
+    assert "rackhost_user_must_be_full_email_address" in smtp_config_issues()
+
+
+def test_rackhost_wrong_port_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.rackhost.hu")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "no-reply@mesencsi.hu")
+    monkeypatch.setenv("SMTP_PASSWORD", "pw")
+    monkeypatch.setenv("SMTP_FROM", "no-reply@mesencsi.hu")
+    assert "rackhost_expected_port_465_implicit_ssl" in smtp_config_issues()
 
 
 def test_partial_gmail_missing_password(monkeypatch: pytest.MonkeyPatch) -> None:

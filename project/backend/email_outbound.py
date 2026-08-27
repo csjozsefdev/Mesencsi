@@ -24,7 +24,12 @@ from email_config import (
 )
 from env_loader import BACKEND_DIR
 from email_errors import EmailNotConfiguredError, EmailSendError
-from runtime_flags import auth_email_requires_working_smtp, dev_log_auth_email_links_always, mesencsi_production
+from runtime_flags import (
+    auth_email_hosted_environment,
+    auth_email_requires_working_smtp,
+    dev_log_auth_email_links_always,
+    mesencsi_production,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +82,30 @@ def _smtp_use_tls() -> bool:
     return raw not in ("0", "false", "no", "off")
 
 
+_PRODUCTION_FALLBACK_PUBLIC_BASE_URL = "https://www.mesencsi.hu"
+_DEV_FALLBACK_PUBLIC_BASE_URL = "http://127.0.0.1:8000"
+
+
 def public_base_url() -> str:
-    """Public site URL used in email links (usually the storefront origin)."""
-    return (
-        os.environ.get("PUBLIC_SITE_URL")
-        or os.environ.get("FRONTEND_BASE_URL")
-        or "http://127.0.0.1:8000"
-    ).rstrip("/")
+    """
+    Public site URL used in email links (usually the storefront origin).
+
+    In a hosted/production deployment, PUBLIC_SITE_URL or FRONTEND_BASE_URL must be set to
+    the real canonical domain. If neither is set, we do NOT fall back to a localhost URL —
+    that would silently bake an unreachable link into verification/reset emails even though
+    the SMTP send itself "succeeds". Local dev keeps the 127.0.0.1 fallback unchanged.
+    """
+    configured = os.environ.get("PUBLIC_SITE_URL") or os.environ.get("FRONTEND_BASE_URL")
+    if configured:
+        return configured.rstrip("/")
+    if auth_email_hosted_environment():
+        logger.error(
+            "PUBLIC_SITE_URL/FRONTEND_BASE_URL not set in a hosted deployment — "
+            "using fallback %s instead of a localhost URL for email links",
+            _PRODUCTION_FALLBACK_PUBLIC_BASE_URL,
+        )
+        return _PRODUCTION_FALLBACK_PUBLIC_BASE_URL
+    return _DEV_FALLBACK_PUBLIC_BASE_URL
 
 
 def _email_log_id(email: str) -> str:
@@ -160,7 +182,7 @@ def _mask_smtp_user(user: str) -> str:
 
 
 def _smtp_dev_debug_enabled() -> bool:
-    return not mesencsi_production()
+    return not auth_email_hosted_environment()
 
 
 def _log_smtp_dev_failure(
@@ -333,7 +355,7 @@ def _smtp_session(
 
 
 def _log_dev_verification_links(*, to_email: str, token: str) -> None:
-    if mesencsi_production():
+    if auth_email_hosted_environment():
         return
     link = f"{public_base_url()}/?email_verify_token={token}"
     api_verify = f"{api_public_base_url()}/auth/verify-email?token={token}"
@@ -347,7 +369,7 @@ def _log_dev_verification_links(*, to_email: str, token: str) -> None:
 
 def _log_dev_password_reset_link(*, to_email: str, token: str) -> None:
     """Log reset link in local dev when SMTP did not send (never logged in production)."""
-    if mesencsi_production():
+    if auth_email_hosted_environment():
         return
     link = f"{public_base_url()}/reset-password.html?token={token}"
     logger.warning(

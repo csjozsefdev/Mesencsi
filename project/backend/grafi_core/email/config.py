@@ -142,6 +142,16 @@ def smtp_resend_user_misconfigured(smtp: SmtpSettings | None = None) -> bool:
     return _env(s, "user_env_key").lower() != "resend"
 
 
+def smtp_rackhost_user_misconfigured(smtp: SmtpSettings | None = None) -> bool:
+    """Rackhost requires SMTP_USER to be the full mailbox address (e.g. no-reply@domain.hu), not a bare local part."""
+    s = smtp or _DEFAULT_SMTP
+    host = _env(s, "host_env_key").lower()
+    if host != "smtp.rackhost.hu":
+        return False
+    user = _env(s, "user_env_key")
+    return bool(user) and "@" not in user
+
+
 def smtp_host_value(smtp: SmtpSettings | None = None) -> str:
     return _env(smtp or _DEFAULT_SMTP, "host_env_key")
 
@@ -160,6 +170,8 @@ def smtp_provider_label(smtp: SmtpSettings | None = None) -> str:
         return "gmail"
     if host in ("127.0.0.1", "localhost", "::1"):
         return "mailpit"
+    if host == "smtp.rackhost.hu":
+        return "rackhost"
     return "other"
 
 
@@ -173,6 +185,10 @@ def smtp_config_issues(smtp: SmtpSettings | None = None) -> list[str]:
         issues.append("brevo_from_is_relay_login")
     if smtp_resend_user_misconfigured(s):
         issues.append("resend_user_must_be_literal_resend")
+    if smtp_rackhost_user_misconfigured(s):
+        issues.append("rackhost_user_must_be_full_email_address")
+    if provider == "rackhost" and smtp_port_from_env(s) != 465:
+        issues.append("rackhost_expected_port_465_implicit_ssl")
     if provider == "resend" and host and "resend.com" not in host:
         issues.append("resend_host_expected_smtp_resend_com")
     if provider == "mailersend" and mail_from.endswith("@gmail.com"):
