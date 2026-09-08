@@ -2817,6 +2817,26 @@ body.gallery-lightbox-open {
   opacity: 1;
 }
 
+.barion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none !important;
+  opacity: 0.9;
+}
+.barion-badge:hover {
+  opacity: 1;
+}
+.barion-badge__label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.barion-badge__logo {
+  display: block;
+  height: 15px;
+  width: auto;
+}
+
 .legal-prose h2 {
   margin: 0 0 0.75rem;
   font-family: Georgia, serif;
@@ -5980,6 +6000,15 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   border: 1px solid rgba(92, 65, 45, 0.2);
   border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.45);
+}
+.checkout-payment-disclosure {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.checkout-payment-disclosure .barion-badge__logo {
+  height: 18px;
 }
 
 .footer-link-button {
