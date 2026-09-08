@@ -70,28 +70,41 @@ def test_inject_rejects_noncanonical_pixel_ids(
     assert "pixel.barion.com" not in out
 
 
-def test_storefront_includes_pixel_when_configured(pixel_id: str) -> None:
+def test_storefront_includes_pixel_loader_script(pixel_id: str) -> None:
+    """Storefront loads the static Base Pixel loader — the server no longer inlines markup here."""
     from mesencsi import app
 
     with TestClient(app) as client:
         r = client.get("/")
         assert r.status_code == 200
         assert "text/html" in r.headers.get("content-type", "")
-        assert pixel_id in r.text
-        assert "https://pixel.barion.com/bp.js" in r.text
+        assert '<script src="/js/barion-pixel.js"></script>' in r.text
+        # Not server-injected for this page: the pixel ID/init call live only in the
+        # static loader file, never inlined into this HTML response.
+        assert pixel_id not in r.text
+        assert "pixel.barion.com/bp.js" not in r.text
 
 
-def test_password_reset_pages_include_pixel_when_configured(pixel_id: str) -> None:
+def test_password_reset_pages_include_pixel_loader_script(pixel_id: str) -> None:
+    """Forgot/reset-password pages load the same static Base Pixel loader, exactly once."""
     from mesencsi import app
 
     with TestClient(app) as client:
         for path in ("/forgot-password.html", "/reset-password.html"):
             r = client.get(path)
             assert r.status_code == 200, path
-            assert pixel_id in r.text
-            assert "https://pixel.barion.com/bp.js" in r.text
-            assert f"ba_pixel_id={pixel_id}" in r.text
-            assert "bp('init', 'addBarionPixelId', window['barion_pixel_id'])" in r.text
+            assert r.text.count('<script src="/js/barion-pixel.js"></script>') == 1, path
+            assert pixel_id not in r.text
+            assert "pixel.barion.com/bp.js" not in r.text
+
+
+def test_inject_leaves_html_without_slot_untouched(pixel_id: str) -> None:
+    """No blind fallback: a page without the slot comment (e.g. using the static
+    loader instead) is never touched, so it can't end up with a second, server-
+    injected Base Pixel init alongside the static one."""
+    source = '<html><head><script src="/js/barion-pixel.js"></script></head></html>'
+    out = inject_barion_pixel(source)
+    assert out == source
 
 
 def test_admin_pages_do_not_include_pixel(pixel_id: str) -> None:

@@ -53,14 +53,21 @@ def barion_pixel_markup(pixel_id: str) -> str:
 
 
 def inject_barion_pixel(html: str) -> str:
-    """Replace ``<!-- BARION_PIXEL_SLOT -->`` with pixel markup or remove the slot."""
+    """Replace ``<!-- BARION_PIXEL_SLOT -->`` with pixel markup, or leave html untouched.
+
+    A page without the slot (e.g. one using the static frontend/js/barion-pixel.js
+    loader instead) is returned unchanged — there is no blind fallback that injects
+    markup near ``</head>`` regardless. This keeps the two Base Pixel implementations
+    mutually exclusive by construction: a page gets server-injected markup only if it
+    explicitly opts in via the slot comment, so it can never end up with both.
+    """
+    if _BARION_PIXEL_SLOT not in html:
+        return html
     pixel_id = barion_pixel_id()
     if pixel_id is None:
         return html.replace(_BARION_PIXEL_SLOT, "")
     markup = barion_pixel_markup(pixel_id)
-    if _BARION_PIXEL_SLOT in html:
-        return html.replace(_BARION_PIXEL_SLOT, markup)
-    return html.replace("</head>", f"{markup}\n  </head>", 1)
+    return html.replace(_BARION_PIXEL_SLOT, markup)
 
 
 def serve_public_html(filename: str) -> HTMLResponse:
