@@ -17,6 +17,10 @@ const path = require("node:path");
 const FRONTEND_DIR = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(FRONTEND_DIR, "mesencsi.html"), "utf8");
 const css = fs.readFileSync(path.join(FRONTEND_DIR, "style.css"), "utf8");
+const forgotHtml = fs.readFileSync(path.join(FRONTEND_DIR, "forgot-password.html"), "utf8");
+const resetHtml = fs.readFileSync(path.join(FRONTEND_DIR, "reset-password.html"), "utf8");
+const PIXEL_LOADER_TAG = '<script src="/js/barion-pixel.js"></script>';
+const PIXEL_SLOT = "<!-- BARION_PIXEL_SLOT -->";
 
 function countOccurrences(haystack, needle) {
   return haystack.split(needle).length - 1;
@@ -71,14 +75,38 @@ check("Barion badge has non-intrusive sizing rules in style.css", () => {
   assert.match(css, /\.barion-badge__logo\s*{[^}]*height:\s*1[5-8]px/, "badge logo height should stay small (15-18px), not oversized");
 });
 
-check("Exactly one authoritative Barion Pixel injection point (server-side slot)", () => {
-  assert.equal(countOccurrences(html, "<!-- BARION_PIXEL_SLOT -->"), 1, "expected exactly one BARION_PIXEL_SLOT placeholder");
+check("Static Base Pixel loader exists in source control with the official Barion URL and a single init", () => {
+  const loaderPath = path.join(FRONTEND_DIR, "js", "barion-pixel.js");
+  assert.ok(fs.existsSync(loaderPath), "frontend/js/barion-pixel.js is missing — it must be the authoritative, version-controlled Base Pixel loader");
+  const loader = fs.readFileSync(loaderPath, "utf8");
+  assert.ok(loader.includes("https://pixel.barion.com/bp.js"), "loader must load the official Barion bp.js");
+  assert.equal(countOccurrences(loader, "addBarionPixelId"), 1, "loader must call addBarionPixelId exactly once");
+  assert.ok(loader.includes("__mesencsiBarionPixelInitialized"), "loader should guard itself against being executed twice on the same page");
 });
 
-check("No stray static barion-pixel.js script tag in version-controlled frontend", () => {
-  assert.equal(/<script[^>]+barion-pixel\.js/i.test(html), false, "found a <script src=...barion-pixel.js> tag — this would duplicate the server-injected Base Pixel");
-  const strayFile = path.join(FRONTEND_DIR, "js", "barion-pixel.js");
-  assert.equal(fs.existsSync(strayFile), false, "a static js/barion-pixel.js file exists in the repo — remove it, the server-side injection in barion_pixel.py is authoritative");
+check("Storefront (mesencsi.html) references the static Pixel loader exactly once", () => {
+  assert.equal(countOccurrences(html, PIXEL_LOADER_TAG), 1, "mesencsi.html must include the static Pixel loader script exactly once");
+});
+
+check("forgot-password.html references the static Pixel loader exactly once", () => {
+  assert.equal(countOccurrences(forgotHtml, PIXEL_LOADER_TAG), 1, "forgot-password.html must include the static Pixel loader script exactly once");
+});
+
+check("reset-password.html references the static Pixel loader exactly once", () => {
+  assert.equal(countOccurrences(resetHtml, PIXEL_LOADER_TAG), 1, "reset-password.html must include the static Pixel loader script exactly once");
+});
+
+check("No page carries both the static loader and the server-injection slot (no duplicate Base Pixel init)", () => {
+  for (const [name, doc] of [
+    ["mesencsi.html", html],
+    ["forgot-password.html", forgotHtml],
+    ["reset-password.html", resetHtml],
+  ]) {
+    const hasLoader = doc.includes(PIXEL_LOADER_TAG);
+    const hasSlot = doc.includes(PIXEL_SLOT);
+    assert.ok(hasLoader, `${name} is missing the static Pixel loader`);
+    assert.equal(hasSlot, false, `${name} still has the BARION_PIXEL_SLOT marker alongside the static loader — barion_pixel.py would inject a second Base Pixel init into this page`);
+  }
 });
 
 check("No leftover foreign-template domain remnants (mesencsi.com, bookline.*)", () => {
