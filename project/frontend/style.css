@@ -2831,9 +2831,9 @@ body.gallery-lightbox-open {
   font-weight: 600;
   white-space: nowrap;
 }
-.barion-badge__logo {
+.barion-badge__strip {
   display: block;
-  height: 15px;
+  height: 28px;
   width: auto;
 }
 
@@ -6007,8 +6007,8 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.checkout-payment-disclosure .barion-badge__logo {
-  height: 18px;
+.checkout-payment-disclosure .barion-badge__strip {
+  height: 32px;
 }
 
 .footer-link-button {

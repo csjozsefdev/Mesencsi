@@ -2,9 +2,10 @@
 "use strict";
 
 /**
- * Barion merchant-acceptance frontend characterization: guards the fixes made after the
- * Barion compliance audit (branding presence, single authoritative Pixel implementation,
- * Privacy Policy/Cookie Policy consistency, no leftover foreign-template copy).
+ * Barion merchant-acceptance frontend characterization: guards the fixes made after Barion's
+ * rejection review — the official unmodified payment-method logo strip, mandatory ÁSZF/Privacy
+ * consent at checkout, the complete competent conciliation board (Fejér Vármegyei Békéltető
+ * Testület), single authoritative Pixel implementation, and no leftover foreign-template copy.
  *
  * Pure Node, no browser, no backend — run directly:
  *   node project/frontend/tests/barion-branding-legal-characterization.test.js
@@ -48,31 +49,38 @@ function check(name, fn) {
 
 console.log("Barion branding / legal-copy characterization");
 
-check("Barion logo asset file exists on disk and is a real SVG", () => {
-  const logoPath = path.join(FRONTEND_DIR, "images", "barion-logo.svg");
-  assert.ok(fs.existsSync(logoPath), "images/barion-logo.svg is missing");
-  const svg = fs.readFileSync(logoPath, "utf8");
-  assert.ok(svg.trim().startsWith("<svg"), "images/barion-logo.svg does not look like a valid SVG file");
-  assert.ok(svg.length > 500, "images/barion-logo.svg looks truncated/empty");
+const OFFICIAL_STRIP_ASSET = "barion-smart-banner-light.svg";
+
+check("Official Barion payment-method logo strip exists in source control, unmodified", () => {
+  const stripPath = path.join(FRONTEND_DIR, "images", OFFICIAL_STRIP_ASSET);
+  assert.ok(fs.existsSync(stripPath), `images/${OFFICIAL_STRIP_ASSET} is missing — must be the supplied official Barion asset, not a redraw`);
+  const svg = fs.readFileSync(stripPath, "utf8");
+  assert.ok(svg.trim().startsWith("<svg"), `images/${OFFICIAL_STRIP_ASSET} does not look like a valid SVG file`);
+  assert.ok(svg.length > 5000, `images/${OFFICIAL_STRIP_ASSET} looks truncated — the official strip is a single multi-logo asset, not a stripped-down copy`);
+  // The old standalone Barion-only wordmark must be gone, not left alongside the strip.
+  assert.equal(fs.existsSync(path.join(FRONTEND_DIR, "images", "barion-logo.svg")), false, "old standalone barion-logo.svg should be removed now that the official strip replaces it everywhere");
 });
 
-check("Barion logo is referenced on the site-wide footer (renders on the homepage)", () => {
+check("Homepage (site-wide footer) includes the official logo strip as a single image, not split logos", () => {
   const footer = html.slice(html.indexOf('class="site-footer"'), html.indexOf("</footer>"));
-  assert.ok(footer.includes("/images/barion-logo.svg"), "footer does not reference the Barion logo asset");
+  assert.ok(footer.includes(`/images/${OFFICIAL_STRIP_ASSET}`), "footer does not reference the official Barion logo strip");
+  assert.equal(countOccurrences(footer, "<img"), 1, "footer payment-method branding must be exactly one <img> (the whole strip), not separate per-brand images");
   assert.ok(footer.includes('class="barion-badge"'), "footer Barion badge markup missing");
 });
 
-check("Barion logo is referenced in the checkout/payment area", () => {
+check("Checkout/payment area includes the official logo strip as a single image, not split logos", () => {
   const disclosure = html.slice(
     html.indexOf('class="checkout-payment-disclosure"'),
     html.indexOf('class="checkout-payment-disclosure"') + 400
   );
-  assert.ok(disclosure.includes("/images/barion-logo.svg"), "checkout payment disclosure does not reference the Barion logo asset");
+  assert.ok(disclosure.includes(`/images/${OFFICIAL_STRIP_ASSET}`), "checkout payment disclosure does not reference the official Barion logo strip");
+  assert.equal(countOccurrences(disclosure, "<img"), 1, "checkout payment-method branding must be exactly one <img> (the whole strip), not separate per-brand images");
 });
 
-check("Barion badge has non-intrusive sizing rules in style.css", () => {
-  assert.ok(css.includes(".barion-badge__logo"), "no .barion-badge__logo rule found in style.css");
-  assert.match(css, /\.barion-badge__logo\s*{[^}]*height:\s*1[5-8]px/, "badge logo height should stay small (15-18px), not oversized");
+check("Logo strip keeps its original aspect ratio and is scaled only proportionally via CSS", () => {
+  assert.ok(html.includes(`width="567" height="108"`), "the <img> width/height attributes should match the official asset's native 567x108 aspect ratio");
+  assert.ok(css.includes(".barion-badge__strip"), "no .barion-badge__strip rule found in style.css");
+  assert.match(css, /\.barion-badge__strip\s*{[^}]*height:\s*\d+px;\s*width:\s*auto;/, "strip must be scaled via a fixed height + width:auto (proportional), never a fixed width+height that could distort it");
 });
 
 check("Static Base Pixel loader exists in source control with the official Barion URL and a single init", () => {
@@ -145,6 +153,44 @@ check("Cookie Policy documents the Base Barion Pixel actually implemented in cod
   const cookies = sectionHtml("view-sutik");
   assert.ok(/Alap \(Base\) Barion Pixel/.test(cookies), "Cookie Policy no longer documents the Base Barion Pixel");
   assert.ok(/Full Pixel/.test(cookies) && /nem küld/.test(cookies), "Cookie Policy should still state that Full Pixel event tracking is NOT implemented");
+});
+
+check("Checkout has mandatory ÁSZF + Privacy consent checkboxes, unchecked by default", () => {
+  const termsMatch = html.match(/<input[^>]*id="checkoutTermsAccepted"[^>]*>/);
+  const privacyMatch = html.match(/<input[^>]*id="checkoutPrivacyAcknowledged"[^>]*>/);
+  assert.ok(termsMatch, "checkoutTermsAccepted checkbox not found");
+  assert.ok(privacyMatch, "checkoutPrivacyAcknowledged checkbox not found");
+  assert.equal(termsMatch[0].includes("checked"), false, "checkoutTermsAccepted must not carry a default 'checked' attribute");
+  assert.equal(privacyMatch[0].includes("checked"), false, "checkoutPrivacyAcknowledged must not carry a default 'checked' attribute");
+  assert.ok(termsMatch[0].includes('type="checkbox"'), "checkoutTermsAccepted must be a real checkbox input");
+  assert.ok(privacyMatch[0].includes('type="checkbox"'), "checkoutPrivacyAcknowledged must be a real checkbox input");
+});
+
+check("Checkout consent checkboxes link to the real ÁSZF and Adatkezelés routes", () => {
+  const legalBlock = html.slice(html.indexOf('class="legal-acknowledgements'), html.indexOf('class="legal-acknowledgements') + 600);
+  assert.ok(/<a href="\/aszf"[^>]*>ÁSZF-et<\/a>/.test(legalBlock), "ÁSZF link missing or not pointing to /aszf");
+  assert.ok(/<a href="\/adatkezeles"[^>]*>adatkezelési tájékoztatót<\/a>/.test(legalBlock), "Adatkezelés link missing or not pointing to /adatkezeles");
+});
+
+check("Checkout JS blocks submission when consent checkboxes are unchecked, before any payment call", () => {
+  const checkoutJs = fs.readFileSync(path.join(FRONTEND_DIR, "js", "checkout.js"), "utf8");
+  const guardIdx = checkoutJs.indexOf("checkoutTermsAccepted");
+  assert.ok(guardIdx !== -1, "checkout.js has no reference to checkoutTermsAccepted — consent is not enforced client-side");
+  const guardBlock = checkoutJs.slice(guardIdx, guardIdx + 600);
+  assert.ok(/if\s*\(\s*!termsAccepted\s*\|\|\s*!privacyAcknowledged\s*\)/.test(guardBlock), "checkout.js must return/block when either consent flag is false");
+  assert.ok(guardBlock.includes("return"), "the unchecked-consent branch must return early, not just show a message and continue");
+  const fetchIdx = checkoutJs.indexOf("terms_accepted:", guardIdx);
+  assert.ok(fetchIdx > guardIdx, "terms_accepted must be read/sent only after the consent guard runs");
+});
+
+check("Fejér Vármegyei Békéltető Testület is the named competent conciliation board with full contact details", () => {
+  const legal = sectionHtml("view-panaszkezeles");
+  assert.ok(legal.includes("Fejér Vármegyei Békéltető Testület"), "competent board name missing from ÁSZF");
+  assert.ok(legal.includes("8000 Székesfehérvár, Hosszúsétatér"), "competent board address missing");
+  assert.ok(legal.includes("8050 Székesfehérvár, Pf. 357"), "competent board postal/mailing address missing");
+  assert.ok(legal.includes("bekeltetes@fmkik.hu"), "competent board email missing");
+  assert.ok(legal.includes("+36 22 510 310"), "competent board phone missing");
+  assert.ok(legal.includes("https://www.bekeltetesfejer.hu/"), "competent board website missing");
 });
 
 if (failures > 0) {
