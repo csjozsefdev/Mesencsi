@@ -69,7 +69,7 @@ from shipping_methods import (
 )
 from auth import log_admin_auth_startup
 from barion_pixel import serve_public_html
-from seo import robots_txt, serve_product_page, serve_storefront_with_meta, sitemap_xml
+from seo import HeadAsGetMiddleware, robots_txt, serve_product_page, serve_storefront_with_meta, sitemap_xml
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
@@ -273,6 +273,7 @@ def _proxy_trusted_hosts() -> str | list[str]:
 if ProxyHeadersMiddleware is not None:
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_proxy_trusted_hosts())
 app.add_middleware(CsrfMiddleware)
+app.add_middleware(HeadAsGetMiddleware)
 
 
 # Production: ``CORS_ALLOWED_ORIGINS`` (vagy ``ALLOWED_ORIGINS``) — vesszővel elválasztott lista, nincs wildcard.

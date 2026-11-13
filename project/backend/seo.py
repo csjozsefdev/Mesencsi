@@ -99,6 +99,37 @@ ROUTE_META: dict[str, RouteMeta] = {
 LEGAL_PATHS: tuple[str, ...] = tuple(p for p in ROUTE_META if p != "/")
 
 
+class HeadAsGetMiddleware:
+    """HEAD → GET (a törzs eldobásával).
+
+    A storefront-útvonalak csak GET-re vannak regisztrálva, ezért a HEAD kérések (crawlerek,
+    linkellenőrzők, monitorok) 404-et kaptak. Tiszta ASGI middleware: a válasz fejlécei változatlanok
+    maradnak (pl. Content-Length), a törzs üres.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope.get("type") != "http" or scope.get("method") != "HEAD":
+            await self.app(scope, receive, send)
+            return
+        scope = dict(scope)
+        scope["method"] = "GET"
+        body_closed = False
+
+        async def send_without_body(message) -> None:
+            nonlocal body_closed
+            if message["type"] == "http.response.body":
+                if body_closed:
+                    return
+                body_closed = True
+                message = {"type": "http.response.body", "body": b"", "more_body": False}
+            await send(message)
+
+        await self.app(scope, receive, send_without_body)
+
+
 # ---------------------------------------------------------------------------
 # Segédfüggvények
 # ---------------------------------------------------------------------------

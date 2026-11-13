@@ -104,3 +104,16 @@ def test_admin_and_password_pages_are_noindex() -> None:
             response = client.get(path)
             if response.status_code == 200:
                 assert "noindex" in response.headers.get("x-robots-tag", ""), path
+
+
+def test_head_requests_work_like_get_without_body() -> None:
+    row = _seed_product("Head termék")
+    with TestClient(app) as client:
+        for path in ("/", "/szallitas", "/robots.txt", "/sitemap.xml", product_path(row.id, row.name), "/style.css"):
+            get = client.get(path)
+            head = client.head(path)
+            assert head.status_code == get.status_code == 200, path
+            assert head.content == b"", path
+            assert head.headers["content-type"] == get.headers["content-type"], path
+        assert client.head("/termek/999999").status_code == 404
+        assert client.head(f"/termek/{row.id}", follow_redirects=False).status_code == 301
