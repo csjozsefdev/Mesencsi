@@ -101,10 +101,28 @@
     return "";
   }
 
+  /** Ugyanaz, mint a backend seo.slugify — eltérés esetén a szerver 301-gyel a kanonikus címre irányít. */
+  function productSlug(name) {
+    const ascii = String(name || "")
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60)
+      .replace(/-+$/g, "");
+    return ascii;
+  }
+
+  function productPageHref(p) {
+    const slug = productSlug(p && p.name);
+    return "/termek/" + String(p.id) + (slug ? "-" + slug : "");
+  }
+
   function buildProductCardMarkup(p, shop) {
     const imgUrl = safeProductImageUrl(p);
     const thumb = imgUrl
-      ? `<div class="product-card__thumb"><img src="${escapeHtml(imgUrl)}" alt="" loading="lazy" decoding="async" /></div>`
+      ? `<div class="product-card__thumb"><img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name)}" loading="lazy" decoding="async" /></div>`
       : `<div class="product-card__thumb" aria-hidden="true">📦</div>`;
     const desc = (p.description && String(p.description).trim()) || "";
     const descBlock = desc ? `<p class="desc">${escapeHtml(desc)}</p>` : "";
@@ -120,7 +138,7 @@
     return `
         <article class="product-card${extraClass}" data-product-id="${escapeHtml(String(p.id))}">
           ${thumb}
-          <h3>${escapeHtml(p.name)}</h3>
+          <h3><a class="product-card__link" href="${escapeHtml(productPageHref(p))}">${escapeHtml(p.name)}</a></h3>
           <p class="price">${escapeHtml(formatPrice(p.price))}</p>
           ${descBlock}
           ${footer}

@@ -69,6 +69,7 @@ from shipping_methods import (
 )
 from auth import log_admin_auth_startup
 from barion_pixel import serve_public_html
+from seo import robots_txt, serve_product_page, serve_storefront_with_meta, sitemap_xml
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
@@ -292,40 +293,44 @@ FRONTEND_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "frontend"))
 
 @app.get("/")
 def read_index():
-    return serve_public_html("mesencsi.html")
+    return serve_storefront_with_meta("/")
 
 
 @app.get("/mesencsi.html")
 def read_mesencsi_alias():
-    """Alias for static-server habits; same storefront as ``/``."""
-    return serve_public_html("mesencsi.html")
+    """Alias for static-server habits; same storefront as ``/`` (canonical points to ``/``)."""
+    return serve_storefront_with_meta("/")
 
 
-def _serve_storefront_shell():
-    """Shared handler for legal/hash SPA routes — frontend renders the view."""
-    return serve_public_html("mesencsi.html")
+def _serve_storefront_shell(path: str):
+    """Shared handler for legal/hash SPA routes — frontend renders the view (per-route SEO head)."""
+    return serve_storefront_with_meta(path)
 
 
 @app.get("/forgot-password.html")
 def forgot_password_page():
-    return serve_public_html("forgot-password.html")
+    resp = serve_public_html("forgot-password.html")
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
 
 
 @app.get("/reset-password.html")
 def reset_password_page():
-    return serve_public_html("reset-password.html")
+    resp = serve_public_html("reset-password.html")
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
 
 
 @app.get("/aszf")
 def read_aszf_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/aszf")
 
 
 @app.get("/adatkezeles")
 def read_adatkezeles_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/adatkezeles")
 
 
 @app.get("/internal/metrics")
@@ -336,32 +341,48 @@ def internal_metrics(request: Request):
 @app.get("/impresszum")
 def read_impresszum_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/impresszum")
 
 
 @app.get("/elallas")
 def read_elallas_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/elallas")
 
 
 @app.get("/szallitas")
 def read_szallitas_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/szallitas")
 
 
 @app.get("/fizetes")
 def read_fizetes_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/fizetes")
 
 
 @app.get("/panaszkezeles")
 def read_panaszkezeles_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/panaszkezeles")
 
 
 @app.get("/sutik")
 def read_sutik_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/sutik")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt_route():
+    return robots_txt()
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml_route(db: Session = Depends(get_db)):
+    return sitemap_xml(db)
+
+
+@app.get("/termek/{product_ref}", include_in_schema=False)
+def read_product_page(product_ref: str, db: Session = Depends(get_db)):
+    """SPA route: szerver oldalon renderelt termékoldal (egyedi title/meta/JSON-LD, 301 a kanonikus slugra)."""
+    return serve_product_page(product_ref, db)
 
 
 @app.get("/site.webmanifest", include_in_schema=False)
@@ -378,6 +399,7 @@ def _admin_html_no_cache_headers() -> dict[str, str]:
     return {
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         "Pragma": "no-cache",
+        "X-Robots-Tag": "noindex, nofollow",
     }
 
 
