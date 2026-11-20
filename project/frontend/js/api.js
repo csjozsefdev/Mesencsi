@@ -76,6 +76,9 @@
         return detailStr;
       return "Be kell jelentkezned, vagy lejárt a belépésed — jelentkezz be újra.";
     }
+    if (status === 413) {
+      return "A feltöltött fájl túl nagy. Válassz kisebb fájlt, majd próbáld újra.";
+    }
     if (status === 429) {
       if (detailStr && detailStr.length > 0 && detailStr.length < 400)
         return detailStr;

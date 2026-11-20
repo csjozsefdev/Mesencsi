@@ -263,6 +263,17 @@ function updateCheckoutAddressConfirmPreview() {
   const box = $("checkoutAddressConfirmBody");
   const wrap = $("checkoutAddressConfirm");
   if (!box || !wrap) return;
+
+  const selected = document.querySelector(
+    'input[name="checkoutShippingMethod"]:checked'
+  );
+  if (selected && selected.value === "personal_pickup") {
+    wrap.hidden = true;
+    wrap.style.display = "none";
+    return;
+  }
+
+  wrap.style.display = "";
   const parts = profileAddressPartsFromInputs("checkoutShip");
   const phoneEl = $("checkoutPhone");
   if (phoneEl) parts.phone = phoneEl.value.trim();
@@ -1803,3 +1814,180 @@ function initMesencsiShop() {
 }
 
 initMesencsiShop();
+
+/* MESENCSI_PROFILE_TABS_V1 */
+(function () {
+  function initProfileTabs() {
+    const form = document.getElementById("profileForm");
+    if (!form || form.dataset.tabsReady === "1") return;
+
+    const required = [
+      "profNickname", "profEmail", "profPhone",
+      "profShipName", "profBillSame", "profBillingBlock",
+      "profShortBio", "profFamilyNote",
+      "profProfileImageUrl", "profAvatarPreviewPh",
+      "profAvatarPresets", "cancelProfileBtn", "profileMsg"
+    ];
+
+    if (required.some(id => !document.getElementById(id))) {
+      console.warn("Profile tabs: missing fields; layout unchanged.");
+      return;
+    }
+
+    const submit = form.querySelector('button[type="submit"]');
+    const address = form.querySelector(".profile-address-block");
+    const billingLabel = form.querySelector(".profile-billing-same");
+    const avatarRow = form.querySelector(".profile-avatar-row");
+    const avatarPresets = document.getElementById("profAvatarPresets");
+    const avatarHidden = document.getElementById("profProfileImageUrl");
+
+    if (!submit || !address || !billingLabel || !avatarRow ||
+        !avatarPresets || !avatarHidden) return;
+
+    const tabs = document.createElement("div");
+    tabs.className = "mes-profile-tabs";
+    tabs.setAttribute("role", "tablist");
+    tabs.setAttribute("aria-label", "Profil szerkesztése");
+
+    const panels = {};
+
+    const config = [
+      ["personal", "Személyes adatok"],
+      ["addresses", "Címeim"],
+      ["about", "Bemutatkozás"]
+    ];
+
+    const switchTab = (active) => {
+      config.forEach(([key]) => {
+        const button = tabs.querySelector(`[data-profile-tab="${key}"]`);
+        const selected = key === active;
+
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        panels[key].hidden = !selected;
+      });
+    };
+
+    config.forEach(([key, title]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mes-profile-tab";
+      button.textContent = title;
+      button.dataset.profileTab = key;
+      button.id = `mes-profile-tab-${key}`;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", `mes-profile-panel-${key}`);
+
+      const panel = document.createElement("div");
+      panel.className = "mes-profile-panel";
+      panel.id = `mes-profile-panel-${key}`;
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+
+      button.addEventListener("click", () => switchTab(key));
+
+      button.addEventListener("keydown", (event) => {
+        const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+        if (!keys.includes(event.key)) return;
+
+        event.preventDefault();
+        const buttons = Array.from(tabs.querySelectorAll('[role="tab"]'));
+        const index = buttons.indexOf(button);
+        const next = event.key === "Home" ? 0 :
+          event.key === "End" ? buttons.length - 1 :
+          (index + (event.key === "ArrowRight" ? 1 : -1)
+            + buttons.length) % buttons.length;
+
+        buttons[next].focus();
+        switchTab(buttons[next].dataset.profileTab);
+      });
+
+      tabs.appendChild(button);
+      panels[key] = panel;
+    });
+
+    const makeGroup = (parent, className = "") => {
+      const group = document.createElement("div");
+      group.className = "mes-profile-group " + className;
+      parent.appendChild(group);
+      return group;
+    };
+
+    const moveField = (id, target) => {
+      const input = document.getElementById(id);
+      const label = Array.from(form.querySelectorAll("label"))
+        .find(el => el.htmlFor === id);
+
+      if (label) target.appendChild(label);
+      if (input) target.appendChild(input);
+    };
+
+    // Személyes adatok
+    const personal = panels.personal;
+    const hint = document.getElementById("profVerifyHint");
+    if (hint) personal.appendChild(hint);
+
+    const personalGrid = makeGroup(personal, "mes-profile-personal-grid");
+
+    moveField("profNickname", makeGroup(personalGrid));
+    moveField("profPhone", makeGroup(personalGrid));
+    moveField("profEmail", makeGroup(personalGrid, "mes-profile-wide"));
+
+    // Profilkép: a meglévő elemeket mozgatjuk, nem másoljuk.
+    const avatarGroup = makeGroup(personal, "mes-profile-avatar");
+
+    const avatarHint = avatarHidden.previousElementSibling;
+    const avatarTitle = avatarHint && avatarHint.previousElementSibling;
+
+    if (avatarTitle && avatarTitle.matches("p")) {
+      avatarGroup.appendChild(avatarTitle);
+    }
+    if (avatarHint && avatarHint.matches("p")) {
+      avatarGroup.appendChild(avatarHint);
+    }
+
+    avatarGroup.appendChild(avatarHidden);
+    avatarGroup.appendChild(avatarRow);
+    avatarGroup.appendChild(avatarPresets);
+
+    // Címeim
+    const addresses = panels.addresses;
+    addresses.appendChild(address);
+    addresses.appendChild(billingLabel);
+    addresses.appendChild(document.getElementById("profBillingBlock"));
+
+    // Bemutatkozás
+    const about = panels.about;
+    moveField("profShortBio", makeGroup(about));
+    moveField("profFamilyNote", makeGroup(about));
+
+    // Közös mentési terület
+    const footer = document.createElement("div");
+    footer.className = "mes-profile-footer";
+
+    const actions = document.createElement("div");
+    actions.className = "mes-profile-actions";
+
+    actions.appendChild(submit);
+    actions.appendChild(document.getElementById("cancelProfileBtn"));
+
+    footer.appendChild(actions);
+    footer.appendChild(document.getElementById("profileMsg"));
+
+    form.prepend(tabs);
+
+    config.forEach(([key]) => form.appendChild(panels[key]));
+    form.appendChild(footer);
+
+    form.classList.add("mes-profile-form");
+    form.dataset.tabsReady = "1";
+
+    switchTab("personal");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initProfileTabs);
+  } else {
+    initProfileTabs();
+  }
+})();

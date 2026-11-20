@@ -560,6 +560,13 @@
     }
   }
 
+  function selectedShippingMethod() {
+    const selected = document.querySelector(
+      'input[name="checkoutShippingMethod"]:checked'
+    );
+    return selected ? selected.value : "gls_home";
+  }
+
   function wireCheckoutForm() {
     const checkoutForm = document.getElementById("checkoutForm");
     if (!checkoutForm || checkoutForm.dataset.checkoutWired === "1") return;
@@ -613,9 +620,12 @@
           cartFeedback(msg, phoneErr, false);
           return;
         }
-        const shipBuilt = deps.checkoutShippingAddressPayload
-          ? deps.checkoutShippingAddressPayload()
-          : { ok: false, errors: [{ message: "Szállítási cím ellenőrzés hiányzik." }] };
+        const shipBuilt =
+          selectedShippingMethod() === "gls_home"
+            ? (deps.checkoutShippingAddressPayload
+                ? deps.checkoutShippingAddressPayload()
+                : { ok: false, errors: [{ message: "Szállítási cím ellenőrzés hiányzik." }] })
+            : { ok: true, json: null, warnings: [] };
         if (!shipBuilt.ok) {
           cartFeedback(
             msg,
@@ -626,7 +636,7 @@
           return;
         }
         const confirmCb = $("checkoutAddressConfirmCb");
-        if (confirmCb && !confirmCb.checked) {
+        if (selectedShippingMethod() === "gls_home" && confirmCb && !confirmCb.checked) {
           cartFeedback(
             msg,
             "Kérjük, erősítsd meg, hogy a szállítási adatok helyesek.",
@@ -657,6 +667,7 @@
           company_website:
             ($("checkoutCompanyWebsite") && $("checkoutCompanyWebsite").value) ||
             "",
+          shipping_method: selectedShippingMethod(),
           shipping_address: shipBuilt.json,
           terms_accepted: termsAccepted,
           privacy_acknowledged: privacyAcknowledged,
@@ -981,9 +992,37 @@
     }
   }
 
+  function updateShippingFields() {
+    const isGls = selectedShippingMethod() === "gls_home";
+    const address = document.querySelector(".checkout-shipping-block");
+    const confirmation = $("checkoutAddressConfirm");
+
+    if (address) {
+      address.hidden = !isGls;
+      address.style.display = isGls ? "" : "none";
+      address.querySelectorAll("input").forEach(function (input) {
+        if (input.dataset.originalRequired === undefined) {
+          input.dataset.originalRequired = input.required ? "1" : "0";
+        }
+        input.required = isGls && input.dataset.originalRequired === "1";
+      });
+    }
+
+    if (confirmation) {
+      confirmation.hidden = !isGls;
+      confirmation.style.display = isGls ? "" : "none";
+    }
+  }
+
   function init(injectedDeps) {
     deps = injectedDeps || {};
     wireCheckoutForm();
+    document.querySelectorAll(
+      'input[name="checkoutShippingMethod"]'
+    ).forEach(function (input) {
+      input.addEventListener("change", updateShippingFields);
+    });
+    updateShippingFields();
     wireCheckoutAuthPanel();
     initPaymentReturnBanner();
     syncCheckoutAuthPanel();

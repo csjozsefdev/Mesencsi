@@ -68,6 +68,7 @@ from shipping_methods import (
     resolve_shipping_price_huf,
 )
 from auth import log_admin_auth_startup
+from seo import HeadAsGetMiddleware, robots_txt, serve_product_page, serve_storefront_with_meta, sitemap_xml
 from cors_config import resolve_cors_allow_origins
 from frontend_assets import ensure_page_background_at_startup
 from openapi_docs import fastapi_openapi_kwargs
@@ -271,6 +272,7 @@ def _proxy_trusted_hosts() -> str | list[str]:
 if ProxyHeadersMiddleware is not None:
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_proxy_trusted_hosts())
 app.add_middleware(CsrfMiddleware)
+app.add_middleware(HeadAsGetMiddleware)
 
 
 # Production: ``CORS_ALLOWED_ORIGINS`` (vagy ``ALLOWED_ORIGINS``) — vesszővel elválasztott lista, nincs wildcard.
@@ -291,33 +293,30 @@ FRONTEND_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "frontend"))
 
 @app.get("/")
 def read_index():
-    path = os.path.join(FRONTEND_DIR, "mesencsi.html")
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail="A kezdőlap fájlja nem található a szerveren.")
-    return FileResponse(path)
+    return serve_storefront_with_meta("/")
 
 
 @app.get("/mesencsi.html")
 def read_mesencsi_alias():
-    """Alias for static-server habits; same storefront as ``/``."""
-    return read_index()
+    """Alias for static-server habits; same storefront as ``/`` (canonical points to ``/``)."""
+    return serve_storefront_with_meta("/")
 
 
-def _serve_storefront_shell():
-    """Shared handler for legal/hash SPA routes — frontend renders the view."""
-    return read_index()
+def _serve_storefront_shell(path: str):
+    """Shared handler for legal/hash SPA routes — frontend renders the view (per-route SEO head)."""
+    return serve_storefront_with_meta(path)
 
 
 @app.get("/aszf")
 def read_aszf_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/aszf")
 
 
 @app.get("/adatkezeles")
 def read_adatkezeles_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/adatkezeles")
 
 
 @app.get("/internal/metrics")
@@ -328,32 +327,48 @@ def internal_metrics(request: Request):
 @app.get("/impresszum")
 def read_impresszum_page():
     """SPA route: serve storefront shell and let the frontend render."""
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/impresszum")
 
 
 @app.get("/elallas")
 def read_elallas_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/elallas")
 
 
 @app.get("/szallitas")
 def read_szallitas_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/szallitas")
 
 
 @app.get("/fizetes")
 def read_fizetes_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/fizetes")
 
 
 @app.get("/panaszkezeles")
 def read_panaszkezeles_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/panaszkezeles")
 
 
 @app.get("/sutik")
 def read_sutik_page():
-    return _serve_storefront_shell()
+    return _serve_storefront_shell("/sutik")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt_route():
+    return robots_txt()
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml_route(db: Session = Depends(get_db)):
+    return sitemap_xml(db)
+
+
+@app.get("/termek/{product_ref}", include_in_schema=False)
+def read_product_page(product_ref: str, db: Session = Depends(get_db)):
+    """SPA route: szerver oldalon renderelt termékoldal (egyedi title/meta/JSON-LD, 301 a kanonikus slugra)."""
+    return serve_product_page(product_ref, db)
 
 
 @app.get("/site.webmanifest", include_in_schema=False)
@@ -370,6 +385,7 @@ def _admin_html_no_cache_headers() -> dict[str, str]:
     return {
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         "Pragma": "no-cache",
+        "X-Robots-Tag": "noindex, nofollow",
     }
 
 
@@ -526,7 +542,6 @@ def create_order(
 
     checkout_group_id = str(uuid.uuid4())
     accepted_at = datetime.now(UTC)
-    origin/main
     order_notes = order.notes.strip() if order.notes else None
     rows: list[ShopOrder] = []
     for pl in priced.lines:

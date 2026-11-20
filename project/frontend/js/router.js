@@ -19,6 +19,7 @@
     "fizetes",
     "panaszkezeles",
     "sutik",
+    "product",
   ];
 
   /** @type {Record<string, Function>} */
@@ -128,6 +129,7 @@
     if (pathname === "/fizetes") return "fizetes";
     if (pathname === "/panaszkezeles") return "panaszkezeles";
     if (pathname === "/sutik") return "sutik";
+    if (pathname.indexOf("/termek/") === 0 && $("view-product")) return "product";
     return "home";
   }
 

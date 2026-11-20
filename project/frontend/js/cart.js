@@ -17,6 +17,7 @@
   let _checkoutEstimateSig = "";
   let _lastOrderEstimate = null;
   let _cartEstimateTimer = null;
+  let _estimateGeneration = 0;
   let _cartServerSyncTimer = null;
   let _userDiscountPickerBound = false;
   let cartQtyToastTimer = null;
@@ -129,12 +130,19 @@
     return _checkoutEstimateSig;
   }
 
+  function selectedShippingMethod() {
+    const selected = document.querySelector(
+      'input[name="checkoutShippingMethod"]:checked'
+    );
+    return selected ? selected.value : "gls_home";
+  }
+
   function cartSignature() {
     return _cart
       .map(function (c) {
         return String(c.id) + ":" + String(Math.floor(Number(c.quantity)) || 0);
       })
-      .join("|");
+      .join("|") + "|shipping:" + selectedShippingMethod();
   }
 
   function getStoredCheckoutCoupon() {
@@ -387,10 +395,14 @@
   }
 
   function scheduleCartPricingEstimate() {
+    const generation = ++_estimateGeneration;
+    _lastOrderEstimate = null;
+    _checkoutEstimateSig = "";
     if (_cartEstimateTimer) clearTimeout(_cartEstimateTimer);
+    updateCartUI();
     _cartEstimateTimer = setTimeout(async function () {
       _cartEstimateTimer = null;
-      if (!isLoggedIn() || !_cart.length) return;
+      if (!_cart.length) return;
       try {
         const sigBefore = cartSignature();
         const est = await api("/orders/estimate", {
@@ -399,10 +411,14 @@
             items: _cart.map(function (c) {
               return { product_id: c.id, quantity: c.quantity };
             }),
+            shipping_method: selectedShippingMethod(),
             coupon_code: _checkoutCouponCode || null,
           }),
         });
-        if (sigBefore !== cartSignature()) return;
+        if (
+          generation !== _estimateGeneration ||
+          sigBefore !== cartSignature()
+        ) return;
         _lastOrderEstimate = est;
         _checkoutEstimateSig = cartSignature();
         _checkoutCouponCode = (est && est.coupon_code) || null;
@@ -489,14 +505,32 @@
         .join("");
 
       const sig2 = cartSignature();
+      const productsEl = $("cartProductsTotal");
+      const shippingEl = $("cartShippingTotal");
+
       if (_lastOrderEstimate && _checkoutEstimateSig === sig2) {
-        totalEl.textContent = formatPrice(_lastOrderEstimate.grand_final);
+        const est = _lastOrderEstimate;
+
+        if (productsEl) {
+          productsEl.textContent = formatPrice(est.products_grand_final);
+        }
+        if (shippingEl) {
+          shippingEl.textContent = formatPrice(est.shipping_price);
+        }
+
+        totalEl.textContent = formatPrice(est.grand_final);
         if (coupLine) {
           coupLine.hidden = false;
           coupLine.textContent = formatOrderEstimateSummary(_lastOrderEstimate);
         }
       } else {
-        totalEl.textContent = formatPrice(grand);
+        if (productsEl) {
+          productsEl.textContent = formatPrice(grand);
+        }
+        if (shippingEl) {
+          shippingEl.textContent = "Kalkuláció alatt";
+        }
+        totalEl.textContent = "Kalkuláció alatt";
         if (coupLine) {
           coupLine.hidden = true;
           coupLine.textContent = "";
@@ -570,6 +604,7 @@
           items: _cart.map(function (c) {
             return { product_id: c.id, quantity: c.quantity };
           }),
+          shipping_method: selectedShippingMethod(),
           coupon_code: code,
         }),
       });
@@ -699,7 +734,7 @@
         if (!Number.isFinite(q) || q < 1) q = 1;
         _cart[i].quantity = q;
         updateCartUI();
-        if (isLoggedIn() && _cart.length) scheduleCartPricingEstimate();
+        if (_cart.length) scheduleCartPricingEstimate();
         if (notify) {
           if (!cartQtyToastTimer) {
             cartQtyToastTimer = setTimeout(function () {
@@ -728,6 +763,17 @@
   function init(injectedDeps) {
     deps = injectedDeps || {};
     wireCartUi();
+
+    document.querySelectorAll(
+      'input[name="checkoutShippingMethod"]'
+    ).forEach(function (input) {
+      input.addEventListener("change", function () {
+        updateCartUI();
+        if (_cart.length) {
+          scheduleCartPricingEstimate();
+        }
+      });
+    });
   }
 
   ns.cart = {

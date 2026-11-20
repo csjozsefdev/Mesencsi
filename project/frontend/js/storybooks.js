@@ -15,6 +15,7 @@
     cover_url: "",
     pages: [],
     spreadIndex: 0,
+    pageIndex: 0, // Exact reading position when the mobile reader shows one page.
     isPageTurning: false,
     turnDirection: null,
   };
@@ -41,6 +42,34 @@
       readerOut: $("storybooksReaderOut"),
     };
   }
+
+  // Keep this query identical to the single-column media rule in style.css.
+  const SINGLE_PAGE_QUERY = "(max-width: 900px)";
+  let viewportModeWired = false;
+
+  function storybookSinglePageMode() {
+    return !!(window.matchMedia && window.matchMedia(SINGLE_PAGE_QUERY).matches);
+  }
+
+  function wireStorybookViewportMode() {
+    if (viewportModeWired || !window.matchMedia) return;
+    viewportModeWired = true;
+    const mq = window.matchMedia(SINGLE_PAGE_QUERY);
+    function onModeChange() {
+      const els = storybookEls();
+      if (!els.publicReader || els.publicReader.hidden || !storybookReaderState.pages.length) return;
+      // Do not replace the DOM halfway through the desktop page-turn animation.
+      if (storybookReaderState.isPageTurning) {
+        pendingViewportSync = true;
+        return;
+      }
+      renderStorybookReaderV2();
+    }
+    if (mq.addEventListener) mq.addEventListener("change", onModeChange);
+    else if (mq.addListener) mq.addListener(onModeChange);
+  }
+
+  let pendingViewportSync = false;
 
   function setStorybookImmersive(on) {
     const SBR2 = window.MesencsiStorybookReaderV2;
@@ -113,6 +142,7 @@
     const st = storybookReaderState;
     SBR2.syncV2NavState(out, {
       spreadIndex: st.spreadIndex,
+      singlePageIndex: storybookSinglePageMode() ? st.pageIndex : null,
       pages: st.pages || [],
       busy: st.isPageTurning,
     });
@@ -144,6 +174,7 @@
 
     wireStorybookKeyboard();
     wireStorybookV2Nav(out);
+    wireStorybookViewportMode();
 
     const st = storybookReaderState;
     const pages = st.pages || [];
@@ -155,8 +186,15 @@
       return true;
     }
 
+    const singlePage = storybookSinglePageMode();
+    if (singlePage) {
+      const requested = typeof opts.targetPageIndex === "number"
+        ? opts.targetPageIndex : st.pageIndex;
+      st.pageIndex = Math.max(0, Math.min(pages.length - 1, Math.floor(requested || 0)));
+      st.spreadIndex = SBR.spreadIndexForPageIndex(st.pageIndex);
+    }
     const spreadIndex =
-      typeof opts.targetSpreadIndex === "number"
+      typeof opts.targetSpreadIndex === "number" && !singlePage
         ? opts.targetSpreadIndex
         : st.spreadIndex;
 
@@ -165,7 +203,8 @@
       pages: pages,
       currentSpreadIndex: st.spreadIndex,
       targetSpreadIndex: spreadIndex,
-      direction: opts.direction,
+      singlePageIndex: singlePage ? st.pageIndex : null,
+      direction: singlePage ? null : opts.direction,
       panelOpts: panelOpts(),
       isAnimating: function () {
         return storybookReaderState.isPageTurning;
@@ -175,6 +214,11 @@
       },
       onSpreadCommitted: function (newSpreadIndex) {
         storybookReaderState.spreadIndex = newSpreadIndex;
+        // Desktop spread changes focus the first page of the new spread.
+        // A resize alone does not overwrite an odd-numbered mobile page.
+        if (!singlePage && opts.direction) {
+          storybookReaderState.pageIndex = newSpreadIndex * 2;
+        }
       },
       preloadAdjacent: function () {
         SBR.preloadSpreadImages(
@@ -213,11 +257,22 @@
   function setReaderBusy(busy, direction) {
     storybookReaderState.isPageTurning = !!busy;
     storybookReaderState.turnDirection = busy ? direction || null : null;
+    if (!busy && pendingViewportSync) {
+      pendingViewportSync = false;
+      renderStorybookReaderV2();
+    }
   }
 
   function navigateStorybookSpread(direction) {
     if (storybookReaderState.isPageTurning || !SBR) return false;
     const pages = storybookReaderState.pages || [];
+    if (storybookSinglePageMode()) {
+      const step = direction === "next" ? 1 : direction === "prev" ? -1 : 0;
+      const nextPage = storybookReaderState.pageIndex + step;
+      if (!step || nextPage < 0 || nextPage >= pages.length) return false;
+      renderStorybookReader({ targetPageIndex: nextPage });
+      return true;
+    }
     const si = storybookReaderState.spreadIndex;
     let target = null;
     if (direction === "prev") {
@@ -363,6 +418,7 @@
         cover_url: book.cover_image_url || "",
         pages,
         spreadIndex,
+        pageIndex: pageIdx,
         isPageTurning: false,
         turnDirection: null,
       };

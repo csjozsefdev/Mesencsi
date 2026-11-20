@@ -2719,6 +2719,26 @@ height: 28px;
 .legal-prose ul {
   margin: 0.5rem 0 0.75rem 1.1rem;
 }
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 0.5rem 0 1rem;
+}
+.legal-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.legal-prose th,
+.legal-prose td {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  text-align: left;
+  vertical-align: top;
+  color: var(--text);
+}
+.legal-prose th {
+  background: rgba(0, 0, 0, 0.05);
+}
 .legal-meta {
   margin-top: 1.1rem;
   padding-top: 0.9rem;
@@ -5754,12 +5774,14 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
   .storybook-v2-root .sbv2-open-book {
     width: min(96vw, 100%);
-    height: min(78dvh, calc(100dvh - 64px));
+    /* Use the available viewport height, especially in landscape. */
+    height: min(90dvh, calc(100dvh - 64px));
   }
   .storybook-v2-root .sbv2-spread {
     grid-template-columns: 1fr;
   }
-  .storybook-v2-root .sbv2-spread::after {
+  .storybook-v2-root .sbv2-spread::after,
+  .storybook-v2-root .sbv2-spread::before {
     display: none;
   }
   .storybook-v2-root .sbv2-spine {
@@ -5767,6 +5789,30 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
   .storybook-v2-root .sbv2-page--right {
     display: none;
+  }
+  /* In single-page mode the visible slot is a full sheet, not half a spread. */
+  .storybook-v2-root .sbv2-page--left {
+    border-radius: 5px;
+    box-shadow: none;
+  }
+  .storybook-v2-root .sbv2-page--left::before,
+  .storybook-v2-root .sbv2-page--left::after {
+    display: none;
+  }
+  .storybook-v2-root .sbv2-page--left .sbv2-page__content {
+    transform: none;
+    margin: 0.3rem;
+    padding: 0.45rem;
+    border-radius: 5px;
+    box-shadow: var(--sbv2-flip-paper-shadow);
+  }
+  /* User-authored text box sizes remain intact; scroll the box rather than
+     clipping paragraphs when the mobile viewport is too short. */
+  .storybook-v2-root .sbv2-obj--text {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .storybook-v2-root .sbv2-hit-layer {
     grid-template-columns: 1fr;
@@ -5776,7 +5822,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     right: 0;
     top: 0;
     bottom: 0;
-    width: 42%;
+    width: clamp(36px, 12%, 64px);
     grid-column: auto;
   }
   .storybook-v2-root .sbv2-hit-zone--prev {
@@ -5784,7 +5830,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     left: 0;
     top: 0;
     bottom: 0;
-    width: 42%;
+    width: clamp(36px, 12%, 64px);
     grid-column: auto;
   }
 }
@@ -5887,4 +5933,208 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 
 .cookie-choice {
   margin: 1rem 0;
+}
+/* Termékoldal (/termek/<id>-<slug>) és a kártyák linkje */
+.product-card h3 a.product-card__link{color:inherit;text-decoration:none}
+.product-card h3 a.product-card__link:hover,.product-card h3 a.product-card__link:focus-visible{text-decoration:underline}
+.product-detail__image img{display:block;max-width:100%;max-height:26rem;margin:0 auto 1rem;border-radius:12px}
+.product-detail__price{font-size:1.4rem;font-weight:700;margin:.25rem 0 .75rem}
+.product-detail__desc p{margin:.5rem 0}
+.product-detail__note{margin-top:1.25rem;opacity:.85}
+
+/* MESENCSI_PROFILE_TABS_V1 */
+
+#profileEditPanel .mes-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+#profileEditPanel .mes-profile-tabs {
+  display: flex;
+  gap: 0.45rem;
+  padding: 0.3rem;
+  border-radius: 13px;
+  background: rgba(101, 65, 36, 0.13);
+}
+
+#profileEditPanel .mes-profile-tab {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 0.7rem 0.55rem;
+  color: #53331f;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+#profileEditPanel .mes-profile-tab[aria-selected="true"] {
+  background: linear-gradient(180deg, #a9764e, #754322);
+  color: white;
+  border-color: rgba(255, 230, 195, 0.75);
+  box-shadow: 0 2px 6px rgba(62, 35, 18, 0.18);
+}
+
+#profileEditPanel .mes-profile-tab:focus-visible {
+  outline: 3px solid #dfae65;
+  outline-offset: 2px;
+}
+
+#profileEditPanel .mes-profile-panel[hidden] {
+  display: none !important;
+}
+
+#profileEditPanel .mes-profile-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+#profileEditPanel .mes-profile-personal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem 0.9rem;
+}
+
+#profileEditPanel .mes-profile-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+#profileEditPanel .mes-profile-wide {
+  grid-column: 1 / -1;
+}
+
+#profileEditPanel .mes-profile-group input,
+#profileEditPanel .mes-profile-group textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#profileEditPanel .mes-profile-panel label {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+#profileEditPanel .mes-profile-panel input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]) {
+  min-height: 39px;
+  padding: 0.45rem 0.65rem;
+  box-sizing: border-box;
+}
+
+#profileEditPanel .mes-profile-panel textarea {
+  min-height: 85px;
+  padding: 0.6rem;
+  resize: vertical;
+}
+
+#profileEditPanel .mes-profile-avatar {
+  margin-top: 0.3rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(112, 74, 40, 0.22);
+}
+
+#profileEditPanel .profile-avatar-row {
+  gap: 0.6rem;
+  margin: 0.15rem 0;
+}
+
+#profileEditPanel .profile-avatar-preview-wrap {
+  width: 58px;
+  height: 58px;
+}
+
+#profileEditPanel .profile-avatar-presets {
+  margin-top: 0.25rem;
+}
+
+#profileEditPanel .profile-address-block {
+  margin: 0;
+  padding: 0.6rem;
+}
+
+#profileEditPanel .profile-address-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem 0.85rem;
+  align-items: end;
+}
+
+#profileEditPanel .profile-address-grid .profile-field--wide {
+  grid-column: 1 / -1;
+}
+
+#profileEditPanel .profile-address-grid .profile-field--zip {
+  max-width: none;
+}
+
+#profileEditPanel .profile-address-grid input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#profileEditPanel #profBillingBlock[hidden] {
+  display: none !important;
+}
+
+#profileEditPanel .mes-profile-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 0.65rem 0 0;
+  background: rgba(238, 224, 199, 0.94);
+  border-top: 1px solid rgba(105, 69, 37, 0.2);
+  border-radius: 0 0 10px 10px;
+}
+
+#profileEditPanel .mes-profile-actions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+#profileEditPanel .mes-profile-actions .auth-btn-submit {
+  flex: 1;
+  width: auto;
+  margin: 0;
+}
+
+#profileEditPanel .mes-profile-actions .auth-btn-ghost {
+  width: auto;
+  margin: 0;
+}
+
+#profileEditPanel #profileMsg:empty {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  #profileEditPanel .mes-profile-tab {
+    font-size: 0.68rem;
+    padding: 0.65rem 0.25rem;
+  }
+
+  #profileEditPanel .mes-profile-personal-grid,
+  #profileEditPanel .profile-address-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #profileEditPanel .mes-profile-wide,
+  #profileEditPanel .profile-address-grid .profile-field--wide {
+    grid-column: auto;
+  }
+
+  #profileEditPanel .mes-profile-actions {
+    flex-direction: column;
+  }
 }
