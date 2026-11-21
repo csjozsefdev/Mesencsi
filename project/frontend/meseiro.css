@@ -1,0 +1,74 @@
+/* Nyitási akció: a szerkesztő felhasználói módja (/meseiro) — az admin funkciók elrejtése. */
+html.meseiro .admin-topnav__links > .admin-nav-item:not([data-nav="storybooks"]):not(#logoutBtn),
+html.meseiro #view-dashboard,
+html.meseiro #sbToolbar,
+html.meseiro [data-sb-publish],
+html.meseiro [data-sb-unpublish],
+html.meseiro [data-meseiro-hide],
+html.meseiro #btnSbCurPageAud,
+html.meseiro #sbCurPageAudStatus,
+html.meseiro .back-row {
+  display: none !important;
+}
+
+.meseiro-block {
+  max-width: 34rem;
+  margin: 12vh auto;
+  padding: 0 1.25rem;
+  text-align: center;
+  font-family: inherit;
+}
+.meseiro-block h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.75rem;
+}
+.meseiro-block .btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.meseiro-note {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--admin-muted, #6b5a45);
+}
+
+.meseiro-dlg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(30, 20, 10, 0.55);
+}
+.meseiro-dlg {
+  width: min(32rem, 100%);
+  max-height: 92dvh;
+  overflow: auto;
+  padding: 1.25rem;
+  border-radius: 14px;
+}
+.meseiro-dlg h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+.meseiro-consent {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0.75rem 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.meseiro-consent input {
+  margin-top: 0.25rem;
+  flex: none;
+}
+.meseiro-err {
+  margin: 0.25rem 0 0.75rem;
+  color: #b3261e;
+  font-weight: 600;
+}

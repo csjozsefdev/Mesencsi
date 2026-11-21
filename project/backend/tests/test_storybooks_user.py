@@ -342,3 +342,17 @@ def test_admin_can_edit_submitted_book_before_publishing(client: TestClient, ali
     )
     assert r.status_code == 200
     assert r.json()["pages"][0]["body_text"] == "Admin javította"
+
+
+# ------------------------------------------------------------ /meseiro oldal
+
+
+def test_meseiro_page_flag_and_injection(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    r = client.get("/meseiro")
+    assert r.status_code == 200
+    assert '<script src="/meseiro.js"></script>' in r.text and '/meseiro.css' in r.text
+    # a shim az auth.js UTÁN, a fő script ELŐTT töltődik
+    assert r.text.index('src="/auth.js"') < r.text.index('src="/meseiro.js"') < r.text.index("MesencsiAdminAuth;")
+    assert "noindex" in r.headers.get("x-robots-tag", "")
+    monkeypatch.delenv("USER_STORYBOOKS_ENABLED", raising=False)
+    assert client.get("/meseiro").status_code == 404

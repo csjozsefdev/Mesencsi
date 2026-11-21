@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -47,6 +49,7 @@ from storybook_submissions import (
 )
 
 router = APIRouter(prefix="/my/storybooks", tags=["my-storybooks"])
+page_router = APIRouter(tags=["my-storybooks"])
 admin_router = APIRouter(prefix="/storybook-submissions", tags=["admin-storybook-submissions"])
 
 _USER_MAX_IMAGE_BYTES = 3 * 1024 * 1024
@@ -571,3 +574,37 @@ def admin_return_to_author(
     book.description = with_author_marker(book.description, None)
     db.commit()
     return admin_pending_count(db=db, _admin=_admin)
+
+
+# ---------------------------------------------------------------- /meseiro oldal
+
+_FRONTEND_DIR = (Path(__file__).resolve().parents[2] / "frontend").resolve()
+_AUTH_SCRIPT_TAG = '<script src="/auth.js"></script>'
+
+
+@page_router.get("/meseiro", include_in_schema=False)
+def meseiro_page() -> HTMLResponse:
+    """A meglévő admin szerkesztő felhasználói módban: az admin.html + /meseiro.js + /meseiro.css.
+
+    A szerver mindig az éppen élő admin.html-t szolgálja ki (nincs másolat, ami elavulhatna);
+    kikapcsolt funkciónál 404.
+    """
+    require_feature()
+    src = _FRONTEND_DIR / "admin.html"
+    if not src.is_file():
+        raise HTTPException(status_code=404, detail="Nem található.")
+    html = src.read_text(encoding="utf-8")
+    if _AUTH_SCRIPT_TAG not in html or "</head>" not in html:
+        raise HTTPException(status_code=503, detail="A szerkesztő oldal jelenleg nem elérhető.")
+    script_tag = _AUTH_SCRIPT_TAG + "\n    " + '<script src="/meseiro.js"></script>'
+    css_tag = '    <link rel="stylesheet" href="/meseiro.css" />' + "\n  </head>"
+    html = html.replace(_AUTH_SCRIPT_TAG, script_tag, 1)
+    html = html.replace("</head>", css_tag, 1)
+    return HTMLResponse(
+        html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
