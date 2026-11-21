@@ -1,10 +1,12 @@
-/* Mesekönyv olvasó, telefonon: a szöveg olvasható marad, és soha nem marad ki.
- * Ha egy lap szövege nem fér ki a szövegdobozba, a betűméretet csökkentjük (legfeljebb 12 px-ig);
- * ha így sem fér ki, a szövegdoboz legörgethető (a jelzés: elhalványodó alsó szél, vékony görgetősáv).
- * Csak telefonos nézetben (álló és fekvő) fut. Álló telefonon "fordítsd el a telefont" jelzést mutat. */
+/* Mesekönyv olvasó: a szöveg olvasható marad, és soha nem marad ki.
+ * Az automatikus szövegdoboz a sarokdíszek (fa, iskola) alatt kezdődik (nagy kijelzőn), telefonon szélesebb és magasabb.
+ * Ha egy lap szövege nem fér ki, a betűméretet csökkentjük (nagy kijelzőn legfeljebb 14,5 px-ig, telefonon 12 px-ig);
+ * ha így sem fér ki, a szövegdoboz legörgethető (jelzés: elhalványodó alsó szél, vékony görgetősáv).
+ * Álló telefonon "fordítsd el a telefont" jelzést mutat. */
 (function () {
   "use strict";
-  var MIN_PX = 12;
+  var MIN_PX_PHONE = 12;
+  var MIN_PX_DESK = 14.5;
   var PHONE =
     "(max-width: 900px) and (orientation: portrait), (max-width: 560px), (orientation: landscape) and (max-height: 520px)";
   var mq = window.matchMedia ? window.matchMedia(PHONE) : null;
@@ -19,24 +21,31 @@
     var t = box.querySelector(".sb-canvas-text") || box;
     if (t.dataset.fitOrig === undefined) t.dataset.fitOrig = t.getAttribute("style") || "";
     t.setAttribute("style", t.dataset.fitOrig); // mindig az eredeti mérettől indulunk
-    if (!mq || !mq.matches) {
-      box.classList.remove("sbv2-more");
-      return;
-    }
-    // az automatikus (nem kézzel elhelyezett) szövegdoboz telefonon szélesebb és magasabb: több hely a szövegnek
     var st = box.getAttribute("style") || "";
     if (box.dataset.fitBox === undefined) box.dataset.fitBox = st;
     box.setAttribute("style", box.dataset.fitBox);
-    if (/left:\s*6%;\s*top:\s*6%;\s*width:\s*88%;\s*height:\s*88%/.test(box.dataset.fitBox)) {
-      box.style.left = "3%";
-      box.style.top = "3%";
-      box.style.width = "94%";
-      box.style.height = "94%";
+    var legacy = /left:\s*6%;\s*top:\s*6%;\s*width:\s*88%;\s*height:\s*88%/.test(box.dataset.fitBox);
+    var phone = !!(mq && mq.matches);
+    var minPx = phone ? MIN_PX_PHONE : MIN_PX_DESK;
+    if (legacy) {
+      if (phone) {
+        // telefonon: szélesebb és magasabb doboz, több hely a szövegnek
+        box.style.left = "3%";
+        box.style.top = "3%";
+        box.style.width = "94%";
+        box.style.height = "94%";
+      } else {
+        // nagy kijelzőn: a doboz a sarokdíszek (fa, iskola) alatt kezdődik, nem fölöttük
+        box.style.left = "9%";
+        box.style.top = "25%";
+        box.style.width = "82%";
+        box.style.height = "69%";
+      }
     }
     var px = parseFloat(getComputedStyle(t).fontSize) || 16;
     var guard = 0;
-    while (box.scrollHeight > box.clientHeight + 1 && px > MIN_PX && guard++ < 14) {
-      px = Math.max(MIN_PX, px * 0.94);
+    while (box.scrollHeight > box.clientHeight + 1 && px > minPx && guard++ < 16) {
+      px = Math.max(minPx, px * 0.95);
       t.style.fontSize = px.toFixed(2) + "px";
     }
     if (!box.dataset.fitScroll) {
