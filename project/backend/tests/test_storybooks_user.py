@@ -356,3 +356,37 @@ def test_meseiro_page_flag_and_injection(client: TestClient, monkeypatch: pytest
     assert "noindex" in r.headers.get("x-robots-tag", "")
     monkeypatch.delenv("USER_STORYBOOKS_ENABLED", raising=False)
     assert client.get("/meseiro").status_code == 404
+
+
+# ------------------------------------------------------------ admin lista: nincs zaj a félkész piszkozatokból
+
+
+def _admin_ids(client: TestClient, query: str = "") -> set[int]:
+    r = client.get("/admin/storybooks" + query, headers=admin_headers())
+    assert r.status_code == 200, r.text
+    return {b["id"] for b in r.json()}
+
+
+def test_admin_list_hides_user_drafts_until_submitted(client: TestClient, alice: dict) -> None:
+    own = client.post("/admin/storybooks", json={"title": "Admin mese"}, headers=admin_headers()).json()
+    draft = _create(client, alice, "Félkész")
+    done = _create(client, alice, "Kész")
+    _page(client, alice, done["id"])
+
+    assert _admin_ids(client) == {own["id"]}
+    assert _admin_ids(client, "?visibility=draft") == {own["id"]}
+
+    assert _submit(client, alice, done["id"]).status_code == 200
+    assert _admin_ids(client) == {own["id"], done["id"]}
+    assert draft["id"] not in _admin_ids(client)
+
+    # visszaküldve: újra piszkozat, újra eltűnik az admin listáról
+    client.post(f"/admin/storybook-submissions/{done['id']}/return", json={}, headers=admin_headers())
+    assert _admin_ids(client) == {own["id"]}
+
+    # publikálás után mindenképp látszik
+    assert _submit(client, alice, done["id"]).status_code == 200
+    client.patch(f"/admin/storybooks/{done['id']}", json={"is_published": True}, headers=admin_headers())
+    assert done["id"] in _admin_ids(client, "?visibility=published")
+    # az admin közvetlenül még elérheti a piszkozatot id alapján
+    assert client.get(f"/admin/storybooks/{draft['id']}", headers=admin_headers()).status_code == 200

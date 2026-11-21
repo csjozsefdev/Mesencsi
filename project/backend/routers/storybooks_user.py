@@ -27,6 +27,7 @@ from db_models import AppUser, DigitalStorybook, DigitalStorybookPage
 from dependencies import CurrentAdmin, require_email_verified_shop_user, require_role
 from models import (
     AdminImageUploadResponse,
+    StorybookAdminListItem,
     StorybookAdminRead,
     StorybookPageCreate,
     StorybookPageUpdate,
@@ -495,6 +496,27 @@ def my_withdraw(book_id: int, db: Session = Depends(get_db), user: AppUser = Dep
 
 def _pending_filter():
     return (UserStorybookSubmission.status == STATUS_SUBMITTED) & (DigitalStorybook.is_published.is_(False))
+
+
+@page_router.get("/admin/storybooks", response_model=list[StorybookAdminListItem], include_in_schema=False)
+def admin_list_storybooks_without_user_drafts(
+    visibility: Literal["all", "draft", "published"] = Query("all"),
+    db: Session = Depends(get_db),
+    _admin: CurrentAdmin = Depends(require_role(["maintenance", "owner"])),
+):
+    """Az admin Mesekönyvek listája: a felhasználók félkész piszkozatai nem jelennek meg, csak a beküldöttek.
+
+    Ez a végpont a mesekönyvek eredeti admin listája előtt van regisztrálva, és annak eredményét szűri.
+    A felhasználói piszkozat az admin számára csak a beküldés után látszik (a visszaküldött is eltűnik).
+    """
+    rows = adm.admin_list_storybooks(visibility=visibility, db=db, _admin=_admin)
+    ensure_submissions_table()
+    hidden = set(
+        db.scalars(select(UserStorybookSubmission.book_id).where(UserStorybookSubmission.status == STATUS_DRAFT)).all()
+    )
+    if not hidden:
+        return rows
+    return [r for r in rows if r.id not in hidden or r.is_published]
 
 
 @admin_router.get("/pending-count", response_model=SubmissionPendingCount)
