@@ -6288,6 +6288,17 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     background-image: url("/images/storybook/book-open-1400.webp");
   }
 }
+/* A könyv képén a renderelés fénycsíkjai és árnyékai (fénysugár a lombon át, a lapok görbülése)
+   halványodnak, hogy ne zavarják a szöveget. A réteg a kép alatti lapterületet fedi, a tartalom fölötte van. */
+.storybook-v2-root .sbv2-open-book::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 4% 7% 3.5%;
+  border-radius: 10px;
+  background: rgba(251, 243, 220, 0.42);
+  pointer-events: none;
+}
 /* =====================================================================
    Telefonos olvasó.
    Fekvő telefon: a könyv megmarad, de a kijelző teljes szélességére nyúlik (a lapok így nagyok),
@@ -6405,7 +6416,8 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
 
   /* "Mégis így olvasom": egyoldalas, teljes szélességű lap */
-  #storybooksPublicReader[data-portrait-ok] .sbv2-rotate-hint {
+  #storybooksPublicReader[data-portrait-ok] .sbv2-rotate-hint,
+  #storybooksPublicReader[data-portrait-ok] .sbv2-open-book::before {
     display: none;
   }
   #storybooksPublicReader[data-portrait-ok] {
