@@ -4632,7 +4632,10 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   z-index: 1;
   flex: 1;
   min-height: 0;
-  width: 100%;
+  /* width:100% + oldalsó margó = a keret a könyv szélén túlnyúlt és a jobb oldala lemetsződött
+     (mobilon ~9 px). A margó levonásával a flex-stretch tölti ki a szélességet. */
+  width: auto;
+  align-self: stretch;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -5952,8 +5955,10 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 }
 /* Single-column collapse starts at 900px (not 600px): a 2-column spread with
    each page under ~450px wide is measurably more cramped than one full-width
-   page, so keeping 2 columns down to 600px left a "worse than mobile" band. */
-@media (max-width: 900px) {
+   page, so keeping 2 columns down to 600px left a "worse than mobile" band.
+   Fekvő telefon (landscape) viszont az asztali kétoldalas nézetet kapja: az egyoldalas
+   nézet csak álló tájolásnál (vagy nagyon keskeny, <=560px képernyőn) kell. */
+@media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
   .storybook-v2-root {
     --sbv2-spine-width: 16px;
   }
@@ -6100,3 +6105,215 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 .product-detail__price{font-size:1.4rem;font-weight:700;margin:.25rem 0 .75rem}
 .product-detail__desc p{margin:.5rem 0}
 .product-detail__note{margin-top:1.25rem;opacity:.85}
+
+/* ----- Mesekönyv olvasó: asztali nézet kisebb képernyőn (fekvő telefon) -----
+   A szöveg mérete a lap (object-canvas) méretéhez igazodik: az 500x460 px-es lapon 1:1 (ott kifér
+   a leghosszabb oldal is), kisebb lapon arányosan kisebb (de legalább 0,6x, hogy olvasható maradjon),
+   nagyobbon nem nő 1 px/px fölé. */
+#storybooksPublicReader .sbv2-object-canvas-stage {
+  container-type: size;
+}
+#storybooksPublicReader .sbv2-obj--text {
+  --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 500), calc(100cqh / 460)));
+  overflow-y: auto; /* ha mégsem fér ki: görgethető, ne vágja le */
+  -webkit-overflow-scrolling: touch;
+}
+/* Fekvő telefon: kevesebb keret, hogy a lap minél nagyobb legyen. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .storybook-v2-root--immersive .sbv2-viewport,
+  .storybook-v2-root--immersive #storybooksBookViewport.sbv2-viewport,
+  .storybook-v2-root--immersive #sbReaderViewport.sbv2-viewport {
+    padding-top: max(6px, calc(env(safe-area-inset-top, 0px) + 2.3rem));
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+  .storybook-v2-root .sbv2-stage {
+    padding-bottom: 14px;
+  }
+  .storybook-v2-root .sbv2-open-book {
+    height: min(100%, calc(100dvh - 3.2rem));
+  }
+  .storybook-v2-root .sbv2-book-frame {
+    margin: 0.3rem 0.4rem 0.35rem;
+    padding: 0.4rem 0.5rem 0.55rem;
+  }
+}
+/* Álló telefon (egyoldalas mód): a lap magas és keskeny, ezért a szélesség számít, nem a magasság. */
+@media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
+  #storybooksPublicReader .sbv2-obj--text {
+    --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 380), calc(100cqh / 520)));
+  }
+}
+
+/* =====================================================================
+   Mesekönyv olvasó — "Enchanted Garden" könyv (Meshy modell, előre renderelt kép)
+   A régi, CSS-ből rajzolt barna könyv helyett a nyitott könyv képe a háttér; a lapok tartalma
+   a két papírterületre kerül (a kép 13%..87% x 12%..88% része), a lapozás animáció (.sbv2-page-flip)
+   változatlan, csak a papír színe igazodik. Álló telefonon egyoldalas mód: a kép bal fele látszik.
+   ===================================================================== */
+.storybook-v2-root {
+  --sbv2-spine-width: 6.76%; /* a gerinc a két papírterület között (a spread szélességének %-a) */
+  --sbv2-book-h: min(82dvh, 860px, calc(100dvh - 80px));
+  --sbv2-art-inset-y: 12%;
+  --sbv2-art-inset-x: 13%;
+  --sbv2-flip-paper-bg: linear-gradient(90deg, #ead9ae 0%, #f6ebc8 46%, #f1e2b8 100%);
+}
+.storybook-v2-root .sbv2-open-book {
+  position: relative;
+  width: min(94vw, 1500px, calc(var(--sbv2-book-h) * 4 / 3));
+  height: auto;
+  aspect-ratio: 4 / 3;
+  max-width: 100%;
+  max-height: none;
+  flex-shrink: 0;
+  background: url("/images/storybook/book-open-2200.webp") center / 100% 100% no-repeat;
+}
+.storybook-v2-root .sbv2-open-book::before,
+.storybook-v2-root .sbv2-open-book::after,
+.storybook-v2-root .sbv2-book-frame::before,
+.storybook-v2-root .sbv2-cover::before,
+.storybook-v2-root .sbv2-page-effects,
+.storybook-v2-root .sbv2-book-spread::before,
+.storybook-v2-root .sbv2-book-spread::after,
+.storybook-v2-root .sbv2-spread::before,
+.storybook-v2-root .sbv2-spread::after,
+.storybook-v2-root .sbv2-spine::before,
+.storybook-v2-root .sbv2-page--left::before,
+.storybook-v2-root .sbv2-page--right::before,
+.storybook-v2-root .sbv2-page--left::after,
+.storybook-v2-root .sbv2-page--right::after,
+.storybook-v2-root .sbv2-page__content::before,
+.storybook-v2-root .sbv2-page__content::after,
+.storybook-v2-root .sbv2-page--left .sbv2-page__content::before,
+.storybook-v2-root .sbv2-page--right .sbv2-page__content::before,
+.storybook-v2-root .sbv2-page--left .sbv2-page__content::after,
+.storybook-v2-root .sbv2-page--right .sbv2-page__content::after {
+  display: none;
+}
+.storybook-v2-root .sbv2-book-shadow {
+  left: 5%;
+  right: 5%;
+  bottom: -1.2%;
+  height: 5%;
+}
+.storybook-v2-root .sbv2-book-frame,
+.storybook-v2-root .sbv2-cover {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+.storybook-v2-root .sbv2-book-spread,
+.storybook-v2-root .sbv2-spread {
+  position: absolute;
+  inset: var(--sbv2-art-inset-y) var(--sbv2-art-inset-x);
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.storybook-v2-root .sbv2-spine {
+  width: auto;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+}
+.storybook-v2-root .sbv2-page,
+.storybook-v2-root .sbv2-page--left,
+.storybook-v2-root .sbv2-page--right {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.storybook-v2-root .sbv2-page__content,
+.storybook-v2-root .sbv2-page--left .sbv2-page__content,
+.storybook-v2-root .sbv2-page--right .sbv2-page__content {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0.15rem;
+}
+/* A betű a lap (object-canvas) méretéhez igazodik: 340x460 px-es lapon 1:1, kisebben arányosan kisebb. */
+#storybooksPublicReader .sbv2-obj--text {
+  --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 370), calc(100cqh / 500)));
+}
+/* A szöveg alá halvány pergamenháttér: a rárajzolt illusztráción (fa, ház, fű) is olvasható marad. */
+#storybooksPublicReader .sbv2-obj--text {
+  align-items: flex-start;
+}
+#storybooksPublicReader .sbv2-obj--text .sb-canvas-text {
+  /* lágy, a széleken fokozatosan elhalványuló háttér (nincs éles keret): a szöveg a belső,
+     telt részen ül (a belső margó = az elhalványulás sávja) */
+  --sbv2-fade: 0.75em;
+  box-sizing: border-box;
+  padding: 0.6em var(--sbv2-fade);
+  background: rgba(251, 243, 220, 0.56);
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 var(--sbv2-fade), #000 calc(100% - var(--sbv2-fade)), transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 var(--sbv2-fade), #000 calc(100% - var(--sbv2-fade)), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 var(--sbv2-fade), #000 calc(100% - var(--sbv2-fade)), transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 var(--sbv2-fade), #000 calc(100% - var(--sbv2-fade)), transparent 100%);
+  mask-composite: intersect;
+}
+#storybooksPublicReader .sbv2-obj--text-blank .sb-canvas-text,
+#storybooksPublicReader .sbv2-obj--text .sb-canvas-text:empty {
+  background: none;
+  box-shadow: none;
+}
+/* Az illusztráció széle is lágyan olvad a papírba (nincs éles téglalap a könyvön). */
+#storybooksPublicReader .sbv2-obj--image img {
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 5%, #000 95%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 5%, #000 95%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 5%, #000 95%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 5%, #000 95%, transparent 100%);
+  mask-composite: intersect;
+  box-shadow: none;
+}
+/* Fekvő telefon: a könyv magassága a korlát, ezért kevesebb papírszegély és a teljes magasság. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .storybook-v2-root {
+    --sbv2-book-h: calc(100dvh - 3.2rem);
+    --sbv2-art-inset-y: 8%;
+    --sbv2-art-inset-x: 10.5%;
+  }
+}
+/* Álló telefon (egyoldalas mód): a nyitott könyv bal fele látszik, mint egyetlen lap. */
+@media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
+  .storybook-v2-root {
+    --sbv2-spine-width: 0px;
+    --sbv2-art-inset-y: 9%;
+  }
+  .storybook-v2-root .sbv2-open-book {
+    width: min(94vw, calc(var(--sbv2-book-h) * 2 / 3));
+    aspect-ratio: 2 / 3;
+    background-size: 200% 100%;
+    background-position: left center;
+    /* a félbevágott kép jobb széle (a gerinc) ne látsszon éles vágásnak */
+    -webkit-mask-image: linear-gradient(90deg, #000 95%, transparent 100%);
+    mask-image: linear-gradient(90deg, #000 95%, transparent 100%);
+  }
+  .storybook-v2-root .sbv2-book-spread,
+  .storybook-v2-root .sbv2-spread {
+    inset: var(--sbv2-art-inset-y) 3% var(--sbv2-art-inset-y) 20%;
+  }
+  #storybooksPublicReader .sbv2-obj--text {
+    --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 370), calc(100cqh / 520)));
+  }
+}
+@media (max-width: 1400px) {
+  .storybook-v2-root .sbv2-open-book {
+    background-image: url("/images/storybook/book-open-1400.webp");
+  }
+}

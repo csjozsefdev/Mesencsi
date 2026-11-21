@@ -493,7 +493,7 @@
 
    */
 
-  function paintSpreadResting(mountEl, pages, spreadIndex, panelOpts) {
+  function paintSpreadResting(mountEl, pages, spreadIndex, panelOpts, singlePageIndex) {
 
     const SBR = contentApi();
 
@@ -527,16 +527,25 @@
 
 
 
-    const spreadMeta = spreadMetaFromSpread(spread);
+    // A narrow viewport displays one actual page, not the left half of a
+    // two-page spread. Keep desktop spread rendering and animation unchanged.
+    const single = Number.isInteger(singlePageIndex) &&
+      singlePageIndex >= 0 && singlePageIndex < pages.length;
+    const visibleSpread = single
+      ? { left: pages[singlePageIndex], right: null,
+          leftIndex: singlePageIndex, rightIndex: -1 }
+      : spread;
+    const spreadMeta = spreadMetaFromSpread(visibleSpread);
 
-    paintPageSlot(els.leftContent, spread.left, panelOpts, "left", spreadMeta);
+    paintPageSlot(els.leftContent, visibleSpread.left, panelOpts, "left", spreadMeta);
+    paintPageSlot(els.rightContent, visibleSpread.right, panelOpts, "right", spreadMeta);
 
-    paintPageSlot(els.rightContent, spread.right, panelOpts, "right", spreadMeta);
-
-
-
-    if (els.ind && SBR && typeof SBR.formatSpreadIndicator === "function") {
-      els.ind.textContent = SBR.formatSpreadIndicator(si, pages);
+    if (els.ind) {
+      if (single) {
+        els.ind.textContent = "Oldal " + (singlePageIndex + 1) + " / " + pages.length;
+      } else if (SBR && typeof SBR.formatSpreadIndicator === "function") {
+        els.ind.textContent = SBR.formatSpreadIndicator(si, pages);
+      }
     }
 
     resetV2FlipState(els, mountEl);
@@ -568,15 +577,15 @@
     const si = Math.floor(Number(state && state.spreadIndex) || 0);
 
     const busy = !!(state && state.busy);
-
-    const atStart = SBR && typeof SBR.canSpreadPrev === "function" ? !SBR.canSpreadPrev(si) : true;
-
-    const atEnd =
-
-      SBR && typeof SBR.canSpreadNext === "function"
-
+    const singlePageIndex = state && state.singlePageIndex;
+    const single = Number.isInteger(singlePageIndex) && singlePageIndex >= 0;
+    const atStart = single
+      ? singlePageIndex === 0
+      : SBR && typeof SBR.canSpreadPrev === "function" ? !SBR.canSpreadPrev(si) : true;
+    const atEnd = single
+      ? singlePageIndex >= pages.length - 1
+      : SBR && typeof SBR.canSpreadNext === "function"
         ? !SBR.canSpreadNext(si, pages)
-
         : true;
 
     const layer = mountEl.querySelector(".sbv2-hit-layer");
@@ -909,7 +918,13 @@
       typeof opts.targetSpreadIndex === "number"
         ? opts.targetSpreadIndex
         : opts.currentSpreadIndex;
-    const wantTurn =
+    const singlePageIndex = Number.isInteger(opts.singlePageIndex) &&
+      opts.singlePageIndex >= 0 && opts.singlePageIndex < pages.length
+        ? opts.singlePageIndex
+        : null;
+    // The 3D flip is a spread-to-spread animation; a single-page mobile
+    // navigation commits immediately instead of skipping alternate pages.
+    const wantTurn = singlePageIndex === null &&
       !!(opts.direction && typeof opts.targetSpreadIndex === "number");
 
     mountV2ShellIfNeeded(mountEl);
@@ -921,7 +936,7 @@
       if (typeof opts.onSpreadCommitted === "function") {
         opts.onSpreadCommitted(spreadIndex);
       }
-      paintSpreadResting(mountEl, pages, spreadIndex, opts.panelOpts || null);
+      paintSpreadResting(mountEl, pages, spreadIndex, opts.panelOpts || null, singlePageIndex);
       if (typeof opts.preloadAdjacent === "function") opts.preloadAdjacent();
       if (typeof opts.syncNav === "function") opts.syncNav();
       return { ok: true };

@@ -176,7 +176,8 @@
   function _layoutTextFormatStyle(fmt) {
     fmt = fmt || {};
     const px = STORYBOOK_LAYOUT_FONT_SIZE_PX[fmt.fontSize] || STORYBOOK_LAYOUT_FONT_SIZE_PX.m;
-    let style = "font-size:" + px + "px;";
+    // --sbv2-fs-scale (1px alapból) a nyilvános olvasóban a lap méretéhez igazítja a betűt (style.css).
+    let style = "font-size:calc(" + px + " * var(--sbv2-fs-scale, 1px));";
     if (fmt.bold) style += "font-weight:700;";
     if (fmt.italic) style += "font-style:italic;";
     if (fmt.underline) style += "text-decoration:underline;";
@@ -248,6 +249,7 @@
       return (
         '<div class="sbv2-obj sbv2-obj--text' +
         (isPrimary ? " sbv2-obj--text-primary" : " sbv2-obj--text-secondary") +
+        (hasContent || useRichHtml ? "" : " sbv2-obj--text-blank") +
         '" style="' +
         rectStyle +
         '"' +
