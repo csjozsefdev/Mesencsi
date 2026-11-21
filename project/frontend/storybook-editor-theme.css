@@ -1,0 +1,723 @@
+/* Mesekönyv szerkesztő — "mesemondó műhely" téma.
+ * Csak a Mesekönyvek nézetre hat (#view-storybooks-admin): az admin és a /meseiro szerkesztő is ezt kapja.
+ * Csak megjelenés: a szerkesztő szerkezete és működése változatlan. */
+@import url("/fonts/mese-fonts.css");
+
+#view-storybooks-admin {
+  --mt-bark: #3a2410;
+  --mt-wood: #7a431a;
+  --mt-wood-2: #a8662a;
+  --mt-parch: #fbf3dc;
+  --mt-parch-2: #f3e6c4;
+  --mt-paper: #fffaf0;
+  --mt-line: #e0cf9f;
+  --mt-line-2: #cfae6e;
+  --mt-gold: #f2b84b;
+  --mt-gold-d: #d99a22;
+  --mt-moss: #5d8a4a;
+  --mt-muted: #7a5a30;
+  --sb-ed-surface: #fffaf0;
+  --sb-ed-border: #e0cf9f;
+  --sb-ed-muted-bg: #f3e6c4;
+  --sb-ed-hover-bg: #ffeab0;
+  --sb-ed-radius: 14px;
+  --sb-ed-radius-lg: 20px;
+  --admin-accent-dark: #7a431a;
+  --mt-display: "Fredoka", "Nunito", system-ui, sans-serif;
+  font-family: "Nunito", system-ui, sans-serif;
+  color: var(--mt-bark);
+}
+#view-storybooks-admin .page-title,
+#view-storybooks-admin h2,
+#view-storybooks-admin h3,
+#view-storybooks-admin h5 {
+  font-family: var(--mt-display);
+  font-weight: 600;
+  color: #4a2c10;
+}
+
+/* ---------- gombok ---------- */
+#view-storybooks-admin .btn {
+  font-family: var(--mt-display);
+  font-weight: 600;
+  font-size: 1rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 2px solid #5a2f12;
+  background: linear-gradient(180deg, #b8742f, #7a431a);
+  color: #fff6e0;
+  box-shadow: 0 3px 0 #4a250e;
+}
+#view-storybooks-admin .btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+#view-storybooks-admin .btn.btn-ghost {
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  color: #5a3418;
+  box-shadow: none;
+}
+#view-storybooks-admin .btn.btn-danger {
+  background: #fff1ee;
+  border-color: #d9a39b;
+  color: #a2362d;
+  box-shadow: none;
+}
+#view-storybooks-admin .btn.btn-sm {
+  min-height: 2.5rem;
+  font-size: 0.95rem;
+}
+#view-storybooks-admin .btn:focus-visible,
+#view-storybooks-admin button:focus-visible,
+#view-storybooks-admin input:focus-visible,
+#view-storybooks-admin select:focus-visible,
+#view-storybooks-admin textarea:focus-visible {
+  outline: 3px solid #f2b84b;
+  outline-offset: 2px;
+}
+#view-storybooks-admin input[type="text"],
+#view-storybooks-admin input[type="number"],
+#view-storybooks-admin select,
+#view-storybooks-admin textarea {
+  font-family: "Nunito", system-ui, sans-serif;
+  border-radius: 12px;
+  border: 2px solid var(--mt-line-2);
+  background: #fffdf6;
+  color: var(--mt-bark);
+}
+
+/* ---------- lista: mesekártyák ---------- */
+#view-storybooks-admin#view-storybooks-admin .sb-book-grid {
+  gap: 1.6rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-book-card {
+  border-radius: 22px;
+  border: 2px solid #d9c48a;
+  background: #fffaf0;
+  box-shadow: 0 5px 0 #d2b772, 0 12px 24px rgba(80, 50, 10, 0.16);
+  overflow: hidden;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-book-card h3 {
+  font-size: 1.35rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-book-card-cover--empty {
+  background: linear-gradient(180deg, #cfe3ea, #e9f0d4);
+  color: var(--mt-muted);
+  font-weight: 700;
+}
+#view-storybooks-admin .badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  border: 0;
+}
+#view-storybooks-admin .badge-draft {
+  background: #ffe7a6;
+  color: #5a3a08;
+}
+#view-storybooks-admin .badge-done {
+  background: #d4efc4;
+  color: #255a1a;
+}
+.meseiro-note {
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: #fff0d6;
+  border: 2px solid #f0c98a;
+  color: #4a2c10 !important;
+}
+
+/* ---------- szerkesztő: felső sáv (fa) ---------- */
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar {
+  gap: 0.9rem;
+  padding: 0.65rem 1rem;
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #8d5628, #69391a);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.28);
+  color: #fff6e0;
+  margin-bottom: 0;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 246, 224, 0.55);
+  background: rgba(255, 246, 224, 0.12);
+  color: #fff6e0;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-topbar-link:hover {
+  background: rgba(255, 246, 224, 0.26);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-title-input {
+  font-family: var(--mt-display);
+  font-weight: 600;
+  font-size: 1.45rem;
+  text-align: center;
+  border: 2px solid rgba(255, 246, 224, 0.5);
+  background: rgba(255, 246, 224, 0.14);
+  color: #fff6e0;
+  border-radius: 14px;
+  min-height: 2.9rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-title-input::placeholder {
+  color: rgba(255, 246, 224, 0.7);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-title-edit-ico {
+  color: #ffd77a;
+  font-size: 1.4rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar .sb-creator-badge,
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar .sb-creator-badge span {
+  color: #fff6e0 !important;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar .sb-creator-badge .badge {
+  color: #5a3a08 !important;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-topbar-icon-btn {
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 246, 224, 0.45);
+  background: rgba(255, 246, 224, 0.1);
+  color: #fff6e0;
+  font-size: 1.3rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-topbar-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 246, 224, 0.24);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar .btn.btn-ghost {
+  border-color: rgba(255, 246, 224, 0.55);
+  background: rgba(255, 246, 224, 0.12);
+  color: #fff6e0;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar #btnSbSaveBook {
+  background: #fff6e0;
+  color: #5a3418;
+  border-color: #cfae6e;
+  box-shadow: none;
+}
+#btnMeseiroSubmit,
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar #btnMeseiroSubmit {
+  min-height: 3rem;
+  padding: 0 1.4rem;
+  font-size: 1.05rem;
+  border: 2px solid #9a6410;
+  background: linear-gradient(180deg, #ffd77a, #f2b84b);
+  color: #3a2410;
+  box-shadow: 0 3px 0 #b97a12, 0 6px 12px rgba(0, 0, 0, 0.25);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-body {
+  border-radius: 14px;
+  border: 2px solid var(--mt-line-2);
+  background: var(--mt-paper);
+}
+
+/* a leírás-sáv a szerkesztő tetején */
+#view-storybooks-admin#view-storybooks-admin .sb-creator-subbar {
+  border-radius: 0;
+  border: 0;
+  border-bottom: 3px solid #b98a4a;
+  background: var(--mt-parch);
+}
+
+/* ---------- szerkesztő: törzs ---------- */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-body {
+  gap: 0;
+  border-radius: 0 0 18px 18px;
+  overflow: hidden;
+  border: 0;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail {
+  border: 0;
+  border-right: 3px solid #b98a4a;
+  border-radius: 0;
+  background: linear-gradient(180deg, #f6e9c8, #ecd9a8);
+  padding: 0.8rem 0.4rem;
+  gap: 0.8rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-item {
+  gap: 0.25rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-btn,
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-select {
+  width: 4.1rem;
+  height: 4.1rem;
+  border-radius: 20px;
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  color: #5a3418;
+  box-shadow: 0 3px 0 var(--mt-line-2);
+  font-size: 1.5rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-btn svg {
+  width: 2rem;
+  height: 2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-btn:hover:not(:disabled),
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-select:hover {
+  background: #fff1c8;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-btn--danger {
+  color: #a2362d;
+  border-style: dashed;
+  box-shadow: none;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-rail-label {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #5a3418;
+}
+
+#view-storybooks-admin#view-storybooks-admin .sb-ed-main {
+  background: radial-gradient(circle at 12% 14%, rgba(255, 240, 190, 0.9) 0 1.6px, transparent 2.4px),
+    radial-gradient(circle at 82% 10%, rgba(255, 240, 190, 0.8) 0 1.4px, transparent 2.2px),
+    radial-gradient(circle at 70% 30%, rgba(255, 240, 190, 0.6) 0 1.2px, transparent 2px),
+    radial-gradient(circle at 24% 42%, rgba(255, 240, 190, 0.6) 0 1.2px, transparent 2px),
+    radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%);
+  padding: 0.9rem 0.9rem 0.6rem;
+  gap: 0.7rem;
+}
+/* szerkesztő eszköztár a kijelölt elem fölött */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-context-toolbar {
+  align-self: center;
+  border-radius: 999px;
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  padding: 0.35rem 0.9rem;
+  min-height: 3.2rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-context-toolbar .sb-props-note {
+  margin: 0;
+  font-weight: 800;
+  color: #5a3418;
+  font-size: 0.95rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-quick-toolbar-btn {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--mt-bark);
+  font-weight: 800;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-quick-toolbar-btn:hover {
+  background: #f6e3ae;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-quick-toolbar-btn[aria-pressed="true"],
+#view-storybooks-admin#view-storybooks-admin .sb-quick-toolbar-btn.is-active {
+  background: #ffe7a6;
+  border-color: var(--mt-gold-d);
+  color: var(--mt-bark);
+}
+
+/* az oldal (papír) */
+#view-storybooks-admin#view-storybooks-admin .sb-canvas-stage {
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.4));
+}
+#view-storybooks-admin#view-storybooks-admin .sb-canvas-stage .sbv2-standard-page {
+  border-radius: 10px 16px 16px 10px;
+  background: linear-gradient(90deg, #efe0b4 0, #f8eed0 6%, #fbf3dc 40%, #f7ecca 100%);
+}
+
+/* oldalak sora (mindig nyitva) */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-page-strip {
+  border: 0;
+  border-top: 3px solid #b98a4a;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #e9d6a4, #dcc489);
+  padding: 0.7rem 1rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-page-strip-toggle {
+  font-family: var(--mt-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #4a2c10;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-page-strip-add {
+  width: 4.6rem;
+  height: 6.4rem;
+  border-radius: 12px;
+  border: 3px dashed #a8803a;
+  background: rgba(255, 248, 228, 0.55);
+  color: var(--mt-wood);
+  font-size: 2rem;
+  font-weight: 800;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-page-thumb {
+  border-radius: 8px 12px 12px 8px;
+  border: 3px solid transparent;
+  background: linear-gradient(90deg, #efe0b4, #fbf3dc 30%);
+  box-shadow: 0 3px 8px rgba(80, 50, 10, 0.35);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-page-thumb.is-selected {
+  border-color: var(--mt-gold-d);
+  box-shadow: 0 0 0 3px rgba(242, 184, 75, 0.45), 0 3px 8px rgba(80, 50, 10, 0.35);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-gear-btn {
+  height: 2.9rem;
+  width: auto;
+  padding: 0 1rem;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+/* jobb oldali panel */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock {
+  border: 0;
+  border-left: 3px solid #b98a4a;
+  border-radius: 0;
+  background: linear-gradient(180deg, #fbf3dc, #f3e5bd);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock-header {
+  border-bottom: 3px solid var(--mt-line);
+  background: #f3e6c4;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock-heading {
+  font-size: 1.05rem;
+  color: var(--mt-wood);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-sidebar-hint {
+  color: var(--mt-muted);
+  font-weight: 600;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-layer-row {
+  border-radius: 14px;
+  border: 2px solid var(--mt-line);
+  background: var(--mt-paper);
+  min-height: 2.8rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-layer-row.is-selected,
+#view-storybooks-admin#view-storybooks-admin .sb-layer-row.is-active {
+  border-color: var(--mt-gold-d);
+  background: #fff0c4;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock-section {
+  border-bottom: 2px solid var(--mt-line);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock-section.mt-collapsible > .sb-ed-dock-heading {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.6rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock-section.mt-collapsible.mt-closed > *:not(.sb-ed-dock-heading) {
+  display: none !important;
+}
+
+/* mesesegéd tipp (a dock aljára kerül) */
+.mt-tip {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  background: #e5f1d2;
+  border: 2px solid #b5cf92;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: #3a2410;
+}
+.mt-tip b {
+  display: block;
+  font-family: var(--mt-display);
+  font-size: 0.98rem;
+  color: #3f6b32;
+}
+
+/* ---------- beküldés párbeszéd ---------- */
+.meseiro-dlg-backdrop {
+  background: rgba(20, 30, 24, 0.7);
+}
+.meseiro-dlg {
+  width: min(52rem, 100%);
+  padding: 1.7rem 2rem 1.9rem;
+  border-radius: 30px;
+  border: 4px solid #b98a4a;
+  background: #fbf3dc;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
+  font-family: "Nunito", system-ui, sans-serif;
+  color: #3a2410;
+}
+.meseiro-dlg h3 {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  line-height: 1.15;
+  color: #4a2c10;
+  margin: 0 0 0.3rem;
+}
+.meseiro-dlg .mt-sub {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: #7a5a30;
+}
+.mt-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.mt-check {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 16px;
+  background: #fffaf0;
+  border: 2px solid #e0cf9f;
+  font-weight: 800;
+}
+.mt-check small {
+  display: block;
+  font-weight: 600;
+  color: #7a5a30;
+  font-size: 0.85rem;
+}
+.mt-check .mt-ico {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #5d8a4a;
+  color: #fff;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 700;
+}
+.mt-check.todo {
+  border-color: #e8c668;
+  background: #fff6dc;
+}
+.mt-check.todo .mt-ico {
+  background: #fff0c4;
+  color: #9a6410;
+  border: 3px dashed #d99a22;
+}
+.mt-byline {
+  flex: 0 1 17rem;
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  background: #fffaf0;
+  border: 2px dashed #cfae6e;
+}
+.mt-byline .k {
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #7a5a30;
+  margin-bottom: 0.3rem;
+}
+.mt-byline .t {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+.mt-after {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.4rem;
+  padding: 0.9rem 1.1rem;
+  margin: 0.8rem 0 1rem;
+  border-radius: 16px;
+  background: rgba(229, 241, 210, 0.75);
+  border: 2px solid #b5cf92;
+}
+.mt-after > b {
+  flex: 1 1 100%;
+  font-family: "Fredoka", sans-serif;
+  color: #3f6b32;
+}
+.mt-after .s {
+  flex: 1 1 11rem;
+  display: flex;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.mt-after .n {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  flex: none;
+  background: #f2b84b;
+  border: 2px solid #9a6410;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.meseiro-dlg .admin-field {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #4a2c10;
+}
+.meseiro-dlg #meseiroAuthor {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 3.1rem;
+  margin-top: 0.4rem;
+  border-radius: 14px;
+  border: 3px solid #d99a22;
+  background: #fffdf6;
+  color: #3a2410;
+  font-family: "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 0 1rem;
+}
+.meseiro-consent {
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: #fffaf0;
+  border: 2px solid #e0cf9f;
+  font-weight: 600;
+}
+.meseiro-consent input {
+  width: 1.5rem;
+  height: 1.5rem;
+  accent-color: #5d8a4a;
+}
+.meseiro-dlg .form-actions {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.meseiro-dlg #meseiroDlgOk {
+  min-height: 3.2rem;
+  padding: 0 1.8rem;
+  font-size: 1.15rem;
+  border: 2px solid #9a6410;
+  background: linear-gradient(180deg, #ffd77a, #f2b84b);
+  color: #3a2410;
+  box-shadow: 0 3px 0 #b97a12, 0 6px 12px rgba(80, 50, 10, 0.25);
+}
+
+/* ---------- Meséim üdvözlő sáv ---------- */
+.mt-hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 1.2rem;
+}
+.mt-hero h2 {
+  margin: 0 0 0.4rem;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+.mt-hero p {
+  margin: 0;
+  max-width: 34rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.mt-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 20px;
+  background: rgba(255, 250, 240, 0.85);
+  border: 2px solid #d9c48a;
+  font-weight: 800;
+}
+.mt-steps div {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.mt-steps span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  flex: none;
+  background: #f2b84b;
+  border: 2px solid #9a6410;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* a szerkesztő háttere: a vászon alatt ne legyen szürke sáv */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-canvas-workspace,
+#view-storybooks-admin#view-storybooks-admin .sb-canvas-stage {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* finomítások a helyi próba után */
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-creator-title-input {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  max-width: 26rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-page-strip-toggle {
+  background: transparent !important;
+  border: 0;
+  box-shadow: none;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock .sb-quick-toolbar-btn {
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  border-radius: 999px;
+  padding: 0 0.9rem;
+  min-height: 2.4rem;
+  font-size: 0.9rem;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-dock .sb-quick-toolbar-btn:hover {
+  background: #ffeab0;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-layer-row {
+  padding: 0.4rem 0.6rem;
+  gap: 0.4rem;
+  font-weight: 800;
+}
+
+.meseiro-dlg.glass-panel {
+  width: min(52rem, 100%);
+  padding: 1.7rem 2rem 1.9rem;
+  border-radius: 30px;
+  background: #fbf3dc;
+  backdrop-filter: none;
+}

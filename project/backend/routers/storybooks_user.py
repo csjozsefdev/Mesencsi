@@ -596,8 +596,19 @@ def meseiro_page() -> HTMLResponse:
     html = src.read_text(encoding="utf-8")
     if _AUTH_SCRIPT_TAG not in html or "</head>" not in html:
         raise HTTPException(status_code=503, detail="A szerkesztő oldal jelenleg nem elérhető.")
-    script_tag = _AUTH_SCRIPT_TAG + "\n    " + '<script src="/meseiro.js"></script>'
-    css_tag = '    <link rel="stylesheet" href="/meseiro.css" />' + "\n  </head>"
+    script_tag = (
+        _AUTH_SCRIPT_TAG
+        + "\n    "
+        + '<script src="/storybook-editor-theme.js"></script>'
+        + "\n    "
+        + '<script src="/meseiro.js"></script>'
+    )
+    css_tag = (
+        '    <link rel="stylesheet" href="/storybook-editor-theme.css" />'
+        + "\n    "
+        + '<link rel="stylesheet" href="/meseiro.css" />'
+        + "\n  </head>"
+    )
     html = html.replace(_AUTH_SCRIPT_TAG, script_tag, 1)
     html = html.replace("</head>", css_tag, 1)
     return HTMLResponse(

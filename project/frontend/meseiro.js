@@ -222,6 +222,13 @@
     );
   }
 
+  function checkRow(ok, title, sub) {
+    return (
+      '<div class="mt-check' + (ok ? "" : " todo") + '"><span class="mt-ico">' + (ok ? "&#10003;" : "!") + "</span><div>" +
+      esc(title) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</div></div>"
+    );
+  }
+
   function openSubmitDialog(bookId, title, beforeSubmit) {
     var old = document.getElementById("meseiroSubmitDlg");
     if (old) old.remove();
@@ -231,38 +238,70 @@
     var prefill = (state.me && state.me.nickname) || "";
     wrap.innerHTML =
       '<div class="meseiro-dlg glass-panel" role="dialog" aria-modal="true" aria-labelledby="meseiroDlgTitle">' +
-      '<h3 id="meseiroDlgTitle">Mese beküldése: ' +
-      esc(title || "") +
-      "</h3>" +
-      "<p>Beküldés után a mesét az admin átnézi, és ő dönt a közzétételről. Beküldés után nem szerkesztheted, de visszavonhatod.</p>" +
-      '<label class="admin-field">Szerzői név (ez jelenik meg a mese alatt)' +
-      '<input type="text" id="meseiroAuthor" maxlength="60" autocomplete="off" value="' +
-      esc(prefill) +
-      '" placeholder="Pl. Kis Anna" /></label>' +
-      '<label class="meseiro-consent"><input type="checkbox" id="meseiroConsent" /> <span>' +
-      esc(consentText()) +
-      "</span></label>" +
+      '<h3 id="meseiroDlgTitle">Készen állsz a beküldésre?</h3>' +
+      '<p class="mt-sub">„' + esc(title || "") + "”: még egy gyors átnézés, és mehet az adminnak.</p>" +
+      '<div class="mt-checks" id="meseiroChecks"><div class="mt-check"><span class="mt-ico">…</span><div>Ellenőrzöm a mesét…</div></div></div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:1rem 1.4rem;align-items:flex-start">' +
+      '<label class="admin-field" style="flex:1 1 20rem;min-width:0">Szerzői név' +
+      '<input type="text" id="meseiroAuthor" maxlength="60" autocomplete="off" value="' + esc(prefill) + '" placeholder="Pl. Kis Anna" />' +
+      '<span style="display:block;font-family:Nunito,sans-serif;font-weight:600;font-size:.85rem;color:#7a5a30;margin-top:.3rem">Ez a név jelenik meg a mese alatt. Nem kell a teljes neved.</span></label>' +
+      '<div class="mt-byline"><div class="k">Így fog látszani</div><div class="t">' + esc(title || "") +
+      '</div><div id="meseiroByline" style="font-weight:600;color:#5a3418"></div></div></div>' +
+      '<label class="meseiro-consent" style="margin-top:1rem"><input type="checkbox" id="meseiroConsent" /> <span>' + esc(consentText()) + "</span></label>" +
+      '<div class="mt-after"><b>Mi történik ezután?</b>' +
+      '<div class="s"><span class="n">1</span><span>Beküldöd. Utána már nem szerkesztheted, de visszavonhatod.</span></div>' +
+      '<div class="s"><span class="n">2</span><span>Mi átnézzük, és ha kell, visszaküldjük javításra.</span></div>' +
+      '<div class="s"><span class="n">3</span><span>Ha minden rendben, megjelenik a Mesencsi oldalán.</span></div></div>' +
       '<p id="meseiroDlgErr" class="meseiro-err" hidden></p>' +
-      '<div class="form-actions"><button type="button" class="btn" id="meseiroDlgOk">Beküldés az adminnak</button>' +
-      '<button type="button" class="btn btn-ghost" id="meseiroDlgCancel">Mégse</button></div></div>';
+      '<div class="form-actions"><button type="button" class="btn btn-ghost" id="meseiroDlgCancel">Még dolgozom rajta</button>' +
+      '<button type="button" class="btn" id="meseiroDlgOk" disabled>Beküldöm az adminnak</button></div></div>';
     document.body.appendChild(wrap);
     var err = wrap.querySelector("#meseiroDlgErr");
+    var okBtn = wrap.querySelector("#meseiroDlgOk");
+    var authorEl = wrap.querySelector("#meseiroAuthor");
     function fail(m) {
       err.textContent = m;
       err.hidden = false;
     }
+    function byline() {
+      wrap.querySelector("#meseiroByline").textContent = "Szerző: " + (authorEl.value.trim() || "…");
+    }
+    authorEl.addEventListener("input", byline);
+    byline();
     wrap.querySelector("#meseiroDlgCancel").addEventListener("click", function () {
       wrap.remove();
     });
-    wrap.querySelector("#meseiroDlgOk").addEventListener("click", async function (ev) {
+
+    // először mentünk (ha szerkesztőből jön), utána a mentett adatból állítjuk össze az ellenőrző listát
+    (async function () {
+      var box = wrap.querySelector("#meseiroChecks");
+      try {
+        if (beforeSubmit) await beforeSubmit();
+        var d = await origApi.call(auth, "/my/storybooks/" + bookId);
+        var pages = d.pages || [];
+        var empty = pages.filter(function (p) {
+          return !(p.body_text || "").trim() && !p.layout_json;
+        }).length;
+        box.innerHTML =
+          checkRow(!!(d.title || "").trim(), "Van címe", d.title) +
+          checkRow(pages.length > 0, pages.length ? "Vannak oldalai" : "Adj hozzá legalább egy oldalt", pages.length ? pages.length + " oldal" : "") +
+          (pages.length ? checkRow(empty === 0, empty === 0 ? "Minden oldalon van szöveg" : "Van oldal, amin nincs szöveg", empty ? empty + " oldal üres" : "") : "") +
+          checkRow(!!d.cover_image_url, "Borítókép", d.cover_image_url ? "" : "Ajánlott, de nem kötelező: szebben mutat a könyvespolcon.");
+        okBtn.disabled = pages.length === 0;
+      } catch (e) {
+        box.innerHTML = checkRow(false, "Nem sikerült ellenőrizni", e && e.message ? e.message : "");
+        okBtn.disabled = false;
+      }
+    })();
+
+    okBtn.addEventListener("click", async function (ev) {
       var btn = ev.currentTarget;
-      var author = wrap.querySelector("#meseiroAuthor").value.trim();
+      var author = authorEl.value.trim();
       if (author.length < 2) return fail("Adj meg szerzői nevet (legalább 2 karakter).");
       if (!wrap.querySelector("#meseiroConsent").checked) return fail("A beküldéshez el kell fogadnod a nyilatkozatot.");
       btn.disabled = true;
       err.hidden = true;
       try {
-        if (beforeSubmit) await beforeSubmit();
         await origApi.call(auth, "/my/storybooks/" + bookId + "/submit", {
           method: "POST",
           body: JSON.stringify({ author_name: author, consent: true }),
@@ -387,20 +426,20 @@
       if (el && el.textContent !== text) el.textContent = text;
     }
     var t = document.querySelector("#view-storybooks-admin .page-title");
-    setText(t, "Saját meséim");
+    var who = ((state.me && state.me.nickname) || "").trim().split(/\s+/).pop();
+    setText(t, "Üdv a mesemondó műhelyben" + (who ? ", " + who : "") + "!");
     var d = document.querySelector("#view-storybooks-admin .page-desc");
     if (d && !d.dataset.meseiro) {
-      d.dataset.meseiro = "1";
       var max = (state.status && state.status.max_pages) || 20;
       var books = (state.status && state.status.max_books) || 3;
-      d.innerHTML =
-        "Írd meg a saját mesédet a szerkesztővel! Egyszerre legfeljebb <strong>" +
-        books +
-        "</strong> be nem fejezett mesét tarthatsz, egy mese legfeljebb <strong>" +
-        max +
-        " oldalas</strong> lehet, egy kép legfeljebb 3 MB. " +
-        "Ha elkészültél, <strong>küldd be az adminnak</strong>: ő átnézi, szükség esetén javít rajta, és ő dönt a közzétételről. " +
-        "Beküldés után nem szerkesztheted, de visszavonhatod.";
+      var hero = document.createElement("div");
+      hero.className = d.className + " mt-hero";
+      hero.dataset.meseiro = "1";
+      hero.innerHTML =
+        "<p>Itt megírhatod a saját meséidet. Egyszerre legfeljebb <strong>" + books + "</strong> be nem fejezett mesét tarthatsz, egy mese legfeljebb <strong>" +
+        max + " oldalas</strong> lehet, egy kép legfeljebb 3 MB. Ha elkészültél, beküldöd nekünk: mi átnézzük, és megjelenhet a Mesencsi oldalán.</p>" +
+        '<div class="mt-steps"><div><span>1</span>Írd meg a mesét a szerkesztőben</div><div><span>2</span>Küldd be az adminnak</div><div><span>3</span>Mi átnézzük, és ha jó, kitesszük az oldalra</div></div>';
+      d.replaceWith(hero);
     }
     var nav = document.querySelector('.admin-nav-item[data-nav="storybooks"]');
     setText(nav, "Saját meséim");
