@@ -6311,8 +6311,38 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   --sbv2-paper-base: #efe2bf;
   --sbv2-paper-mid: #f6ebcd;
   --sbv2-paper-highlight: #fbf4de;
-  --sbv2-flip-paper-bg: linear-gradient(90deg, #f2e5c2 0%, #f8efd3 45%, #f5e9c9 100%);
-  --sbv2-flip-paper-shadow: inset 0 0 22px rgba(214, 184, 120, 0.22);
+  --sbv2-flip-paper-bg: linear-gradient(90deg, #f7ecd0 0%, #fbf3dc 50%, #f9efd5 100%);
+  --sbv2-flip-paper-shadow: inset 0 0 26px rgba(230, 205, 150, 0.3);
+}
+/* A régi lapozás kisebb könyvhöz készült: erős perspektívája miatt a forduló lap nagyobbra nőtt a lapnál és kilógott
+   a könyvből. Lágyabb perspektíva, és a lap a könyv lapterületén belül marad. */
+.storybook-v2-root .sbv2-page-flip--from-right.sbv2-page-flip--is-active,
+.storybook-v2-root .sbv2-page-flip--from-left.sbv2-page-flip--is-active {
+  perspective: 4200px;
+}
+/* A forduló lap a teljes papírterületet fedi (nem csak a szövegterületet), így nem látszik "kis lapnak" a könyvön. */
+.storybook-v2-root {
+  --sbv2-sheet-top: -26.5%;
+  --sbv2-sheet-bottom: -10.6%;
+  --sbv2-sheet-side: -11.8%;
+}
+.storybook-v2-root .sbv2-page-flip {
+  top: var(--sbv2-sheet-top);
+  bottom: var(--sbv2-sheet-bottom);
+  width: calc((100% - var(--sbv2-spine-width)) / 2 - var(--sbv2-sheet-side));
+}
+.storybook-v2-root .sbv2-page-flip--from-right.sbv2-page-flip--is-active,
+.storybook-v2-root .sbv2-page-flip--from-left.sbv2-page-flip--is-active {
+  width: calc((100% - var(--sbv2-spine-width)) / 2 - var(--sbv2-sheet-side) + 6px);
+}
+.storybook-v2-root .sbv2-page-flip--from-right {
+  right: var(--sbv2-sheet-side);
+}
+.storybook-v2-root .sbv2-page-flip--from-left {
+  left: var(--sbv2-sheet-side);
+}
+.storybook-v2-root .sbv2-spread {
+  clip-path: inset(-30% -14% -14% -14%);
 }
 /* =====================================================================
    Telefonos olvasó.
@@ -6329,6 +6359,9 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   .storybook-v2-root {
     --sbv2-book-h: calc(100dvh - 2.6rem);
     --sbv2-spine-width: 4%;
+    --sbv2-sheet-top: 0%;
+    --sbv2-sheet-bottom: 0%;
+    --sbv2-sheet-side: 0%;
   }
   .storybook-v2-root .sbv2-open-book {
     width: calc(100vw - 12px);
@@ -6448,6 +6481,9 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 @media (min-width: 561px) and (max-width: 900px) and (orientation: portrait) {
   .storybook-v2-root {
     --sbv2-spine-width: 0px;
+    --sbv2-sheet-top: 0%;
+    --sbv2-sheet-bottom: 0%;
+    --sbv2-sheet-side: 0%;
   }
   .storybook-v2-root .sbv2-open-book {
     width: min(calc(100vw - 32px), calc(var(--sbv2-book-h) * 0.74));
