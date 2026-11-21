@@ -6147,19 +6147,21 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 /* =====================================================================
    Mesekönyv olvasó — "Enchanted Garden" könyv (Meshy modell, előre renderelt kép)
    A régi, CSS-ből rajzolt barna könyv helyett a nyitott könyv képe a háttér; a lapok tartalma
-   a két papírterületre kerül (a kép 13%..87% x 12%..88% része), a lapozás animáció (.sbv2-page-flip)
+   a két papírterületre kerül (a kép 16%..84% x 22%..88% része, a sarokdíszek között), a lapozás animáció (.sbv2-page-flip)
    változatlan, csak a papír színe igazodik. Álló telefonon egyoldalas mód: a kép bal fele látszik.
    ===================================================================== */
 .storybook-v2-root {
   --sbv2-spine-width: 6.76%; /* a gerinc a két papírterület között (a spread szélességének %-a) */
-  --sbv2-book-h: min(82dvh, 860px, calc(100dvh - 80px));
-  --sbv2-art-inset-y: 12%;
-  --sbv2-art-inset-x: 13%;
+  --sbv2-book-h: min(94dvh, 1100px, calc(100dvh - 96px));
+  /* a lap tartalma a rajzolt sarokdíszek (fa, iskola, virágok) közötti tiszta papírfelületre kerül */
+  --sbv2-art-top: 22%;
+  --sbv2-art-bottom: 12%;
+  --sbv2-art-inset-x: 16%;
   --sbv2-flip-paper-bg: linear-gradient(90deg, #ead9ae 0%, #f6ebc8 46%, #f1e2b8 100%);
 }
 .storybook-v2-root .sbv2-open-book {
   position: relative;
-  width: min(94vw, 1500px, calc(var(--sbv2-book-h) * 4 / 3));
+  width: min(97vw, 1800px, calc(var(--sbv2-book-h) * 4 / 3));
   height: auto;
   aspect-ratio: 4 / 3;
   max-width: 100%;
@@ -6211,7 +6213,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 .storybook-v2-root .sbv2-book-spread,
 .storybook-v2-root .sbv2-spread {
   position: absolute;
-  inset: var(--sbv2-art-inset-y) var(--sbv2-art-inset-x);
+  inset: var(--sbv2-art-top) var(--sbv2-art-inset-x) var(--sbv2-art-bottom);
   width: auto;
   height: auto;
   margin: 0;
@@ -6242,7 +6244,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 }
 /* A betű a lap (object-canvas) méretéhez igazodik: 340x460 px-es lapon 1:1, kisebben arányosan kisebb. */
 #storybooksPublicReader .sbv2-obj--text {
-  --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 370), calc(100cqh / 500)));
+  --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 400), calc(100cqh / 500)));
 }
 /* A szöveg alá halvány pergamenháttér: a rárajzolt illusztráción (fa, ház, fű) is olvasható marad. */
 #storybooksPublicReader .sbv2-obj--text {
@@ -6285,15 +6287,17 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
 @media (orientation: landscape) and (max-height: 520px) {
   .storybook-v2-root {
     --sbv2-book-h: calc(100dvh - 3.2rem);
-    --sbv2-art-inset-y: 8%;
-    --sbv2-art-inset-x: 10.5%;
+    --sbv2-art-top: 17%;
+    --sbv2-art-bottom: 9%;
+    --sbv2-art-inset-x: 12%;
   }
 }
 /* Álló telefon (egyoldalas mód): a nyitott könyv bal fele látszik, mint egyetlen lap. */
 @media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
   .storybook-v2-root {
     --sbv2-spine-width: 0px;
-    --sbv2-art-inset-y: 9%;
+    --sbv2-art-top: 19%;
+    --sbv2-art-bottom: 10%;
   }
   .storybook-v2-root .sbv2-open-book {
     width: min(94vw, calc(var(--sbv2-book-h) * 2 / 3));
@@ -6306,7 +6310,7 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
   .storybook-v2-root .sbv2-book-spread,
   .storybook-v2-root .sbv2-spread {
-    inset: var(--sbv2-art-inset-y) 3% var(--sbv2-art-inset-y) 20%;
+    inset: var(--sbv2-art-top) 3% var(--sbv2-art-bottom) 23%;
   }
   #storybooksPublicReader .sbv2-obj--text {
     --sbv2-fs-scale: max(0.6px, min(1px, calc(100cqw / 370), calc(100cqh / 520)));
