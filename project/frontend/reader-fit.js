@@ -1,19 +1,28 @@
-/* Mesekönyv olvasó, telefonon: a szöveg soha ne maradjon ki.
- * Ha egy lap szövege nem fér ki a szövegdobozba, a betűméretet fokozatosan csökkentjük (legfeljebb 11 px-ig);
- * ha így sem fér ki, a dobozban érintéssel görgethető marad. Csak telefonos nézetben (álló és fekvő) fut. */
+/* Mesekönyv olvasó, telefonon: a szöveg olvasható marad, és soha nem marad ki.
+ * Ha egy lap szövege nem fér ki a szövegdobozba, a betűméretet csökkentjük (legfeljebb 12 px-ig);
+ * ha így sem fér ki, a szövegdoboz legörgethető (a jelzés: elhalványodó alsó szél, vékony görgetősáv).
+ * Csak telefonos nézetben (álló és fekvő) fut. Álló telefonon "fordítsd el a telefont" jelzést mutat. */
 (function () {
   "use strict";
-  var MIN_PX = 11;
+  var MIN_PX = 12;
   var PHONE =
     "(max-width: 900px) and (orientation: portrait), (max-width: 560px), (orientation: landscape) and (max-height: 520px)";
   var mq = window.matchMedia ? window.matchMedia(PHONE) : null;
   var scheduled = false;
 
+  function updateMore(box) {
+    var more = box.scrollHeight > box.clientHeight + 2 && box.scrollTop + box.clientHeight < box.scrollHeight - 3;
+    box.classList.toggle("sbv2-more", more);
+  }
+
   function fitOne(box) {
     var t = box.querySelector(".sb-canvas-text") || box;
     if (t.dataset.fitOrig === undefined) t.dataset.fitOrig = t.getAttribute("style") || "";
     t.setAttribute("style", t.dataset.fitOrig); // mindig az eredeti mérettől indulunk
-    if (!mq || !mq.matches) return;
+    if (!mq || !mq.matches) {
+      box.classList.remove("sbv2-more");
+      return;
+    }
     // az automatikus (nem kézzel elhelyezett) szövegdoboz telefonon szélesebb és magasabb: több hely a szövegnek
     var st = box.getAttribute("style") || "";
     if (box.dataset.fitBox === undefined) box.dataset.fitBox = st;
@@ -30,6 +39,18 @@
       px = Math.max(MIN_PX, px * 0.94);
       t.style.fontSize = px.toFixed(2) + "px";
     }
+    if (!box.dataset.fitScroll) {
+      box.dataset.fitScroll = "1";
+      box.addEventListener(
+        "scroll",
+        function () {
+          updateMore(box);
+        },
+        { passive: true }
+      );
+    }
+    box.scrollTop = 0;
+    updateMore(box);
   }
 
   function fitAll() {
@@ -49,7 +70,7 @@
     setTimeout(fitAll, 90);
   }
 
-  // Álló telefonon: "fordítsd el a telefont" jelzés (a CSS csak ott mutatja); kérésre egyoldalas lap is nyitható.
+  // Álló telefonon: "fordítsd el a telefont" jelzés (a CSS csak ott mutatja).
   function ensureHint(root) {
     if (root.querySelector(".sbv2-rotate-hint")) return;
     var d = document.createElement("div");
@@ -58,12 +79,7 @@
     d.innerHTML =
       '<svg viewBox="0 0 64 64" fill="none" stroke="#fff6e0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
       '<rect x="20" y="6" width="24" height="44" rx="5"/><path d="M29 44h6"/><path d="M12 58c10 4 30 4 40 0M46 54l6 4-7 3"/></svg>' +
-      "<div><strong>Fordítsd el a telefont!</strong>A mesekönyv fekvő helyzetben olvasható a legjobban.</div>" +
-      '<button type="button">Mégis így olvasom</button>';
-    d.querySelector("button").addEventListener("click", function () {
-      root.setAttribute("data-portrait-ok", "1");
-      schedule();
-    });
+      "<div><strong>Fordítsd el a telefont!</strong>A mesekönyv fekvő helyzetben olvasható a legjobban.</div>";
     root.appendChild(d);
   }
 

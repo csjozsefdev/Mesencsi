@@ -6289,21 +6289,36 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
 }
 /* A könyv képén a renderelés fénycsíkjai és árnyékai (fénysugár a lombon át, a lapok görbülése)
-   halványodnak, hogy ne zavarják a szöveget. A réteg a kép alatti lapterületet fedi, a tartalom fölötte van. */
+   enyhén halványodnak, hogy ne zavarják a szöveget. A réteg széle lágyan kiúszik, hogy ne látsszon a határa. */
 .storybook-v2-root .sbv2-open-book::before {
   content: "";
   display: block;
   position: absolute;
-  inset: 4% 7% 3.5%;
-  border-radius: 10px;
-  background: rgba(251, 243, 220, 0.42);
+  inset: 3.5% 6.5% 3%;
+  background: rgba(251, 243, 220, 0.26);
   pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+  mask-composite: intersect;
+}
+/* Lapozás: a forduló lap a könyv papírjához illik (világos, lágy szélű), nem külön, barna "kis könyv". */
+.storybook-v2-root {
+  --sbv2-paper-base: #efe2bf;
+  --sbv2-paper-mid: #f6ebcd;
+  --sbv2-paper-highlight: #fbf4de;
+  --sbv2-flip-paper-bg: linear-gradient(90deg, #f2e5c2 0%, #f8efd3 45%, #f5e9c9 100%);
+  --sbv2-flip-paper-shadow: inset 0 0 22px rgba(214, 184, 120, 0.22);
 }
 /* =====================================================================
    Telefonos olvasó.
-   Fekvő telefon: a könyv megmarad, de a kijelző teljes szélességére nyúlik (a lapok így nagyok),
-   a szöveg mindig kifér (reader-fit.js), és lapozható.
-   Álló telefon: "fordítsd el a telefont" jelzés; kérésre egyoldalas lap is nyitható.
+   Fekvő telefon: a könyv megmarad, de a kijelző teljes szélességére nyúlik (a lapok így nagyok);
+   ha egy lap szövege nem fér ki, a szövegdobozban legörgethető (reader-fit.js).
+   Álló telefon: "fordítsd el a telefont" jelzés.
    ===================================================================== */
 .sbv2-rotate-hint {
   display: none;
@@ -6330,9 +6345,34 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     left: 3%;
     right: 3%;
   }
+  /* a lapozó zónák a lapok külső szélén vannak, hogy a szöveg középen legörgethető legyen */
+  .storybook-v2-root .sbv2-hit-zone--prev {
+    justify-self: start;
+    width: 22%;
+  }
+  .storybook-v2-root .sbv2-hit-zone--next {
+    justify-self: end;
+    width: 22%;
+  }
   #storybooksPublicReader .sbv2-obj--text {
-    scrollbar-width: none;
-    --sbv2-fs-scale: max(0.72px, min(0.9px, calc(100cqw / 420)));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(122, 67, 26, 0.55) transparent;
+    --sbv2-fs-scale: max(0.78px, min(0.9px, calc(100cqw / 420)));
+  }
+  #storybooksPublicReader .sbv2-obj--text::-webkit-scrollbar {
+    width: 6px;
+  }
+  #storybooksPublicReader .sbv2-obj--text::-webkit-scrollbar-thumb {
+    background: rgba(122, 67, 26, 0.5);
+    border-radius: 3px;
+  }
+  /* jelzés: van még szöveg lejjebb */
+  #storybooksPublicReader .sbv2-obj--text.sbv2-more {
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 30px), transparent 100%);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 30px), transparent 100%);
   }
   #storybooksPublicReader .sbv2-obj--text .sb-canvas-text {
     --sbv2-fade: 0.5em;
@@ -6362,15 +6402,15 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
 }
 
-/* Álló telefon: alapból kérjük, hogy forgassa el a telefont. */
-@media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
+/* Álló telefon: a mesekönyv fekvő nézetre készült, ezért csak a jelzést mutatjuk. */
+@media (max-width: 560px) and (orientation: portrait) {
   .glass-card.view-inner:not(.legal-prose) > #storybooksPublicReader.storybook-v2-root.storybook-v2-root--immersive {
     background: radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%) !important;
   }
-  #storybooksPublicReader:not([data-portrait-ok]) .sbv2-viewport {
+  #storybooksPublicReader .sbv2-viewport {
     display: none !important;
   }
-  #storybooksPublicReader:not([data-portrait-ok]) .sbv2-rotate-hint {
+  #storybooksPublicReader .sbv2-rotate-hint {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -6393,17 +6433,6 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     height: 96px;
     animation: sbv2-rotate-phone 2.4s ease-in-out infinite;
   }
-  .sbv2-rotate-hint button {
-    min-height: 44px;
-    padding: 0 1.2rem;
-    border-radius: 999px;
-    border: 2px solid rgba(255, 246, 224, 0.55);
-    background: rgba(255, 246, 224, 0.12);
-    color: #fff6e0;
-    font-weight: 700;
-    font-size: 0.95rem;
-    cursor: pointer;
-  }
   @keyframes sbv2-rotate-phone {
     0%, 15% { transform: rotate(0deg); }
     55%, 100% { transform: rotate(-90deg); }
@@ -6414,17 +6443,14 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
       transform: rotate(-90deg);
     }
   }
-
-  /* "Mégis így olvasom": egyoldalas, teljes szélességű lap */
-  #storybooksPublicReader[data-portrait-ok] .sbv2-rotate-hint,
-  #storybooksPublicReader[data-portrait-ok] .sbv2-open-book::before {
-    display: none;
-  }
-  #storybooksPublicReader[data-portrait-ok] {
+}
+/* Álló tablet (561-900 px): egyoldalas, teljes szélességű lap a könyv helyett. */
+@media (min-width: 561px) and (max-width: 900px) and (orientation: portrait) {
+  .storybook-v2-root {
     --sbv2-spine-width: 0px;
   }
-  #storybooksPublicReader[data-portrait-ok] .sbv2-open-book {
-    width: min(calc(100vw - 20px), calc(var(--sbv2-book-h) * 0.74));
+  .storybook-v2-root .sbv2-open-book {
+    width: min(calc(100vw - 32px), calc(var(--sbv2-book-h) * 0.74));
     height: auto;
     aspect-ratio: 37 / 50;
     max-width: none;
@@ -6434,21 +6460,17 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     -webkit-mask-image: none;
     mask-image: none;
   }
-  #storybooksPublicReader[data-portrait-ok] .sbv2-book-spread,
-  #storybooksPublicReader[data-portrait-ok] .sbv2-spread {
+  .storybook-v2-root .sbv2-open-book::before {
+    display: none;
+  }
+  .storybook-v2-root .sbv2-book-spread,
+  .storybook-v2-root .sbv2-spread {
     inset: 0;
   }
-  #storybooksPublicReader[data-portrait-ok] .sbv2-obj--text {
-    scrollbar-width: none;
-    --sbv2-fs-scale: max(0.8px, min(1px, calc(100cqw / 360)));
+  #storybooksPublicReader .sbv2-obj--text {
+    --sbv2-fs-scale: max(0.85px, min(1px, calc(100cqw / 360)));
   }
-  #storybooksPublicReader[data-portrait-ok] .sbv2-obj--text .sb-canvas-text {
-    --sbv2-fade: 0.5em;
-    padding: 0.3em 0.5em;
-  }
-}
-@media (max-width: 900px) and (orientation: portrait), (max-width: 560px), (orientation: landscape) and (max-height: 520px) {
-  #storybooksPublicReader .sbv2-obj--text::-webkit-scrollbar {
-    display: none;
+  .glass-card.view-inner:not(.legal-prose) > #storybooksPublicReader.storybook-v2-root.storybook-v2-root--immersive {
+    background: radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%) !important;
   }
 }
