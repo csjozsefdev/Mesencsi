@@ -721,3 +721,29 @@
   background: #fbf3dc;
   backdrop-filter: none;
 }
+
+/* „⋮” menü (borítókép feltöltése / törlése): sötét betű a világos pergamenen */
+#view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-menu {
+  position: relative;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 15rem;
+  padding: 0.7rem;
+  z-index: 40;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-body .btn,
+#view-storybooks-admin#view-storybooks-admin .sb-creator-topbar .sb-ed-overflow-body .btn.btn-ghost {
+  justify-content: flex-start;
+  width: 100%;
+  border: 2px solid var(--mt-line-2);
+  background: #fff8e4;
+  color: #3a2410;
+  box-shadow: none;
+}
+#view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-body .btn:hover {
+  background: #ffeab0;
+}
