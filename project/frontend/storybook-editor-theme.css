@@ -747,3 +747,105 @@
 #view-storybooks-admin#view-storybooks-admin .sb-ed-overflow-body .btn:hover {
   background: #ffeab0;
 }
+
+/* ---------- Mesesegéd (interaktív róka) ---------- */
+.mt-tip {
+  position: relative;
+}
+.mt-tip .mt-fox {
+  flex: none;
+}
+.mt-tip__txt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mt-tip__txt > span {
+  display: block;
+}
+.mt-tip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+.mt-tip__btn {
+  min-height: 2.2rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 2px solid #9ab87a;
+  background: #f4f9ea;
+  color: #2f5a22;
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mt-tip__btn:hover {
+  background: #ffffff;
+}
+.mt-tip__btn--go {
+  border-color: #9a6410;
+  background: linear-gradient(180deg, #ffd77a, #f2b84b);
+  color: #3a2410;
+}
+.mt-tip__x {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.4rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: #3f6b32;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.mt-tip__x:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+.mt-tip--min {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin: 0.4rem 0;
+}
+.mt-tip__fox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.9rem 0.3rem 0.4rem;
+  border-radius: 999px;
+  border: 2px solid #b5cf92;
+  background: #e5f1d2;
+  color: #3f6b32;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mt-tip__fox .mt-fox {
+  width: 34px;
+  height: 34px;
+}
+@keyframes mt-bounce {
+  0% { transform: translateY(0) rotate(0); }
+  30% { transform: translateY(-4px) rotate(-4deg); }
+  60% { transform: translateY(0) rotate(3deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+.mt-tip--bounce .mt-fox {
+  animation: mt-bounce 0.7s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-tip--bounce .mt-fox {
+    animation: none;
+  }
+}
+
+/* a szerkesztő teljes képernyős nézetében az üdvözlő rész és a cím ne tolja le a szerkesztőt */
+#view-storybooks-admin.sb-editor-active > .page-title,
+#view-storybooks-admin.sb-editor-active > .mt-hero,
+#view-storybooks-admin.sb-editor-active > .page-desc {
+  display: none !important;
+}

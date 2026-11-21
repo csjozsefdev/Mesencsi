@@ -40,6 +40,142 @@
     if (el && el.textContent !== text) el.textContent = text;
   }
 
+  // ---------------------------------------------------------------- Mesesegéd (a róka)
+  var FOX =
+    '<svg class="mt-fox" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><path d="M6 8l16 12 10-3 10 3 16-12-4 26c0 14-9 26-22 26S10 48 10 34z" fill="#e58a3c"/><path d="M14 36c4 10 10 14 18 14s14-4 18-14c-6 4-12 6-18 6s-12-2-18-6z" fill="#fff4de"/><circle cx="23" cy="32" r="3.4" fill="#2a1808"/><circle cx="41" cy="32" r="3.4" fill="#2a1808"/><ellipse cx="32" cy="42" rx="4" ry="3" fill="#2a1808"/></svg>';
+
+  var GENERAL_TIPS = [
+    "A képeket a sarkuknál fogva húzva átméretezheted, a közepüknél fogva pedig odébb tolhatod.",
+    "Kattints a szövegre, és az oldal fölött megjelennek a formázó gombok: félkövér, betűméret, szín.",
+    "A Díszek gombbal csillagokat és más díszeket tehetsz az oldalra.",
+    "Elrontottál valamit? A Vissza gomb visszahozza az előző állapotot.",
+    "Az oldalak sorában az oldalakat húzással átrendezheted."
+  ];
+
+  var tipState = { sig: "", idx: 0, hidden: false, loaded: false };
+
+  function tipStore(set) {
+    try {
+      if (set !== undefined) localStorage.setItem("mtTipHidden", set ? "1" : "0");
+      else return localStorage.getItem("mtTipHidden") === "1";
+    } catch (_) {}
+    return false;
+  }
+
+  function readContext() {
+    var pageCount = document.querySelectorAll("#sbPageNavList .sb-page-thumb").length;
+    var counter = $("sbCurPageCharCounter");
+    var m = counter && counter.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+    var chars = m ? parseInt(m[1], 10) : 0;
+    var max = m ? parseInt(m[2], 10) : 600;
+    var rows = Array.prototype.slice.call(document.querySelectorAll("#sbLayersList .sb-layer-row"));
+    var hasImage = rows.some(function (r) {
+      return /k[ée]p/i.test(r.textContent);
+    });
+    var coverEl = $("sbCoverUrl");
+    var noSel = $("sbNoSelectionHint");
+    return {
+      pageCount: pageCount,
+      chars: chars,
+      max: max,
+      hasImage: hasImage,
+      hasPageContent: rows.length > 0,
+      hasCover: !!(coverEl && coverEl.value),
+      noSelection: !noSel || !noSel.hidden,
+      canSubmit: !!$("btnMeseiroSubmit")
+    };
+  }
+
+  function buildTips(c) {
+    var tips = [];
+    if (c.pageCount === 0) {
+      tips.push({ t: "Kezdd az első oldallal!", m: "Az alsó sorban nyomd meg az „Új oldal” gombot, aztán kattints a szövegre, és írd az első mondatot." });
+    }
+    if (c.pageCount > 0 && c.max && c.chars > c.max) {
+      tips.push({ t: "Ez az oldal már túl hosszú", m: "A szöveg túllépte a megengedett hosszt. Vágd ketté, és a folytatást írd egy új oldalra." });
+    } else if (c.pageCount > 0 && c.max && c.chars / c.max >= 0.8) {
+      tips.push({ t: "Mindjárt betelik az oldal", m: "A szöveg a hely 80%-ánál tart. Ha folytatni szeretnéd, nyiss egy új oldalt." });
+    }
+    if (c.pageCount > 0 && c.hasPageContent && !c.hasImage) {
+      tips.push({ t: "Egy kép sokat dobna rajta", m: "Ezen az oldalon még nincs kép. A bal oldali „Kép” gombbal feltölthetsz egyet (legfeljebb 3 MB)." });
+    }
+    if (c.pageCount >= 3 && !c.hasCover) {
+      tips.push({ t: "Hiányzik a borítókép", m: "A fent jobbra lévő ⋮ menüben feltölthetsz borítóképet. Nem kötelező, de szebben mutat a könyvespolcon." });
+    }
+    if (c.canSubmit && c.pageCount >= 3 && c.hasCover) {
+      tips.push({ t: "Szerintem kész vagy!", m: "Mindent kipipáltál. Ha elégedett vagy a mesével, küldd be az adminnak.", action: "check" });
+    } else if (c.canSubmit && c.pageCount >= 1) {
+      tips.push({ t: "Mielőtt beküldöd", m: "Megnézzük együtt, minden megvan-e: cím, oldalak, szöveg és borítókép.", action: "check" });
+    }
+    if (c.pageCount > 0 && c.noSelection) {
+      tips.push({ t: "Kattints a szövegre", m: "Ha a szövegre vagy a képre kattintasz, az oldal fölött megjelennek a hozzá való gombok." });
+    }
+    GENERAL_TIPS.forEach(function (g, i) {
+      tips.push({ t: "Mesesegéd tipp", m: g, g: i });
+    });
+    return tips;
+  }
+
+  function renderTip(body) {
+    var tipEl = body.querySelector(".mt-tip");
+    if (!tipState.loaded) {
+      tipState.loaded = true;
+      tipState.hidden = tipStore();
+    }
+    var c = readContext();
+    var tips = buildTips(c);
+    var sig = [c.pageCount, c.chars > c.max ? "over" : c.chars / (c.max || 1) >= 0.8 ? "near" : "ok", c.hasImage, c.hasCover, c.noSelection, c.canSubmit, tipState.hidden].join("|");
+    if (tipEl && sig === tipState.sig && !tipEl.dataset.mtDirty) return;
+    if (sig !== tipState.sig) tipState.idx = 0; // új helyzet: újra az első (leghasznosabb) tippel kezdünk
+    tipState.sig = sig;
+    if (tipState.idx >= tips.length) tipState.idx = 0;
+    var tip = tips[tipState.idx];
+    if (!tipEl) {
+      tipEl = document.createElement("div");
+      body.appendChild(tipEl);
+      tipEl.addEventListener("click", function (ev) {
+        var b = ev.target.closest("[data-mt]");
+        if (!b) return;
+        var kind = b.getAttribute("data-mt");
+        if (kind === "next") {
+          var n = buildTips(readContext()).length;
+          tipState.idx = (tipState.idx + 1) % Math.max(1, n);
+          tipEl.dataset.mtDirty = "1";
+          schedule();
+        } else if (kind === "close") {
+          tipState.hidden = true;
+          tipStore(true);
+          tipEl.dataset.mtDirty = "1";
+          schedule();
+        } else if (kind === "check") {
+          var sb = $("btnMeseiroSubmit");
+          if (sb) sb.click();
+        }
+      });
+    }
+    delete tipEl.dataset.mtDirty;
+    if (tipState.hidden) {
+      tipEl.className = "mt-tip mt-tip--min";
+      tipEl.innerHTML = '<button type="button" class="mt-tip__fox" aria-label="Mesesegéd megnyitása" title="Kérdezd a rókát!">' + FOX + "<span>Mesesegéd</span></button>";
+      tipEl.querySelector(".mt-tip__fox").addEventListener("click", function () {
+        tipState.hidden = false;
+        tipStore(false);
+        tipEl.dataset.mtDirty = "1";
+        schedule();
+      });
+      return;
+    }
+    tipEl.className = "mt-tip mt-tip--bounce";
+    tipEl.innerHTML =
+      FOX +
+      '<div class="mt-tip__txt"><b>' + tip.t + "</b><span>" + tip.m + "</span>" +
+      '<div class="mt-tip__actions">' +
+      (tip.action === "check" ? '<button type="button" class="mt-tip__btn mt-tip__btn--go" data-mt="check">Beküldés ellenőrzése</button>' : "") +
+      (tips.length > 1 ? '<button type="button" class="mt-tip__btn" data-mt="next">Következő tipp</button>' : "") +
+      "</div></div>" +
+      '<button type="button" class="mt-tip__x" data-mt="close" aria-label="Mesesegéd elrejtése" title="Elrejtés">&times;</button>';
+  }
+
   var firstRun = true;
 
   function apply() {
@@ -123,14 +259,7 @@
       setText(front, "Eléje hozom");
       setText(backBtn, "Mögé teszem");
       var body = dock.querySelector(".sb-ed-dock-body");
-      if (body && !body.querySelector(".mt-tip")) {
-        var tip = document.createElement("div");
-        tip.className = "mt-tip";
-        tip.innerHTML =
-          '<svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true" style="flex:none"><path d="M6 8l16 12 10-3 10 3 16-12-4 26c0 14-9 26-22 26S10 48 10 34z" fill="#e58a3c"/><path d="M14 36c4 10 10 14 18 14s14-4 18-14c-6 4-12 6-18 6s-12-2-18-6z" fill="#fff4de"/><circle cx="23" cy="32" r="3.4" fill="#2a1808"/><circle cx="41" cy="32" r="3.4" fill="#2a1808"/><ellipse cx="32" cy="42" rx="4" ry="3" fill="#2a1808"/></svg>' +
-          "<div><b>Mesesegéd tipp</b>A képeket a sarkuknál fogva húzva átméretezheted. Ha a szöveg betelik, folytasd a mesét egy új oldalon.</div>";
-        body.appendChild(tip);
-      }
+      if (body) renderTip(body);
     }
 
     // az oldalak sora induláskor legyen nyitva
