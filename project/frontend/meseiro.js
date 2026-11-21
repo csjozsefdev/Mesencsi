@@ -438,7 +438,8 @@
       hero.innerHTML =
         "<p>Itt megírhatod a saját meséidet. Egyszerre legfeljebb <strong>" + books + "</strong> be nem fejezett mesét tarthatsz, egy mese legfeljebb <strong>" +
         max + " oldalas</strong> lehet, egy kép legfeljebb 3 MB. Ha elkészültél, beküldöd nekünk: mi átnézzük, és megjelenhet a Mesencsi oldalán.</p>" +
-        '<div class="mt-steps"><div><span>1</span>Írd meg a mesét a szerkesztőben</div><div><span>2</span>Küldd be az adminnak</div><div><span>3</span>Mi átnézzük, és ha jó, kitesszük az oldalra</div></div>';
+        '<div class="mt-steps"><div><span>1</span>Írd meg a mesét a szerkesztőben</div><div><span>2</span>Küldd be az adminnak</div><div><span>3</span>Mi átnézzük, és ha jó, kitesszük az oldalra</div></div>' +
+        '<p class="mt-phone-note"><strong>Telefonon vagy?</strong> Mesét tableten vagy számítógépen írhatsz. Telefonról a meséidet megnézheted, beküldheted vagy visszavonhatod.</p>';
       d.replaceWith(hero);
     }
     var nav = document.querySelector('.admin-nav-item[data-nav="storybooks"]');

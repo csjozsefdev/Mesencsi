@@ -26,7 +26,11 @@
           ".promo-sb-banner a.promo-sb-banner__btn{display:inline-block;white-space:nowrap;text-decoration:none;padding:.6rem 1.2rem;" +
           "border-radius:999px;font-weight:800;color:#fff;background:linear-gradient(180deg,#a8662a,#7a431a);" +
           "border:1px solid rgba(60,30,10,.5);box-shadow:0 2px 6px rgba(60,30,10,.35)}" +
-          ".promo-sb-banner a.promo-sb-banner__btn:hover{filter:brightness(1.1)}";
+          ".promo-sb-banner a.promo-sb-banner__btn:hover{filter:brightness(1.1)}" +
+          ".promo-sb-banner .psb-phone{display:none}" +
+          "@media (max-width:767px),(orientation:landscape) and (max-height:520px){" +
+          ".promo-sb-banner .psb-phone{display:block;margin-top:.4rem;font-weight:700;color:#5a3418}" +
+          ".promo-sb-banner .psb-desk{display:none}}";
         document.head.appendChild(css);
         var b = document.createElement("aside");
         b.className = "promo-sb-banner";
@@ -34,8 +38,9 @@
         b.innerHTML =
           '<div class="promo-sb-banner__text"><span class="promo-sb-banner__title">✍️ Nyitási akció: írd meg a saját mesédet!</span>' +
           "Regisztrált felhasználóként a mesekönyv-szerkesztővel megírhatod és beküldheted a saját meséd. " +
-          "A beküldött meséket átnézzük, és mi döntünk a közzétételről.</div>" +
-          '<a class="promo-sb-banner__btn" href="/meseiro">Mesét írok</a>';
+          "A beküldött meséket átnézzük, és mi döntünk a közzétételről." +
+          '<span class="psb-phone">Mesét tableten vagy számítógépen írhatsz. Telefonon a meséidet megnézheted és beküldheted.</span></div>' +
+          '<a class="promo-sb-banner__btn" href="/meseiro"><span class="psb-desk">Mesét írok</span><span class="psb-phone" style="margin:0;color:inherit">Meséim</span></a>';
         host.insertBefore(b, host.querySelector(".storybook-reading-tip") || host.firstChild);
       })
       .catch(function () {});

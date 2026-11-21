@@ -72,3 +72,30 @@ html.meseiro .back-row {
   color: #b3261e;
   font-weight: 600;
 }
+
+/* Telefonon (és alacsony fekvő kijelzőn) a szerkesztő nem használható: a mesét tableten vagy gépen kell írni.
+   Itt a lista, az előnézet, a beküldés és a visszavonás működik. */
+.mt-phone-note {
+  display: none;
+}
+@media (max-width: 767px), (orientation: landscape) and (max-height: 520px) {
+  .mt-phone-note {
+    display: block;
+    flex: 1 1 100%;
+    margin: 0.2rem 0 0;
+    padding: 0.7rem 0.9rem;
+    border-radius: 14px;
+    background: #fff0d6;
+    border: 2px solid #f0c98a;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #4a2c10;
+  }
+  html.meseiro #sbEditorMobileHint,
+  html.meseiro #btnSbCreateNew,
+  html.meseiro #btnSbEmptyNew,
+  html.meseiro [data-sb-open],
+  html.meseiro [data-sb-del] {
+    display: none !important;
+  }
+}
