@@ -49,9 +49,28 @@
     setTimeout(fitAll, 90);
   }
 
+  // Álló telefonon: "fordítsd el a telefont" jelzés (a CSS csak ott mutatja); kérésre egyoldalas lap is nyitható.
+  function ensureHint(root) {
+    if (root.querySelector(".sbv2-rotate-hint")) return;
+    var d = document.createElement("div");
+    d.className = "sbv2-rotate-hint";
+    d.setAttribute("role", "status");
+    d.innerHTML =
+      '<svg viewBox="0 0 64 64" fill="none" stroke="#fff6e0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<rect x="20" y="6" width="24" height="44" rx="5"/><path d="M29 44h6"/><path d="M12 58c10 4 30 4 40 0M46 54l6 4-7 3"/></svg>' +
+      "<div><strong>Fordítsd el a telefont!</strong>A mesekönyv fekvő helyzetben olvasható a legjobban.</div>" +
+      '<button type="button">Mégis így olvasom</button>';
+    d.querySelector("button").addEventListener("click", function () {
+      root.setAttribute("data-portrait-ok", "1");
+      schedule();
+    });
+    root.appendChild(d);
+  }
+
   function start() {
     var root = document.getElementById("storybooksPublicReader");
     if (!root) return;
+    ensureHint(root);
     new MutationObserver(function (muts) {
       // a saját beállításaink (style) ne indítsanak újra: csak a tartalom változása számít
       for (var i = 0; i < muts.length; i++) {

@@ -6289,14 +6289,44 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
   }
 }
 /* =====================================================================
-   Telefonos olvasó: a rajzolt könyv helyett a lapok kitöltik a képernyőt.
-   A kis kijelzőn a könyvkép margói elvennék a helyet, a betű 11 px alá zsugorodna.
-   Álló telefon: egy lap, szélességben teljes. Fekvő telefon: két lapos, lapozható könyv.
+   Telefonos olvasó.
+   Fekvő telefon: a könyv megmarad, de a kijelző teljes szélességére nyúlik (a lapok így nagyok),
+   a szöveg mindig kifér (reader-fit.js), és lapozható.
+   Álló telefon: "fordítsd el a telefont" jelzés; kérésre egyoldalas lap is nyitható.
    ===================================================================== */
+.sbv2-rotate-hint {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+}
 @media (orientation: landscape) and (max-height: 520px) {
   .storybook-v2-root {
-    --sbv2-book-h: calc(100dvh - 3.2rem);
-    --sbv2-spine-width: 14px;
+    --sbv2-book-h: calc(100dvh - 2.6rem);
+    --sbv2-spine-width: 4%;
+  }
+  .storybook-v2-root .sbv2-open-book {
+    width: calc(100vw - 12px);
+    max-width: none;
+    height: var(--sbv2-book-h);
+    aspect-ratio: auto;
+    background-size: 100% 100%;
+  }
+  .storybook-v2-root .sbv2-book-spread,
+  .storybook-v2-root .sbv2-spread {
+    inset: 5% 6% 4.5%;
+  }
+  .storybook-v2-root .sbv2-book-shadow {
+    left: 3%;
+    right: 3%;
+  }
+  #storybooksPublicReader .sbv2-obj--text {
+    scrollbar-width: none;
+    --sbv2-fs-scale: max(0.72px, min(0.9px, calc(100cqw / 420)));
+  }
+  #storybooksPublicReader .sbv2-obj--text .sb-canvas-text {
+    --sbv2-fade: 0.5em;
+    padding: 0.3em 0.5em;
+    line-height: 1.35;
   }
   /* a visszagomb kicsi, ikonos: ne takarja a lap szövegét */
   #storybooksPublicReader .sbv2-chrome .btn-outline-ghost {
@@ -6316,43 +6346,72 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     font-size: 18px;
     line-height: 1;
   }
-  .storybook-v2-root .sbv2-open-book {
-    width: min(calc(100vw - 16px), calc(var(--sbv2-book-h) * 2.5));
-    height: var(--sbv2-book-h);
-    aspect-ratio: auto;
-    max-width: none;
-    background: linear-gradient(90deg, #ecdcae 0, #f8eed0 5%, #fbf3dc 45%, #fbf3dc 55%, #f8eed0 95%, #ecdcae 100%);
-    border-radius: 12px;
-    box-shadow: 0 0 0 1px #d9c48a, 0 12px 28px rgba(0, 0, 0, 0.45);
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-  .storybook-v2-root .sbv2-book-spread,
-  .storybook-v2-root .sbv2-spread {
-    inset: 0;
-  }
-  .storybook-v2-root .sbv2-spine {
-    width: 14px;
-    background: linear-gradient(90deg, rgba(110, 70, 20, 0), rgba(110, 70, 20, 0.3) 50%, rgba(110, 70, 20, 0));
-  }
-  #storybooksPublicReader .sbv2-obj--text .sb-canvas-text {
-    --sbv2-fade: 0.5em;
-    padding: 0.3em 0.5em;
-  }
-  #storybooksPublicReader .sbv2-obj--text {
-    scrollbar-width: none;
-    --sbv2-fs-scale: max(0.72px, min(0.9px, calc(100cqw / 420)));
-  }
   .glass-card.view-inner:not(.legal-prose) > #storybooksPublicReader.storybook-v2-root.storybook-v2-root--immersive {
     background: radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%) !important;
   }
 }
-/* Álló telefon: egy lap, a képernyő szélességében; a betű 17 px körüli, jól olvasható. */
+
+/* Álló telefon: alapból kérjük, hogy forgassa el a telefont. */
 @media (max-width: 900px) and (orientation: portrait), (max-width: 560px) {
-  .storybook-v2-root {
+  .glass-card.view-inner:not(.legal-prose) > #storybooksPublicReader.storybook-v2-root.storybook-v2-root--immersive {
+    background: radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%) !important;
+  }
+  #storybooksPublicReader:not([data-portrait-ok]) .sbv2-viewport {
+    display: none !important;
+  }
+  #storybooksPublicReader:not([data-portrait-ok]) .sbv2-rotate-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 60dvh;
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    color: #fff6e0;
+    font-size: 1.1rem;
+    line-height: 1.45;
+  }
+  .sbv2-rotate-hint strong {
+    display: block;
+    font-size: 1.45rem;
+    margin-bottom: 0.3rem;
+  }
+  .sbv2-rotate-hint svg {
+    width: 96px;
+    height: 96px;
+    animation: sbv2-rotate-phone 2.4s ease-in-out infinite;
+  }
+  .sbv2-rotate-hint button {
+    min-height: 44px;
+    padding: 0 1.2rem;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 246, 224, 0.55);
+    background: rgba(255, 246, 224, 0.12);
+    color: #fff6e0;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  @keyframes sbv2-rotate-phone {
+    0%, 15% { transform: rotate(0deg); }
+    55%, 100% { transform: rotate(-90deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sbv2-rotate-hint svg {
+      animation: none;
+      transform: rotate(-90deg);
+    }
+  }
+
+  /* "Mégis így olvasom": egyoldalas, teljes szélességű lap */
+  #storybooksPublicReader[data-portrait-ok] .sbv2-rotate-hint {
+    display: none;
+  }
+  #storybooksPublicReader[data-portrait-ok] {
     --sbv2-spine-width: 0px;
   }
-  .storybook-v2-root .sbv2-open-book {
+  #storybooksPublicReader[data-portrait-ok] .sbv2-open-book {
     width: min(calc(100vw - 20px), calc(var(--sbv2-book-h) * 0.74));
     height: auto;
     aspect-ratio: 37 / 50;
@@ -6363,20 +6422,17 @@ html.sb-book-scroll-lock #view-storybooks-admin:has(#sbReaderRoot.storybook-v2-r
     -webkit-mask-image: none;
     mask-image: none;
   }
-  .storybook-v2-root .sbv2-book-spread,
-  .storybook-v2-root .sbv2-spread {
+  #storybooksPublicReader[data-portrait-ok] .sbv2-book-spread,
+  #storybooksPublicReader[data-portrait-ok] .sbv2-spread {
     inset: 0;
   }
-  #storybooksPublicReader .sbv2-obj--text .sb-canvas-text {
-    --sbv2-fade: 0.5em;
-    padding: 0.3em 0.5em;
-  }
-  #storybooksPublicReader .sbv2-obj--text {
+  #storybooksPublicReader[data-portrait-ok] .sbv2-obj--text {
     scrollbar-width: none;
     --sbv2-fs-scale: max(0.8px, min(1px, calc(100cqw / 360)));
   }
-  .glass-card.view-inner:not(.legal-prose) > #storybooksPublicReader.storybook-v2-root.storybook-v2-root--immersive {
-    background: radial-gradient(120% 90% at 50% 0%, #52805e 0%, #2f5240 55%, #1f3329 100%) !important;
+  #storybooksPublicReader[data-portrait-ok] .sbv2-obj--text .sb-canvas-text {
+    --sbv2-fade: 0.5em;
+    padding: 0.3em 0.5em;
   }
 }
 @media (max-width: 900px) and (orientation: portrait), (max-width: 560px), (orientation: landscape) and (max-height: 520px) {
