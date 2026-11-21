@@ -45,6 +45,8 @@ from routers.health import router as health_router
 from routers.incidents import router as incidents_router
 from routers.news_public import router as news_public_router
 from routers.storybooks_public import router as storybooks_public_router
+from routers.storybooks_user import admin_router as storybook_submissions_admin_router
+from routers.storybooks_user import router as storybooks_user_router
 from routers.user_auth import router_auth as user_auth_router
 from routers.user_mvp import router_users
 from routers.payments_barion import router as payments_barion_router
@@ -255,6 +257,8 @@ app.include_router(cart_router)
 app.include_router(payments_barion_router)
 app.include_router(news_public_router)
 app.include_router(storybooks_public_router)
+app.include_router(storybooks_user_router)  # nyitási akció: USER_STORYBOOKS_ENABLED kapcsolóval
+app.include_router(storybook_submissions_admin_router, prefix="/admin")
 app.include_router(shop_public_router)
 
 app.add_middleware(MetricsMiddleware)
